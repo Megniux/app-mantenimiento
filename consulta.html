@@ -13,13 +13,43 @@
             gap: 10px;
             margin-bottom: 20px;
             justify-content: center;
+            align-items: flex-end;
         }
-        .filtros input, .filtros select, .filtros button {
+        .filtros .grupo-filtro {
+            display: flex;
+            flex-direction: column;
+            min-width: 120px;
+        }
+        .filtros label {
+            font-size: 0.8rem;
+            margin-bottom: 2px;
+        }
+        .filtros input, .filtros select {
             padding: 8px;
+            font-size: 0.9rem;
+        }
+        .ordenamiento {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .ordenamiento label {
+            font-weight: bold;
         }
         table {
             display: block;
             overflow-x: auto;
+        }
+        @media (max-width: 768px) {
+            .filtros .grupo-filtro {
+                width: calc(50% - 10px);
+            }
+            .ordenamiento {
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -33,23 +63,77 @@
 </div>
 <div><button class="volver-btn" onclick="location.href='index.html'">← Volver al menú</button></div>
 <h2 style="text-align:center;">Consulta de Órdenes</h2>
-<div class="filtros">
-    <input type="text" id="busqueda" placeholder="Buscar por número">
-    <select id="estadoFiltro">
-        <option value="">Todos</option>
-        <option>Nuevo</option><option>Pendiente</option><option>En proceso</option>
-        <option>Esperando proveedor</option><option>Cerrado</option>
-    </select>
-    <button onclick="cargar()">Filtrar</button>
-</div>
-<div class="container" style="overflow-x:auto;">
+
+<div class="container">
+    <div class="filtros">
+        <div class="grupo-filtro">
+            <label>Buscar (N° orden, ubicación, equipo)</label>
+            <input type="text" id="busqueda" placeholder="Texto">
+        </div>
+        <div class="grupo-filtro">
+            <label>Tipo</label>
+            <select id="filtroTipo">
+                <option value="">Todos</option>
+                <option value="Correctivo">Correctivo</option>
+                <option value="Preventivo">Preventivo</option>
+            </select>
+        </div>
+        <div class="grupo-filtro">
+            <label>Estado</label>
+            <select id="filtroEstado">
+                <option value="">Todos</option>
+                <option>Nuevo</option>
+                <option>Pendiente</option>
+                <option>En proceso</option>
+                <option>Esperando proveedor</option>
+                <option>Cerrado</option>
+            </select>
+        </div>
+        <div class="grupo-filtro">
+            <label>Usuario (solicitante)</label>
+            <select id="filtroUsuario">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="grupo-filtro">
+            <label>Ubicación</label>
+            <select id="filtroUbicacion">
+                <option value="">Todas</option>
+            </select>
+        </div>
+        <div class="grupo-filtro">
+            <label>Equipo</label>
+            <select id="filtroEquipo">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="grupo-filtro">
+            <button onclick="cargar()">Filtrar</button>
+        </div>
+    </div>
+
+    <div class="ordenamiento">
+        <span>Ordenar por:</span>
+        <select id="ordenCampo">
+            <option value="numero">Número de orden</option>
+            <option value="fechaProgramada">Fecha programada</option>
+        </select>
+        <select id="ordenDireccion">
+            <option value="asc">Ascendente</option>
+            <option value="desc">Descendente</option>
+        </select>
+        <button onclick="cargar()">Aplicar orden</button>
+    </div>
+
     <table id="tablaOrdenes">
-        <thead><tr><th>N° Orden</th><th>Tipo</th><th>Estado</th><th>Equipo</th><th>Descripción</th><th>Acciones</th></tr></thead>
+        <thead>
+            <tr><th>N° Orden</th><th>Tipo</th><th>Estado</th><th>Equipo</th><th>Descripción</th><th>Acciones</th></tr>
+        </thead>
         <tbody id="tabla"></tbody>
     </table>
 </div>
 
-<!-- Modal Editar -->
+<!-- Modal Editar (igual que antes) -->
 <div id="modalEditar" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalEditar')">&times;</span>
     <h3>Editar Orden</h3><input type="hidden" id="editId">
     <div class="form-group"><label>Estado:</label><select id="editEstado"></select></div>
@@ -63,7 +147,7 @@
     <div id="accionEspera"></div>
 </div></div>
 
-<!-- Modal Detalles -->
+<!-- Modal Detalles (igual) -->
 <div id="modalDetalles" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalDetalles')">&times;</span>
     <h3>Detalles de la Orden</h3><div id="detallesContenido"></div>
 </div></div>
@@ -73,31 +157,161 @@
     import { getFirestore, collection, getDocs, doc, updateDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    const firebaseConfig = { /* misma config */ apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8", authDomain: "mantenimiento-app-170e5.firebaseapp.com", projectId: "mantenimiento-app-170e5", storageBucket: "mantenimiento-app-170e5.firebasestorage.app", messagingSenderId: "555398253444", appId: "1:555398253444:web:565d98dbbe52844b5bebd1" };
+    const firebaseConfig = {
+        apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8",
+        authDomain: "mantenimiento-app-170e5.firebaseapp.com",
+        projectId: "mantenimiento-app-170e5",
+        storageBucket: "mantenimiento-app-170e5.firebasestorage.app",
+        messagingSenderId: "555398253444",
+        appId: "1:555398253444:web:565d98dbbe52844b5bebd1"
+    };
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    let userRole = null, currentOrderId = null;
 
-    onAuthStateChanged(auth, (user) => { if (!user) location.href="login.html"; else { userRole = sessionStorage.getItem("userRole") || "usuario"; cargar(); } });
+    let userRole = null;
+    let todasOrdenes = []; // almacenar todas las órdenes para filtrar en cliente
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            window.location.href = "login.html";
+            return;
+        }
+        userRole = sessionStorage.getItem("userRole") || "usuario";
+        await cargarListasFiltros();
+        await cargarTodasOrdenes();
+        configurarOrdenPredeterminado();
+        cargar();
+    });
+
+    // Cargar opciones para selects de filtro (usuarios, ubicaciones, equipos)
+    async function cargarListasFiltros() {
+        // Usuarios: de la colección users
+        const usersSnap = await getDocs(collection(db, "users"));
+        const selectUsuario = document.getElementById("filtroUsuario");
+        selectUsuario.innerHTML = '<option value="">Todos</option>';
+        usersSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            const nombre = data.nombreCompleto || data.email;
+            const opt = document.createElement("option");
+            opt.value = nombre;
+            opt.textContent = nombre;
+            selectUsuario.appendChild(opt);
+        });
+
+        // Ubicaciones
+        const ubicacionesSnap = await getDocs(collection(db, "ubicaciones"));
+        const selectUbicacion = document.getElementById("filtroUbicacion");
+        selectUbicacion.innerHTML = '<option value="">Todas</option>';
+        ubicacionesSnap.forEach(docSnap => {
+            const opt = document.createElement("option");
+            opt.value = docSnap.data().nombre;
+            opt.textContent = docSnap.data().nombre;
+            selectUbicacion.appendChild(opt);
+        });
+
+        // Equipos
+        const equiposSnap = await getDocs(collection(db, "equipos"));
+        const selectEquipo = document.getElementById("filtroEquipo");
+        selectEquipo.innerHTML = '<option value="">Todos</option>';
+        equiposSnap.forEach(docSnap => {
+            const opt = document.createElement("option");
+            opt.value = docSnap.data().nombre;
+            opt.textContent = docSnap.data().nombre;
+            selectEquipo.appendChild(opt);
+        });
+    }
+
+    async function cargarTodasOrdenes() {
+        const querySnapshot = await getDocs(collection(db, "ordenes"));
+        todasOrdenes = [];
+        querySnapshot.forEach(docSnap => {
+            todasOrdenes.push({ id: docSnap.id, ...docSnap.data() });
+        });
+    }
+
+    function configurarOrdenPredeterminado() {
+        const campoOrden = document.getElementById("ordenCampo");
+        const direccionOrden = document.getElementById("ordenDireccion");
+        if (userRole === "tecnico" || userRole === "admin") {
+            campoOrden.value = "fechaProgramada";
+            direccionOrden.value = "asc";
+        } else {
+            // usuarios y supervisores
+            campoOrden.value = "numero";
+            direccionOrden.value = "asc";
+        }
+    }
 
     window.cargar = async function() {
         const tabla = document.getElementById("tabla");
         tabla.innerHTML = "";
+
+        // Obtener valores de filtros
         const busqueda = document.getElementById("busqueda").value.toLowerCase();
-        const estadoFiltro = document.getElementById("estadoFiltro").value;
-        const querySnapshot = await getDocs(collection(db, "ordenes"));
-        querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            if (busqueda && !data.numeroOrden.toLowerCase().includes(busqueda)) return;
-            if (estadoFiltro && data.estado !== estadoFiltro) return;
+        const tipo = document.getElementById("filtroTipo").value;
+        const estado = document.getElementById("filtroEstado").value;
+        const usuario = document.getElementById("filtroUsuario").value;
+        const ubicacion = document.getElementById("filtroUbicacion").value;
+        const equipo = document.getElementById("filtroEquipo").value;
+
+        const ordenCampo = document.getElementById("ordenCampo").value;
+        const ordenDireccion = document.getElementById("ordenDireccion").value;
+
+        // Filtrar en memoria
+        let filtradas = todasOrdenes.filter(orden => {
+            // Búsqueda por texto: número, ubicación, equipo
+            if (busqueda) {
+                const coincideNumero = orden.numeroOrden?.toLowerCase().includes(busqueda);
+                const coincideUbicacion = orden.ubicacion?.toLowerCase().includes(busqueda);
+                const coincideEquipo = orden.equipo?.toLowerCase().includes(busqueda);
+                if (!coincideNumero && !coincideUbicacion && !coincideEquipo) return false;
+            }
+            if (tipo && orden.tipo !== tipo) return false;
+            if (estado && orden.estado !== estado) return false;
+            if (usuario && orden.solicitante !== usuario) return false;
+            if (ubicacion && orden.ubicacion !== ubicacion) return false;
+            if (equipo && orden.equipo !== equipo) return false;
+            return true;
+        });
+
+        // Ordenar
+        filtradas.sort((a, b) => {
+            let valA, valB;
+            if (ordenCampo === "numero") {
+                // Extraer número después del guion para orden numérico
+                const numA = parseInt(a.numeroOrden.split('-')[1]) || 0;
+                const numB = parseInt(b.numeroOrden.split('-')[1]) || 0;
+                valA = numA;
+                valB = numB;
+            } else { // fechaProgramada
+                valA = a.fechaProgramada ? a.fechaProgramada.seconds : 0;
+                valB = b.fechaProgramada ? b.fechaProgramada.seconds : 0;
+            }
+            if (ordenDireccion === "asc") return valA - valB;
+            else return valB - valA;
+        });
+
+        // Renderizar
+        filtradas.forEach(orden => {
             const fila = document.createElement("tr");
-            const acciones = `<button onclick="verDetalles('${docSnap.id}')">Ver Detalles</button>`;
-            const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${docSnap.id}')">Editar</button>` : "";
-            fila.innerHTML = `<td>${data.numeroOrden}</td><td>${data.tipo}</td><td>${data.estado}</td><td>${data.equipo}</td><td>${data.descripcion}</td><td>${acciones} ${botonEditar}</td>`;
+            const acciones = `<button onclick="verDetalles('${orden.id}')">Ver Detalles</button>`;
+            const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${orden.id}')">Editar</button>` : "";
+            fila.innerHTML = `
+                <td>${orden.numeroOrden}</td>
+                <td>${orden.tipo}</td>
+                <td>${orden.estado}</td>
+                <td>${orden.equipo}</td>
+                <td>${orden.descripcion}</td>
+                <td>${acciones} ${botonEditar}</td>
+            `;
             tabla.appendChild(fila);
         });
     }
+
+    // El resto de funciones (verDetalles, abrirModal, guardarEdicion, salirEspera, generarPreventivaRecurrente, cerrarModal, logout) se mantienen igual que en la versión anterior.
+    // Por brevedad, las incluyo aquí, pero son las mismas que ya tenías en consulta.html.
 
     window.verDetalles = async function(id) {
         const snap = await getDoc(doc(db, "ordenes", id));
@@ -134,7 +348,6 @@
         const snap = await getDoc(docRef);
         if (!snap.exists()) return;
         const data = snap.data();
-        // Solo admin puede editar si ya está cerrada
         if (data.estado === "Cerrado" && userRole !== "admin") {
             alert("Solo un administrador puede modificar órdenes cerradas.");
             return;
@@ -195,7 +408,6 @@
         if (!snap.exists()) return;
         const data = snap.data();
 
-        // Validaciones al cerrar
         if (nuevoEstado === "Cerrado") {
             if (!informeCierre.trim()) return alert("El informe de cierre es obligatorio.");
             if (isNaN(tiempoReal) || tiempoReal <= 0) return alert("El tiempo real (horas) es obligatorio y debe ser mayor a 0.");
@@ -231,7 +443,10 @@
             }
         }
         await updateDoc(docRef, updateData);
-        cerrarModal('modalEditar'); cargar();
+        // Recargar todas las órdenes y la vista
+        await cargarTodasOrdenes();
+        cerrarModal('modalEditar');
+        cargar();
     }
 
     async function generarPreventivaRecurrente(original) {
