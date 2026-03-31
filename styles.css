@@ -85,6 +85,7 @@ table {
     border-collapse: collapse;
     overflow-x: auto;
     display: block;
+    table-layout: fixed;
 }
 th, td {
     padding: 10px;
