@@ -82,6 +82,7 @@
             <label>Estado</label>
             <select id="filtroEstado">
                 <option value="">Todos</option>
+                <option value="noCerrado">Todos los no cerrados</option>
                 <option>Nuevo</option>
                 <option>Pendiente</option>
                 <option>En proceso</option>
@@ -170,10 +171,9 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // Variables globales
     let userRole = null;
     let todasOrdenes = [];
-    let currentOrderId = null;  // <--- Declarada globalmente
+    let currentOrderId = null;
 
     onAuthStateChanged(auth, async (user) => {
         if (!user) {
@@ -256,6 +256,7 @@
         const ordenDireccion = document.getElementById("ordenDireccion").value;
 
         let filtradas = todasOrdenes.filter(orden => {
+            // Búsqueda de texto
             if (busqueda) {
                 const coincideNumero = orden.numeroOrden?.toLowerCase().includes(busqueda);
                 const coincideUbicacion = orden.ubicacion?.toLowerCase().includes(busqueda);
@@ -263,7 +264,10 @@
                 if (!coincideNumero && !coincideUbicacion && !coincideEquipo) return false;
             }
             if (tipo && orden.tipo !== tipo) return false;
-            if (estado && orden.estado !== estado) return false;
+            // Filtro de estado: "noCerrado" excluye Cerrado
+            if (estado === "noCerrado") {
+                if (orden.estado === "Cerrado") return false;
+            } else if (estado && orden.estado !== estado) return false;
             if (usuario && orden.solicitante !== usuario) return false;
             if (ubicacion && orden.ubicacion !== ubicacion) return false;
             if (equipo && orden.equipo !== equipo) return false;
@@ -340,7 +344,7 @@
             alert("Solo un administrador puede modificar órdenes cerradas.");
             return;
         }
-        currentOrderId = id;  // Asignar la variable global
+        currentOrderId = id;
         document.getElementById("editId").value = id;
         const selectEstado = document.getElementById("editEstado");
         selectEstado.innerHTML = "";
