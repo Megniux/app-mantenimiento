@@ -133,7 +133,7 @@
     </table>
 </div>
 
-<!-- Modal Editar (igual que antes) -->
+<!-- Modal Editar -->
 <div id="modalEditar" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalEditar')">&times;</span>
     <h3>Editar Orden</h3><input type="hidden" id="editId">
     <div class="form-group"><label>Estado:</label><select id="editEstado"></select></div>
@@ -147,7 +147,7 @@
     <div id="accionEspera"></div>
 </div></div>
 
-<!-- Modal Detalles (igual) -->
+<!-- Modal Detalles -->
 <div id="modalDetalles" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalDetalles')">&times;</span>
     <h3>Detalles de la Orden</h3><div id="detallesContenido"></div>
 </div></div>
@@ -170,8 +170,10 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
+    // Variables globales
     let userRole = null;
-    let todasOrdenes = []; // almacenar todas las órdenes para filtrar en cliente
+    let todasOrdenes = [];
+    let currentOrderId = null;  // <--- Declarada globalmente
 
     onAuthStateChanged(auth, async (user) => {
         if (!user) {
@@ -185,9 +187,7 @@
         cargar();
     });
 
-    // Cargar opciones para selects de filtro (usuarios, ubicaciones, equipos)
     async function cargarListasFiltros() {
-        // Usuarios: de la colección users
         const usersSnap = await getDocs(collection(db, "users"));
         const selectUsuario = document.getElementById("filtroUsuario");
         selectUsuario.innerHTML = '<option value="">Todos</option>';
@@ -200,7 +200,6 @@
             selectUsuario.appendChild(opt);
         });
 
-        // Ubicaciones
         const ubicacionesSnap = await getDocs(collection(db, "ubicaciones"));
         const selectUbicacion = document.getElementById("filtroUbicacion");
         selectUbicacion.innerHTML = '<option value="">Todas</option>';
@@ -211,7 +210,6 @@
             selectUbicacion.appendChild(opt);
         });
 
-        // Equipos
         const equiposSnap = await getDocs(collection(db, "equipos"));
         const selectEquipo = document.getElementById("filtroEquipo");
         selectEquipo.innerHTML = '<option value="">Todos</option>';
@@ -238,7 +236,6 @@
             campoOrden.value = "fechaProgramada";
             direccionOrden.value = "asc";
         } else {
-            // usuarios y supervisores
             campoOrden.value = "numero";
             direccionOrden.value = "asc";
         }
@@ -248,7 +245,6 @@
         const tabla = document.getElementById("tabla");
         tabla.innerHTML = "";
 
-        // Obtener valores de filtros
         const busqueda = document.getElementById("busqueda").value.toLowerCase();
         const tipo = document.getElementById("filtroTipo").value;
         const estado = document.getElementById("filtroEstado").value;
@@ -259,9 +255,7 @@
         const ordenCampo = document.getElementById("ordenCampo").value;
         const ordenDireccion = document.getElementById("ordenDireccion").value;
 
-        // Filtrar en memoria
         let filtradas = todasOrdenes.filter(orden => {
-            // Búsqueda por texto: número, ubicación, equipo
             if (busqueda) {
                 const coincideNumero = orden.numeroOrden?.toLowerCase().includes(busqueda);
                 const coincideUbicacion = orden.ubicacion?.toLowerCase().includes(busqueda);
@@ -276,16 +270,14 @@
             return true;
         });
 
-        // Ordenar
         filtradas.sort((a, b) => {
             let valA, valB;
             if (ordenCampo === "numero") {
-                // Extraer número después del guion para orden numérico
                 const numA = parseInt(a.numeroOrden.split('-')[1]) || 0;
                 const numB = parseInt(b.numeroOrden.split('-')[1]) || 0;
                 valA = numA;
                 valB = numB;
-            } else { // fechaProgramada
+            } else {
                 valA = a.fechaProgramada ? a.fechaProgramada.seconds : 0;
                 valB = b.fechaProgramada ? b.fechaProgramada.seconds : 0;
             }
@@ -293,7 +285,6 @@
             else return valB - valA;
         });
 
-        // Renderizar
         filtradas.forEach(orden => {
             const fila = document.createElement("tr");
             const acciones = `<button onclick="verDetalles('${orden.id}')">Ver Detalles</button>`;
@@ -309,9 +300,6 @@
             tabla.appendChild(fila);
         });
     }
-
-    // El resto de funciones (verDetalles, abrirModal, guardarEdicion, salirEspera, generarPreventivaRecurrente, cerrarModal, logout) se mantienen igual que en la versión anterior.
-    // Por brevedad, las incluyo aquí, pero son las mismas que ya tenías en consulta.html.
 
     window.verDetalles = async function(id) {
         const snap = await getDoc(doc(db, "ordenes", id));
@@ -352,7 +340,7 @@
             alert("Solo un administrador puede modificar órdenes cerradas.");
             return;
         }
-        currentOrderId = id;
+        currentOrderId = id;  // Asignar la variable global
         document.getElementById("editId").value = id;
         const selectEstado = document.getElementById("editEstado");
         selectEstado.innerHTML = "";
@@ -390,7 +378,9 @@
             const nuevoTotal = (data.tiempoTotalEspera||0) + diffMin;
             await updateDoc(docRef, { estado: "Pendiente", fechaInicioEspera: null, tiempoTotalEspera: nuevoTotal });
         } else await updateDoc(docRef, { estado: "Pendiente" });
-        cerrarModal('modalEditar'); cargar();
+        cerrarModal('modalEditar');
+        await cargarTodasOrdenes();
+        cargar();
     }
 
     window.guardarEdicion = async function() {
@@ -443,7 +433,6 @@
             }
         }
         await updateDoc(docRef, updateData);
-        // Recargar todas las órdenes y la vista
         await cargarTodasOrdenes();
         cerrarModal('modalEditar');
         cargar();
@@ -474,7 +463,7 @@
     }
 
     window.cerrarModal = (id) => document.getElementById(id).style.display = "none";
-    window.logout = async () => { await signOut(auth); sessionStorage.clear(); location.href = "login.html"; }
+    window.logout = async () => { await signOut(auth); sessionStorage.clear(); window.location.href = "login.html"; }
 </script>
 </body>
 </html>
