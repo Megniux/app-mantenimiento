@@ -82,21 +82,23 @@ body {
 /* Tablas */
 table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     overflow-x: auto;
     display: block;
-    table-layout: fixed;
 }
 th, td {
     padding: 10px;
     border: 1px solid #ddd;
+    font-size: 0.85rem;
     text-align: left;
+    width: auto;
 }
 /* Encabezados de tabla con color #1f3a5f y letra más pequeña */
 th {
     background: #1f3a5f;
     color: white;
-    font-size: 0.85rem;
+    text-align: center;
 }
 @media (max-width: 768px) {
     th, td {
