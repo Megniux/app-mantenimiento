@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="header"><div class="header-content"><img src="logo.jpg" class="logo"><h1>Informes</h1><button class="logout-btn" onclick="logout()">Cerrar sesión</button></div></div>
+<div><button class="volver-btn" onclick="location.href='index.html'">← Volver</button></div>
+<div class="container">
+    <div class="card"><h3>Resumen general</h3><div id="resumen"></div></div>
+    <div class="card"><h3>Tiempo medio de revisión (desde creación hasta primer cambio de estado)</h3><p id="tiempoRevision"></p></div>
+    <div class="card"><h3>Tiempo medio de cierre (excluyendo espera)</h3><p id="tiempoCierre"></p></div>
+    <div class="card"><h3>Porcentaje de cierre</h3><p id="porcCierre"></p></div>
+    <div class="card"><h3>Porcentaje de cierre a tiempo</h3><p id="porcATiempo"></p></div>
+    <div class="card"><h3>Órdenes por estado</h3><div id="estados"></div></div>
+</div>
+<div class="footer"><div class="footer-content"><i class="fa-solid fa-phone"></i><span>+54 9 11 2765 6821</span></div></div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    const firebaseConfig = { /* misma config */ apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8", authDomain: "mantenimiento-app-170e5.firebaseapp.com", projectId: "mantenimiento-app-170e5", storageBucket: "mantenimiento-app-170e5.firebasestorage.app", messagingSenderId: "555398253444", appId: "1:555398253444:web:565d98dbbe52844b5bebd1" };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    onAuthStateChanged(auth, async (user) => { if(!user) location.href="login.html"; else { const role = sessionStorage.getItem("userRole"); if(role!=="tecnico" && role!=="supervisor" && role!=="admin") { alert("Sin permisos"); location.href="index.html"; } else await cargarInformes(); } });
+    async function cargarInformes(){
+        const ordenesSnap = await getDocs(collection(db,"ordenes"));
+        const ordenes = []; ordenesSnap.forEach(doc=>ordenes.push({id:doc.id, ...doc.data()}));
+        const total = ordenes.length, cerradas = ordenes.filter(o=>o.estado==="Cerrado").length;
+        document.getElementById("resumen").innerHTML = `<p>Total: ${total}</p><p>Cerradas: ${cerradas}</p>`;
+        // Tiempo medio de revisión: primer cambio de estado después de Nuevo
+        let sumaRevision=0, countRevision=0;
+        ordenes.forEach(o=>{
+            if(o.historial && o.historial.length>1){
+                const nuevo = o.historial.find(h=>h.estado==="Nuevo");
+                const primero = o.historial.find(h=>h.estado!=="Nuevo");
+                if(nuevo && primero){
+                    const diffHoras = (primero.fecha.toDate() - nuevo.fecha.toDate())/(1000*3600);
+                    sumaRevision += diffHoras;
+                    countRevision++;
+                }
+            } else if(o.estado==="Cerrado" && o.fechaCreacion && o.fechaCierre && !o.historial?.some(h=>h.estado!=="Nuevo")){
+                // Caso: se cerró directamente sin otros estados
+                const diffHoras = (o.fechaCierre.toDate() - o.fechaCreacion.toDate())/(1000*3600);
+                sumaRevision += diffHoras;
+                countRevision++;
+            }
+        });
+        const tiempoRevision = countRevision ? (sumaRevision/countRevision).toFixed(2) : "N/A";
+        document.getElementById("tiempoRevision").innerHTML = `${tiempoRevision} horas (${countRevision} órdenes)`;
+        // Tiempo medio de cierre (excluyendo espera)
+        let sumaCierre=0, countCierre=0;
+        ordenes.forEach(o=>{
+            if(o.estado==="Cerrado" && o.fechaCreacion && o.fechaCierre){
+                let totalMin = (o.fechaCierre.toDate() - o.fechaCreacion.toDate())/(1000*60);
+                totalMin -= (o.tiempoTotalEspera||0);
+                if(totalMin<0) totalMin=0;
+                sumaCierre += totalMin/60;
+                countCierre++;
+            }
+        });
+        const tiempoCierre = countCierre ? (sumaCierre/countCierre).toFixed(2) : "N/A";
+        document.getElementById("tiempoCierre").innerHTML = `${tiempoCierre} horas (excluyendo espera, ${countCierre})`;
+        const porcCierre = total ? ((cerradas/total)*100).toFixed(2) : 0;
+        document.getElementById("porcCierre").innerHTML = `${porcCierre}% (${cerradas}/${total})`;
+        let aTiempo=0;
+        ordenes.forEach(o=>{ if(o.estado==="Cerrado" && o.fechaProgramada && o.fechaCierre && o.fechaCierre.toDate() <= o.fechaProgramada.toDate()) aTiempo++; });
+        const porcATiempo = cerradas ? ((aTiempo/cerradas)*100).toFixed(2) : 0;
+        document.getElementById("porcATiempo").innerHTML = `${porcATiempo}% (${aTiempo}/${cerradas})`;
+        const estados = {};
+        ordenes.forEach(o=>{ estados[o.estado] = (estados[o.estado]||0)+1; });
+        let html = "<table><tr><th>Estado</th><th>Cantidad</th></tr>";
+        for(const [est,cant] of Object.entries(estados)) html += `<tr><td>${est}</td><td>${cant}</td></tr>`;
+        html += "</table>";
+        document.getElementById("estados").innerHTML = html;
+    }
+    window.logout = async () => { await signOut(auth); sessionStorage.clear(); location.href="login.html"; }
+</script>
+</body>
+</html>

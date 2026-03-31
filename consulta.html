@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Consulta de Órdenes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .filtros {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .filtros input, .filtros select, .filtros button {
+            padding: 8px;
+        }
+        table {
+            display: block;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="header-content">
+        <img src="logo.jpg" class="logo">
+        <h1>Sistema de Mantenimiento</h1>
+        <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
+    </div>
+</div>
+<div><button class="volver-btn" onclick="location.href='index.html'">← Volver al menú</button></div>
+<h2 style="text-align:center;">Consulta de Órdenes</h2>
+<div class="filtros">
+    <input type="text" id="busqueda" placeholder="Buscar por número">
+    <select id="estadoFiltro">
+        <option value="">Todos</option>
+        <option>Nuevo</option><option>Pendiente</option><option>En proceso</option>
+        <option>Esperando proveedor</option><option>Cerrado</option>
+    </select>
+    <button onclick="cargar()">Filtrar</button>
+</div>
+<div class="container" style="overflow-x:auto;">
+    <table id="tablaOrdenes">
+        <thead><tr><th>N° Orden</th><th>Tipo</th><th>Estado</th><th>Equipo</th><th>Descripción</th><th>Acciones</th></tr></thead>
+        <tbody id="tabla"></tbody>
+    </table>
+</div>
+
+<!-- Modal Editar -->
+<div id="modalEditar" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalEditar')">&times;</span>
+    <h3>Editar Orden</h3><input type="hidden" id="editId">
+    <div class="form-group"><label>Estado:</label><select id="editEstado"></select></div>
+    <div class="form-group"><label>Técnico asignado:</label><input type="text" id="editTecnico"></div>
+    <div class="form-group"><label>Fecha programada:</label><input type="datetime-local" id="editFechaProgramada"></div>
+    <div class="form-group"><label>Tiempo estimado (hs):</label><input type="number" step="0.5" id="editTiempoEstimado"></div>
+    <div class="form-group"><label>Tiempo real (hs):</label><input type="number" step="0.5" id="editTiempoReal"></div>
+    <div class="form-group"><label>Comentario mantenimiento:</label><textarea id="editComentario" rows="2"></textarea></div>
+    <div id="divInformeCierre" style="display:none;"><div class="form-group"><label>Informe de cierre (*):</label><textarea id="editInformeCierre" rows="2" required></textarea></div></div>
+    <div class="form-group"><button onclick="guardarEdicion()">Guardar cambios</button></div>
+    <div id="accionEspera"></div>
+</div></div>
+
+<!-- Modal Detalles -->
+<div id="modalDetalles" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalDetalles')">&times;</span>
+    <h3>Detalles de la Orden</h3><div id="detallesContenido"></div>
+</div></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = { /* misma config */ apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8", authDomain: "mantenimiento-app-170e5.firebaseapp.com", projectId: "mantenimiento-app-170e5", storageBucket: "mantenimiento-app-170e5.firebasestorage.app", messagingSenderId: "555398253444", appId: "1:555398253444:web:565d98dbbe52844b5bebd1" };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let userRole = null, currentOrderId = null;
+
+    onAuthStateChanged(auth, (user) => { if (!user) location.href="login.html"; else { userRole = sessionStorage.getItem("userRole") || "usuario"; cargar(); } });
+
+    window.cargar = async function() {
+        const tabla = document.getElementById("tabla");
+        tabla.innerHTML = "";
+        const busqueda = document.getElementById("busqueda").value.toLowerCase();
+        const estadoFiltro = document.getElementById("estadoFiltro").value;
+        const querySnapshot = await getDocs(collection(db, "ordenes"));
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (busqueda && !data.numeroOrden.toLowerCase().includes(busqueda)) return;
+            if (estadoFiltro && data.estado !== estadoFiltro) return;
+            const fila = document.createElement("tr");
+            const acciones = `<button onclick="verDetalles('${docSnap.id}')">Ver Detalles</button>`;
+            const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${docSnap.id}')">Editar</button>` : "";
+            fila.innerHTML = `<td>${data.numeroOrden}</td><td>${data.tipo}</td><td>${data.estado}</td><td>${data.equipo}</td><td>${data.descripcion}</td><td>${acciones} ${botonEditar}</td>`;
+            tabla.appendChild(fila);
+        });
+    }
+
+    window.verDetalles = async function(id) {
+        const snap = await getDoc(doc(db, "ordenes", id));
+        if (!snap.exists()) return;
+        const d = snap.data();
+        const formatFecha = (ts) => ts ? new Date(ts.seconds*1000).toLocaleString() : 'N/A';
+        document.getElementById("detallesContenido").innerHTML = `
+            <div class="detalle-linea"><span class="detalle-label">N° Orden:</span> ${d.numeroOrden}</div>
+            <div class="detalle-linea"><span class="detalle-label">Tipo:</span> ${d.tipo}</div>
+            <div class="detalle-linea"><span class="detalle-label">Estado:</span> ${d.estado}</div>
+            <div class="detalle-linea"><span class="detalle-label">Solicitante:</span> ${d.solicitante}</div>
+            <div class="detalle-linea"><span class="detalle-label">Ubicación:</span> ${d.ubicacion}</div>
+            <div class="detalle-linea"><span class="detalle-label">Equipo:</span> ${d.equipo}</div>
+            <div class="detalle-linea"><span class="detalle-label">Descripción:</span> ${d.descripcion}</div>
+            <div class="detalle-linea"><span class="detalle-label">Prioridad:</span> ${d.prioridad}</div>
+            <div class="detalle-linea"><span class="detalle-label">Fecha creación:</span> ${formatFecha(d.fechaCreacion)}</div>
+            <div class="detalle-linea"><span class="detalle-label">Fecha programada:</span> ${formatFecha(d.fechaProgramada)}</div>
+            <div class="detalle-linea"><span class="detalle-label">Fecha cierre:</span> ${formatFecha(d.fechaCierre)}</div>
+            <div class="detalle-linea"><span class="detalle-label">Técnico asignado:</span> ${d.tecnicoAsignado || 'No'}</div>
+            <div class="detalle-linea"><span class="detalle-label">Tiempo estimado (hs):</span> ${d.tiempoEstimado ?? 'N/A'}</div>
+            <div class="detalle-linea"><span class="detalle-label">Tiempo real (hs):</span> ${d.tiempoReal ?? 'N/A'}</div>
+            <div class="detalle-linea"><span class="detalle-label">Comentario:</span> ${d.comentarioMantenimiento || 'Ninguno'}</div>
+            <div class="detalle-linea"><span class="detalle-label">Informe cierre:</span> ${d.informeCierre || 'No'}</div>
+            <div class="detalle-linea"><span class="detalle-label">Frecuencia:</span> ${d.frecuencia || 'N/A'}</div>
+            <div class="detalle-linea"><span class="detalle-label">Tiempo en espera (min):</span> ${d.tiempoTotalEspera || 0}</div>
+            <div class="detalle-linea"><span class="detalle-label">Historial:</span> <pre>${JSON.stringify(d.historial, null, 2)}</pre></div>
+        `;
+        document.getElementById("modalDetalles").style.display = "block";
+    }
+
+    window.abrirModal = async function(id) {
+        if (userRole === "usuario") { alert("Sin permisos"); return; }
+        const docRef = doc(db, "ordenes", id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+        const data = snap.data();
+        // Solo admin puede editar si ya está cerrada
+        if (data.estado === "Cerrado" && userRole !== "admin") {
+            alert("Solo un administrador puede modificar órdenes cerradas.");
+            return;
+        }
+        currentOrderId = id;
+        document.getElementById("editId").value = id;
+        const selectEstado = document.getElementById("editEstado");
+        selectEstado.innerHTML = "";
+        const estados = ["Nuevo","Pendiente","En proceso","Esperando proveedor","Cerrado"];
+        estados.forEach(est => { let opt = document.createElement("option"); opt.value=est; opt.textContent=est; if(est===data.estado) opt.selected=true; selectEstado.appendChild(opt); });
+        const divInforme = document.getElementById("divInformeCierre");
+        divInforme.style.display = (data.estado === "Cerrado") ? "block" : "none";
+        document.getElementById("editInformeCierre").value = data.informeCierre || "";
+        selectEstado.onchange = () => { divInforme.style.display = (selectEstado.value === "Cerrado") ? "block" : "none"; };
+        document.getElementById("editTecnico").value = data.tecnicoAsignado || "";
+        if(data.fechaProgramada) { let fecha = new Date(data.fechaProgramada.seconds*1000); document.getElementById("editFechaProgramada").value = fecha.toISOString().slice(0,16); }
+        else document.getElementById("editFechaProgramada").value = "";
+        document.getElementById("editTiempoEstimado").value = data.tiempoEstimado || "";
+        document.getElementById("editTiempoReal").value = data.tiempoReal || "";
+        document.getElementById("editComentario").value = data.comentarioMantenimiento || "";
+        const divAccion = document.getElementById("accionEspera");
+        divAccion.innerHTML = "";
+        if (data.estado === "Esperando proveedor") {
+            let btn = document.createElement("button");
+            btn.textContent = "Salir de espera (volver a Pendiente)";
+            btn.onclick = () => salirEspera(id);
+            divAccion.appendChild(btn);
+        }
+        document.getElementById("modalEditar").style.display = "block";
+    }
+
+    window.salirEspera = async function(id) {
+        const docRef = doc(db, "ordenes", id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const inicio = data.fechaInicioEspera;
+        if(inicio){
+            const diffMin = Math.floor((new Date() - inicio.toDate())/60000);
+            const nuevoTotal = (data.tiempoTotalEspera||0) + diffMin;
+            await updateDoc(docRef, { estado: "Pendiente", fechaInicioEspera: null, tiempoTotalEspera: nuevoTotal });
+        } else await updateDoc(docRef, { estado: "Pendiente" });
+        cerrarModal('modalEditar'); cargar();
+    }
+
+    window.guardarEdicion = async function() {
+        const id = document.getElementById("editId").value;
+        const nuevoEstado = document.getElementById("editEstado").value;
+        const tecnico = document.getElementById("editTecnico").value;
+        const fechaProgramada = document.getElementById("editFechaProgramada").value;
+        const tiempoEstimado = parseFloat(document.getElementById("editTiempoEstimado").value);
+        let tiempoReal = parseFloat(document.getElementById("editTiempoReal").value);
+        const comentario = document.getElementById("editComentario").value;
+        const informeCierre = document.getElementById("editInformeCierre").value;
+
+        const docRef = doc(db, "ordenes", id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+        const data = snap.data();
+
+        // Validaciones al cerrar
+        if (nuevoEstado === "Cerrado") {
+            if (!informeCierre.trim()) return alert("El informe de cierre es obligatorio.");
+            if (isNaN(tiempoReal) || tiempoReal <= 0) return alert("El tiempo real (horas) es obligatorio y debe ser mayor a 0.");
+        }
+
+        let updateData = {
+            tecnicoAsignado: tecnico,
+            tiempoEstimado: isNaN(tiempoEstimado)? null : tiempoEstimado,
+            tiempoReal: isNaN(tiempoReal)? null : tiempoReal,
+            comentarioMantenimiento: comentario,
+            informeCierre: informeCierre
+        };
+        if (fechaProgramada) updateData.fechaProgramada = new Date(fechaProgramada);
+
+        if (nuevoEstado !== data.estado) {
+            updateData.estado = nuevoEstado;
+            const historial = data.historial || [];
+            historial.push({ estado: nuevoEstado, fecha: new Date(), usuario: sessionStorage.getItem("userName") });
+            updateData.historial = historial;
+
+            if (nuevoEstado === "Cerrado") {
+                updateData.fechaCierre = new Date();
+                if (data.tipo === "Preventivo" && data.frecuencia) await generarPreventivaRecurrente(data);
+            }
+            if (nuevoEstado === "Esperando proveedor") updateData.fechaInicioEspera = new Date();
+            else if (data.estado === "Esperando proveedor" && nuevoEstado !== "Esperando proveedor") {
+                const inicio = data.fechaInicioEspera;
+                if (inicio) {
+                    const diffMin = Math.floor((new Date() - inicio.toDate())/60000);
+                    updateData.tiempoTotalEspera = (data.tiempoTotalEspera||0) + diffMin;
+                    updateData.fechaInicioEspera = null;
+                }
+            }
+        }
+        await updateDoc(docRef, updateData);
+        cerrarModal('modalEditar'); cargar();
+    }
+
+    async function generarPreventivaRecurrente(original) {
+        let nuevaFecha = new Date();
+        switch(original.frecuencia){
+            case "Diaria": nuevaFecha.setDate(nuevaFecha.getDate()+1); break;
+            case "Semanal": nuevaFecha.setDate(nuevaFecha.getDate()+7); break;
+            case "Quincenal": nuevaFecha.setDate(nuevaFecha.getDate()+15); break;
+            case "Mensual": nuevaFecha.setMonth(nuevaFecha.getMonth()+1); break;
+            case "Bimestral": nuevaFecha.setMonth(nuevaFecha.getMonth()+2); break;
+            case "Trimestral": nuevaFecha.setMonth(nuevaFecha.getMonth()+3); break;
+            case "Semestral": nuevaFecha.setMonth(nuevaFecha.getMonth()+6); break;
+            case "Anual": nuevaFecha.setFullYear(nuevaFecha.getFullYear()+1); break;
+            default: return;
+        }
+        const refCont = doc(db, "config", "contador");
+        const snapCont = await getDoc(refCont);
+        let cont = snapCont.data();
+        let nuevoNumero;
+        if(original.tipo === "Correctivo"){ nuevoNumero = "OMC-" + String(cont.contadorOMC).padStart(4,"0"); await updateDoc(refCont, { contadorOMC: cont.contadorOMC+1 }); }
+        else { nuevoNumero = "OMP-" + String(cont.contadorOMP).padStart(4,"0"); await updateDoc(refCont, { contadorOMP: cont.contadorOMP+1 }); }
+        const nuevaOrden = { ...original, numeroOrden: nuevoNumero, estado: "Nuevo", fechaCreacion: new Date(), fechaProgramada: nuevaFecha, fechaCierre: null, tiempoReal: null, comentarioMantenimiento: "", informeCierre: "", fechaInicioEspera: null, tiempoTotalEspera: 0, historial: [{ estado: "Nuevo", fecha: new Date(), usuario: "Sistema" }] };
+        delete nuevaOrden.id;
+        await addDoc(collection(db, "ordenes"), nuevaOrden);
+    }
+
+    window.cerrarModal = (id) => document.getElementById(id).style.display = "none";
+    window.logout = async () => { await signOut(auth); sessionStorage.clear(); location.href = "login.html"; }
+</script>
+</body>
+</html>

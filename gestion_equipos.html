@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Gestión de Equipos</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="header-content">
+        <img src="logo.jpg" class="logo" alt="Logo">
+        <h1>Gestión de Equipos</h1>
+        <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
+    </div>
+</div>
+<div>
+    <button class="volver-btn" onclick="location.href='index.html'">← Volver al menú</button>
+</div>
+<div class="container">
+    <h2><i class="fa-solid fa-gears"></i> Lista de Equipos</h2>
+    <table id="tablaEquipos">
+        <thead>
+            <tr><th>Nombre</th><th>Acciones</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <h3>Agregar nuevo equipo</h3>
+    <div class="form-group">
+        <input type="text" id="nuevoEquipo" placeholder="Nombre del equipo">
+    </div>
+    <button onclick="agregarEquipo()"><i class="fa-solid fa-plus"></i> Agregar</button>
+</div>
+<div class="footer">
+    <div class="footer-content">
+        <i class="fa-solid fa-phone phone-icon"></i>
+        <span>+54 9 11 2765 6821</span>
+    </div>
+</div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8",
+        authDomain: "mantenimiento-app-170e5.firebaseapp.com",
+        projectId: "mantenimiento-app-170e5",
+        storageBucket: "mantenimiento-app-170e5.firebasestorage.app",
+        messagingSenderId: "555398253444",
+        appId: "1:555398253444:web:565d98dbbe52844b5bebd1"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, (user) => {
+        if (!user) {
+            window.location.href = "login.html";
+            return;
+        }
+        const role = sessionStorage.getItem("userRole");
+        if (role !== "supervisor" && role !== "admin") {
+            alert("No tienes permisos para acceder.");
+            window.location.href = "index.html";
+            return;
+        }
+        cargarEquipos();
+    });
+
+    async function cargarEquipos() {
+        const snapshot = await getDocs(collection(db, "equipos"));
+        const tbody = document.querySelector("#tablaEquipos tbody");
+        tbody.innerHTML = "";
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const row = tbody.insertRow();
+            row.insertCell(0).textContent = data.nombre;
+            const cellAcciones = row.insertCell(1);
+            const btnEliminar = document.createElement("button");
+            btnEliminar.innerHTML = '<i class="fa-solid fa-trash"></i> Eliminar';
+            btnEliminar.style.background = "#dc3545";
+            btnEliminar.onclick = () => eliminarEquipo(docSnap.id);
+            cellAcciones.appendChild(btnEliminar);
+        });
+    }
+
+    window.agregarEquipo = async function() {
+        const nombre = document.getElementById("nuevoEquipo").value.trim();
+        if (!nombre) return alert("Ingrese un nombre");
+        try {
+            await addDoc(collection(db, "equipos"), { nombre });
+            document.getElementById("nuevoEquipo").value = "";
+            cargarEquipos();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    async function eliminarEquipo(id) {
+        if (confirm("¿Eliminar equipo? Se eliminará de todas las órdenes asociadas.")) {
+            await deleteDoc(doc(db, "equipos", id));
+            cargarEquipos();
+        }
+    }
+
+    window.logout = async function() {
+        await signOut(auth);
+        sessionStorage.clear();
+        window.location.href = "login.html";
+    }
+</script>
+</body>
+</html>

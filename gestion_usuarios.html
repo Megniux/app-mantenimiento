@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Gestión de Usuarios</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            margin-top: 5px;
+        }
+        table {
+            margin-bottom: 20px;
+        }
+        .card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="header-content">
+        <img src="logo.jpg" class="logo" alt="Logo">
+        <h1>Gestión de Usuarios</h1>
+        <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
+    </div>
+</div>
+<div>
+    <button class="volver-btn" onclick="location.href='index.html'">← Volver al menú</button>
+</div>
+<div class="container">
+    <h2><i class="fa-solid fa-users"></i> Lista de Usuarios</h2>
+    <table id="tablaUsuarios">
+        <thead>
+            <tr><th>Email</th><th>Nombre completo</th><th>Rol</th><th>Acciones</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="card">
+        <h3><i class="fa-solid fa-user-plus"></i> Crear nuevo usuario</h3>
+        <div class="form-group">
+            <input type="email" id="email" placeholder="Email" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <input type="text" id="nombre" placeholder="Nombre completo">
+        </div>
+        <div class="form-group">
+            <input type="password" id="password" placeholder="Contraseña">
+        </div>
+        <div class="form-group">
+            <select id="rol">
+                <option value="usuario">Usuario</option>
+                <option value="tecnico">Técnico</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="admin">Administrador</option>
+            </select>
+        </div>
+        <button onclick="crearUsuario()"><i class="fa-solid fa-save"></i> Crear usuario</button>
+    </div>
+</div>
+<div class="footer">
+    <div class="footer-content">
+        <i class="fa-solid fa-phone phone-icon"></i>
+        <span>+54 9 11 2765 6821</span>
+    </div>
+</div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8",
+        authDomain: "mantenimiento-app-170e5.firebaseapp.com",
+        projectId: "mantenimiento-app-170e5",
+        storageBucket: "mantenimiento-app-170e5.firebasestorage.app",
+        messagingSenderId: "555398253444",
+        appId: "1:555398253444:web:565d98dbbe52844b5bebd1"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    onAuthStateChanged(auth, (user) => {
+        if (!user) {
+            window.location.href = "login.html";
+            return;
+        }
+        const role = sessionStorage.getItem("userRole");
+        if (role !== "admin") {
+            alert("No tienes permisos para acceder. Solo administradores.");
+            window.location.href = "index.html";
+            return;
+        }
+        cargarUsuarios();
+    });
+
+    async function cargarUsuarios() {
+        const snapshot = await getDocs(collection(db, "users"));
+        const tbody = document.querySelector("#tablaUsuarios tbody");
+        tbody.innerHTML = "";
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const row = tbody.insertRow();
+            row.insertCell(0).textContent = data.email;
+            row.insertCell(1).textContent = data.nombreCompleto;
+            row.insertCell(2).textContent = data.rol;
+            const cellAcciones = row.insertCell(3);
+            const btnEliminar = document.createElement("button");
+            btnEliminar.innerHTML = '<i class="fa-solid fa-trash"></i> Eliminar';
+            btnEliminar.style.background = "#dc3545";
+            btnEliminar.onclick = () => eliminarUsuario(docSnap.id);
+            cellAcciones.appendChild(btnEliminar);
+        });
+    }
+
+    window.crearUsuario = async function() {
+        const email = document.getElementById("email").value.trim();
+        const nombre = document.getElementById("nombre").value.trim();
+        const password = document.getElementById("password").value;
+        const rol = document.getElementById("rol").value;
+        if (!email || !nombre || !password) {
+            return alert("Complete todos los campos");
+        }
+        try {
+            const userCred = await createUserWithEmailAndPassword(auth, email, password);
+            const uid = userCred.user.uid;
+            await setDoc(doc(db, "users", uid), {
+                email,
+                nombreCompleto: nombre,
+                rol
+            });
+            alert("Usuario creado exitosamente");
+            document.getElementById("email").value = "";
+            document.getElementById("nombre").value = "";
+            document.getElementById("password").value = "";
+            cargarUsuarios();
+        } catch(e) {
+            alert("Error al crear usuario: " + e.message);
+        }
+    }
+
+    async function eliminarUsuario(uid) {
+        if (confirm("¿Eliminar usuario? (No se elimina la cuenta de autenticación, solo el perfil en Firestore)")) {
+            await deleteDoc(doc(db, "users", uid));
+            cargarUsuarios();
+        }
+    }
+
+    window.logout = async function() {
+        await signOut(auth);
+        sessionStorage.clear();
+        window.location.href = "login.html";
+    }
+</script>
+</body>
+</html>
