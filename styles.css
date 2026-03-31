@@ -71,6 +71,14 @@ body {
     margin-bottom: 30px;
 }
 
+.container h2 {
+    margin-bottom: 30px;
+}
+
+.container h3 {
+    margin-bottom: 20px;
+}
+
 /* Tablas */
 table {
     width: 100%;
