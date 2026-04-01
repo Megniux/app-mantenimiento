@@ -323,10 +323,14 @@
             const fila = document.createElement("tr");
             const acciones = `<button onclick="verDetalles('${orden.id}')">Ver</button>`;
             const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${orden.id}')">Editar</button>` : "";
-            const botonEliminar = (userRole === "admin") ? `<button onclick="eliminarOrden('${orden.id}')" style="background:#dc3545;">Eliminar</button>` : "";
-            fila.innerHTML = `
-                <td>${orden.numeroOrden}${orden.numeroOrden} \n                 <td>${orden.tipo}</td>\n                 <td>${orden.estado}</td>\n                 <td>${orden.equipo}</td>\n                 <td>${orden.descripcion}</td>\n                 <td>${acciones} ${botonEditar} ${botonEliminar}</td>
-            `;
+            const botonEliminar = (userRole === "admin") ? `<button onclick="eliminarOrden('${orden.id}')">Eliminar</button>` : "";
+            fila.innerHTML =
+                <td>${orden.numeroOrden}</td>\n;
+                <td>${orden.tipo}</td>\n;
+                <td>${orden.estado}</td>\n;
+                <td>${orden.equipo}</td>\n;
+                <td>${orden.descripcion}</td>\n;
+                <td>${acciones} ${botonEditar} ${botonEliminar}</td>;
             tabla.appendChild(fila);
         });
     }
