@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Consulta de Órdenes</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
@@ -30,14 +33,16 @@
         }
         .ordenamiento {
             display: flex;
-            justify-content: flex-end;
-            gap: 15px;
-            margin-bottom: 15px;
+            justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
+            margin-bottom: 15px;
+            gap: 10px;
         }
-        .ordenamiento label {
-            font-weight: bold;
+        .ordenamiento .izquierda {
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
         table {
             display: block;
@@ -48,6 +53,10 @@
                 width: calc(50% - 10px);
             }
             .ordenamiento {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .ordenamiento .izquierda {
                 justify-content: center;
             }
         }
@@ -114,16 +123,21 @@
     </div>
 
     <div class="ordenamiento">
-        <span>Ordenar por:</span>
-        <select id="ordenCampo">
-            <option value="numero">Número de orden</option>
-            <option value="fechaProgramada">Fecha programada</option>
-        </select>
-        <select id="ordenDireccion">
-            <option value="asc">Ascendente</option>
-            <option value="desc">Descendente</option>
-        </select>
-        <button onclick="cargar()">Aplicar orden</button>
+        <div class="izquierda">
+            <span>Ordenar por:</span>
+            <select id="ordenCampo">
+                <option value="numero">Número de orden</option>
+                <option value="fechaProgramada">Fecha programada</option>
+            </select>
+            <select id="ordenDireccion">
+                <option value="asc">Ascendente</option>
+                <option value="desc">Descendente</option>
+            </select>
+            <button onclick="cargar()">Aplicar orden</button>
+        </div>
+        <div>
+            <button onclick="exportarCSV()"><i class="fa-solid fa-download"></i> Exportar a CSV</button>
+        </div>
     </div>
 
     <table id="tablaOrdenes">
@@ -138,7 +152,7 @@
 <div id="modalEditar" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalEditar')">&times;</span>
     <h3>Editar Orden</h3><input type="hidden" id="editId">
     <div class="form-group"><label>Estado:</label><select id="editEstado"></select></div>
-    <div class="form-group"><label>Técnico asignado:</label><input type="text" id="editTecnico"></div>
+    <div class="form-group"><label>Técnico asignado:</label><select id="editTecnico"></select></div>
     <div class="form-group"><label>Fecha programada:</label><input type="datetime-local" id="editFechaProgramada"></div>
     <div class="form-group"><label>Tiempo estimado (hs):</label><input type="number" step="0.5" id="editTiempoEstimado"></div>
     <div class="form-group"><label>Tiempo real (hs):</label><input type="number" step="0.5" id="editTiempoReal"></div>
@@ -155,7 +169,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, updateDoc, getDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -174,6 +188,7 @@
     let userRole = null;
     let todasOrdenes = [];
     let currentOrderId = null;
+    let listaTecnicos = []; // { uid, nombre }
 
     onAuthStateChanged(auth, async (user) => {
         if (!user) {
@@ -182,10 +197,24 @@
         }
         userRole = sessionStorage.getItem("userRole") || "usuario";
         await cargarListasFiltros();
+        await cargarTecnicos();
         await cargarTodasOrdenes();
         configurarOrdenPredeterminado();
         cargar();
     });
+
+    async function cargarTecnicos() {
+        const usersSnap = await getDocs(collection(db, "users"));
+        listaTecnicos = [];
+        usersSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.rol === "tecnico" || data.rol === "admin") {
+                listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
+            }
+        });
+        // Ordenar por nombre
+        listaTecnicos.sort((a,b) => a.nombre.localeCompare(b.nombre));
+    }
 
     async function cargarListasFiltros() {
         const usersSnap = await getDocs(collection(db, "users"));
@@ -232,9 +261,12 @@
     function configurarOrdenPredeterminado() {
         const campoOrden = document.getElementById("ordenCampo");
         const direccionOrden = document.getElementById("ordenDireccion");
+        const filtroEstado = document.getElementById("filtroEstado");
         if (userRole === "tecnico" || userRole === "admin") {
             campoOrden.value = "fechaProgramada";
             direccionOrden.value = "asc";
+            // Establecer filtro de estado a "noCerrado" por defecto
+            filtroEstado.value = "noCerrado";
         } else {
             campoOrden.value = "numero";
             direccionOrden.value = "asc";
@@ -256,7 +288,6 @@
         const ordenDireccion = document.getElementById("ordenDireccion").value;
 
         let filtradas = todasOrdenes.filter(orden => {
-            // Búsqueda de texto
             if (busqueda) {
                 const coincideNumero = orden.numeroOrden?.toLowerCase().includes(busqueda);
                 const coincideUbicacion = orden.ubicacion?.toLowerCase().includes(busqueda);
@@ -264,7 +295,6 @@
                 if (!coincideNumero && !coincideUbicacion && !coincideEquipo) return false;
             }
             if (tipo && orden.tipo !== tipo) return false;
-            // Filtro de estado: "noCerrado" excluye Cerrado
             if (estado === "noCerrado") {
                 if (orden.estado === "Cerrado") return false;
             } else if (estado && orden.estado !== estado) return false;
@@ -293,23 +323,94 @@
             const fila = document.createElement("tr");
             const acciones = `<button onclick="verDetalles('${orden.id}')">Ver</button>`;
             const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${orden.id}')">Editar</button>` : "";
+            const botonEliminar = (userRole === "admin") ? `<button onclick="eliminarOrden('${orden.id}')" style="background:#dc3545;">Eliminar</button>` : "";
             fila.innerHTML = `
-                <td>${orden.numeroOrden}</td>
-                <td>${orden.tipo}</td>
-                <td>${orden.estado}</td>
-                <td>${orden.equipo}</td>
-                <td>${orden.descripcion}</td>
-                <td>${acciones} ${botonEditar}</td>
+                <td>${orden.numeroOrden}${orden.numeroOrden} \n                 <td>${orden.tipo}</td>\n                 <td>${orden.estado}</td>\n                 <td>${orden.equipo}</td>\n                 <td>${orden.descripcion}</td>\n                 <td>${acciones} ${botonEditar} ${botonEliminar}</td>
             `;
             tabla.appendChild(fila);
         });
     }
+
+    window.eliminarOrden = async function(id) {
+        if (!confirm("¿Está seguro de eliminar esta orden? Esta acción no se puede deshacer.")) return;
+        try {
+            await deleteDoc(doc(db, "ordenes", id));
+            await cargarTodasOrdenes();
+            cargar();
+            alert("Orden eliminada.");
+        } catch(e) {
+            alert("Error al eliminar: " + e.message);
+        }
+    }
+
+    window.exportarCSV = function() {
+        // Exportar todas las órdenes (sin filtrar)
+        const ordenes = todasOrdenes;
+        if (ordenes.length === 0) {
+            alert("No hay órdenes para exportar.");
+            return;
+        }
+        // Definir cabeceras
+        const headers = [
+            "N° Orden", "Tipo", "Estado", "Solicitante", "Ubicación", "Equipo",
+            "Descripción", "Prioridad", "Fecha Creación", "Fecha Programada", "Fecha Cierre",
+            "Técnico Asignado", "Tiempo Estimado (hs)", "Tiempo Real (hs)",
+            "Comentario Mantenimiento", "Informe Cierre", "Frecuencia", "Tiempo en Espera (min)"
+        ];
+        const rows = ordenes.map(o => [
+            o.numeroOrden,
+            o.tipo,
+            o.estado,
+            o.solicitante,
+            o.ubicacion,
+            o.equipo,
+            o.descripcion,
+            o.prioridad,
+            o.fechaCreacion ? new Date(o.fechaCreacion.seconds*1000).toLocaleString() : "",
+            o.fechaProgramada ? new Date(o.fechaProgramada.seconds*1000).toLocaleString() : "",
+            o.fechaCierre ? new Date(o.fechaCierre.seconds*1000).toLocaleString() : "",
+            o.tecnicoAsignado || "",
+            o.tiempoEstimado ?? "",
+            o.tiempoReal ?? "",
+            o.comentarioMantenimiento || "",
+            o.informeCierre || "",
+            o.frecuencia || "",
+            o.tiempoTotalEspera || 0
+        ]);
+        const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute("download", "ordenes_mantenimiento.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     window.verDetalles = async function(id) {
         const snap = await getDoc(doc(db, "ordenes", id));
         if (!snap.exists()) return;
         const d = snap.data();
         const formatFecha = (ts) => ts ? new Date(ts.seconds*1000).toLocaleString() : 'N/A';
+        
+        // Formatear historial
+        let historialHtml = '<table style="width:100%; border-collapse:collapse; margin-top:5px;">';
+        historialHtml += '<tr><th>Fecha</th><th>Estado</th><th>Usuario</th></tr>';
+        if (d.historial && d.historial.length) {
+            d.historial.forEach(h => {
+                historialHtml += `<tr>
+                    <td>${h.fecha ? new Date(h.fecha.seconds*1000).toLocaleString() : 'N/A'}</td>
+                    <td>${h.estado}</td>
+                    <td>${h.usuario || ''}</td>
+                </tr>`;
+            });
+        } else {
+            historialHtml += '<tr><td colspan="3">No hay historial</td></tr>';
+        }
+        historialHtml += '</table>';
+        
         document.getElementById("detallesContenido").innerHTML = `
             <div class="detalle-linea"><span class="detalle-label">N° Orden:</span> ${d.numeroOrden}</div>
             <div class="detalle-linea"><span class="detalle-label">Tipo:</span> ${d.tipo}</div>
@@ -329,7 +430,8 @@
             <div class="detalle-linea"><span class="detalle-label">Informe cierre:</span> ${d.informeCierre || 'No'}</div>
             <div class="detalle-linea"><span class="detalle-label">Frecuencia:</span> ${d.frecuencia || 'N/A'}</div>
             <div class="detalle-linea"><span class="detalle-label">Tiempo en espera (min):</span> ${d.tiempoTotalEspera || 0}</div>
-            <div class="detalle-linea"><span class="detalle-label">Historial:</span> <pre>${JSON.stringify(d.historial, null, 2)}</pre></div>
+            <div class="detalle-linea"><span class="detalle-label">Historial:</span></div>
+            <div>${historialHtml}</div>
         `;
         document.getElementById("modalDetalles").style.display = "block";
     }
@@ -354,7 +456,18 @@
         divInforme.style.display = (data.estado === "Cerrado") ? "block" : "none";
         document.getElementById("editInformeCierre").value = data.informeCierre || "";
         selectEstado.onchange = () => { divInforme.style.display = (selectEstado.value === "Cerrado") ? "block" : "none"; };
-        document.getElementById("editTecnico").value = data.tecnicoAsignado || "";
+        
+        // Cargar técnicos en select
+        const selectTecnico = document.getElementById("editTecnico");
+        selectTecnico.innerHTML = '<option value="">Seleccionar técnico</option>';
+        listaTecnicos.forEach(tec => {
+            const opt = document.createElement("option");
+            opt.value = tec.nombre;
+            opt.textContent = tec.nombre;
+            if (tec.nombre === data.tecnicoAsignado) opt.selected = true;
+            selectTecnico.appendChild(opt);
+        });
+        
         if(data.fechaProgramada) { let fecha = new Date(data.fechaProgramada.seconds*1000); document.getElementById("editFechaProgramada").value = fecha.toISOString().slice(0,16); }
         else document.getElementById("editFechaProgramada").value = "";
         document.getElementById("editTiempoEstimado").value = data.tiempoEstimado || "";

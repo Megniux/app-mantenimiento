@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Nueva Solicitud</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
@@ -52,7 +55,7 @@
                 <input type="text" id="solicitante" disabled>
             </div>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="tipoGrupo">
             <div class="input-with-icon">
                 <i class="fa-solid fa-list"></i>
                 <select id="tipo" onchange="mostrarFrecuencia()">
@@ -152,6 +155,16 @@
         document.getElementById("solicitante").value = nombre;
         sessionStorage.setItem("userName", nombre);
         sessionStorage.setItem("userUid", uid);
+        
+        // Ocultar tipo si es usuario
+        const role = sessionStorage.getItem("userRole") || "usuario";
+        const tipoGrupo = document.getElementById("tipoGrupo");
+        if (role === "usuario") {
+            tipoGrupo.style.display = "none";
+            document.getElementById("tipo").value = "Correctivo";
+            document.getElementById("grupoFrecuencia").style.display = "none";
+        }
+        
         cargarOpciones();
     });
 
