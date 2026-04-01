@@ -291,7 +291,7 @@
 
         filtradas.forEach(orden => {
             const fila = document.createElement("tr");
-            const acciones = `<button onclick="verDetalles('${orden.id}')">Ver Detalles</button>`;
+            const acciones = `<button onclick="verDetalles('${orden.id}')">Ver</button>`;
             const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${orden.id}')">Editar</button>` : "";
             fila.innerHTML = `
                 <td>${orden.numeroOrden}</td>
