@@ -46,13 +46,14 @@ body {
 
 /* Botón volver */
 .volver-btn {
+    width: 100%;
     background: #6c757d;
     color: white;
     padding: 8px 15px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    margin: 15px;
+    margin: 10px;
     display: inline-block;
 }
 
