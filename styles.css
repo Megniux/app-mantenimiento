@@ -501,9 +501,12 @@ button:hover {
         width: 70px;
         min-width: 70px;
     }
+    .sidebar-header {
+        padding: 24px 0;
+    }
     .sidebar-logo {
-    max-width: 70px;
-    margin-bottom: 8px;
+        max-width: 60px;
+        margin-bottom: 8px;
     }
     .sidebar-header h2 {
         display: none;
@@ -511,17 +514,17 @@ button:hover {
     .sidebar-nav .nav-item span {
         display: none;
     }
+    .user-info {
+        gap: 0;
+    }
     .user-info .user-name, .user-info .user-role {
         display: none;
     }
-    .user-avatar {
+    .user-info .user-avatar {
         margin: 0 auto;
     }
-    .logout-btn-sidebar span {
-        display: none;
-    }
     .logout-btn-sidebar i {
-        margin: 0;
+        display: none;
     }
     .nav-item {
         justify-content: center;
