@@ -201,3 +201,310 @@ button:hover {
 .phone-icon {
     font-size: 18px;
 }
+/* ===== NUEVOS ESTILOS PARA SIDEBAR Y MENÚ DE ACCIONES ===== */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background: #f8fafc;
+    border-right: 1px solid #e9edf2;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+}
+.sidebar-header {
+    padding: 24px 20px;
+    border-bottom: 1px solid #eef2f8;
+}
+.sidebar-logo {
+    max-width: 140px;
+    margin-bottom: 12px;
+}
+.sidebar-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1e2a3e;
+}
+.sidebar-nav {
+    flex: 1;
+    padding: 20px 0;
+}
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: #5a6e8a;
+    transition: all 0.2s;
+    cursor: pointer;
+    font-size: 14px;
+}
+.nav-item i {
+    width: 20px;
+    font-size: 1.1rem;
+}
+.nav-item:hover {
+    background: #eef2f8;
+    color: #1f3a5f;
+}
+.nav-item.active {
+    background: #eef2f8;
+    color: #1f3a5f;
+    border-left: 3px solid #2ecc71;
+}
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid #eef2f8;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: #2ecc71;
+    border-radius: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+}
+.user-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+.user-role {
+    font-size: 12px;
+    color: #7e8b9c;
+}
+.logout-btn-sidebar {
+    background: #eef2f8;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.logout-btn-sidebar:hover {
+    background: #e2e8f0;
+}
+
+/* Contenido principal */
+.main-content {
+    margin-left: 280px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: calc(100% - 280px);
+}
+
+/* Top bar */
+.top-bar {
+    background: white;
+    padding: 14px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #edf2f7;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.page-title h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #0f172a;
+}
+.actions-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.actions-right .btn-outline {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    padding: 6px 14px;
+    border-radius: 24px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.actions-right .btn-primary {
+    background: #2ecc71;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 24px;
+    color: white;
+    font-weight: 500;
+}
+.search-wrapper {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border-radius: 28px;
+    padding: 5px 12px;
+    gap: 6px;
+    border: 1px solid #e2e8f0;
+}
+.search-wrapper input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    width: 160px;
+}
+
+/* Tarjeta de tabla */
+.orders-card {
+    margin: 24px 28px;
+    background: white;
+    border-radius: 20px;
+    border: 1px solid #edf2f7;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+.table-toolbar {
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 1px solid #edf2f7;
+}
+.filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+.filter-group select, .filter-group input {
+    padding: 6px 10px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    font-size: 12px;
+    background: white;
+}
+.ordenamiento-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.ordenamiento-controls select, .ordenamiento-controls button {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+.export-btn {
+    background: #1f3a5f;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* Tabla moderna */
+.order-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.order-table th {
+    text-align: left;
+    padding: 14px 12px;
+    background: #f9fafb;
+    font-weight: 500;
+    color: #5a6e8a;
+    border-bottom: 1px solid #edf2f7;
+}
+.order-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid #f0f4f9;
+    vertical-align: middle;
+}
+.order-table tr:hover {
+    background: #fcfdfe;
+}
+/* Menú de tres puntos */
+.actions-menu {
+    position: relative;
+    display: inline-block;
+}
+.menu-trigger {
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-block;
+}
+.menu-trigger:hover {
+    background: #eef2f8;
+}
+.dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 1000;
+    min-width: 120px;
+    display: none;
+}
+.dropdown-menu a, .dropdown-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+}
+.dropdown-menu a:hover, .dropdown-menu button:hover {
+    background: #f1f5f9;
+}
+.dropdown-menu.show {
+    display: block;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+    }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+    .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .orders-card {
+        margin: 16px;
+    }
+}
