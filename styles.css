@@ -229,7 +229,7 @@ button:hover {
     text-align: center;
 }
 .sidebar-logo {
-    max-width: 140px;
+    max-width: 120px;
     margin-bottom: 12px;
     display: block;
     margin-left: auto;
@@ -498,6 +498,37 @@ button:hover {
 @media (max-width: 768px) {
     .sidebar {
         height: auto;
+        width: 70px;
+        min-width: 70px;
+    }
+    .sidebar-logo {
+    max-width: 70px;
+    margin-bottom: 8px;
+    }
+    .sidebar-header h2 {
+        display: none;
+    }
+    .sidebar-nav .nav-item span {
+        display: none;
+    }
+    .user-info .user-name, .user-info .user-role {
+        display: none;
+    }
+    .user-avatar {
+        margin: 0 auto;
+    }
+    .logout-btn-sidebar span {
+        display: none;
+    }
+    .logout-btn-sidebar i {
+        margin: 0;
+    }
+    .nav-item {
+        justify-content: center;
+        padding: 12px 0;
+    }
+    .nav-item i {
+        margin: 0;
     }
     .main-content {
         margin-left: 0;
