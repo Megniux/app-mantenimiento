@@ -36,76 +36,88 @@
     </style>
 </head>
 <body>
-<div class="header">
-    <div class="header-content">
-        <img src="logo.jpg" class="logo">
-        <h1>Sistema de Mantenimiento</h1>
-        <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
-    </div>
-</div>
-<div>
-    <button class="volver-btn" onclick="location.href='index.html'">← Menú inicio</button>
-</div>
-<div class="container">
-    <div class="form-card">
-        <h2><i class="fa-solid fa-file-circle-plus"></i> Solicitud de Mantenimiento</h2>
-        <div class="form-group">
-            <div class="input-with-icon">
-                <i class="fa-solid fa-user"></i>
-                <input type="text" id="solicitante" disabled>
+<div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="logo.jpg" alt="Logo" class="sidebar-logo">
+            <h2>Mantenimiento</h2>
+        </div>
+        <nav class="sidebar-nav" id="sidebar-nav">
+            <!-- Los enlaces se generan dinámicamente según rol -->
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar"></div>
+                <div>
+                    <div class="user-name" id="userName"></div>
+                    <div class="user-role" id="userRole"></div>
+                </div>
+            </div>
+            <button class="logout-btn-sidebar" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="top-bar">
+            <div class="page-title" style="padding: 10px 0;">
+                <h1>Inicio</h1>
             </div>
         </div>
-        <div class="form-group" id="tipoGrupo">
-            <div class="input-with-icon">
-                <i class="fa-solid fa-list"></i>
-                <select id="tipo" onchange="mostrarFrecuencia()">
-                    <option value="Correctivo">Correctivo</option>
-                    <option value="Preventivo">Preventivo</option>
-                </select>
+        <div class="form-card" style="padding: 40px;">
+            <h2><i class="fa-solid fa-file-circle-plus"></i> Solicitud de Mantenimiento</h2>
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="solicitante" disabled>
+                </div>
             </div>
-        </div>
-        <div class="form-group" id="grupoFrecuencia" style="display:none;">
-            <div class="input-with-icon">
-                <i class="fa-solid fa-repeat"></i>
-                <select id="frecuencia">
-                    <option value="">Seleccionar frecuencia</option>
-                    <option>Diaria</option><option>Semanal</option><option>Quincenal</option>
-                    <option>Mensual</option><option>Bimestral</option><option>Trimestral</option>
-                    <option>Semestral</option><option>Anual</option>
-                </select>
+            <div class="form-group" id="tipoGrupo">
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-list"></i>
+                    <select id="tipo" onchange="mostrarFrecuencia()">
+                        <option value="Correctivo">Correctivo</option>
+                        <option value="Preventivo">Preventivo</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        <div class="form-group">
-            <div class="input-with-icon">
-                <i class="fa-solid fa-location-dot"></i>
-                <select id="ubicacion"><option>Cargando...</option></select>
+            <div class="form-group" id="grupoFrecuencia" style="display:none;">
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-repeat"></i>
+                    <select id="frecuencia">
+                        <option value="">Seleccionar frecuencia</option>
+                        <option>Diaria</option><option>Semanal</option><option>Quincenal</option>
+                        <option>Mensual</option><option>Bimestral</option><option>Trimestral</option>
+                        <option>Semestral</option><option>Anual</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        <div class="form-group">
-            <div class="input-with-icon">
-                <i class="fa-solid fa-gears"></i>
-                <select id="equipo"><option>Cargando...</option></select>
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <select id="ubicacion"><option>Cargando...</option></select>
+                </div>
             </div>
-        </div>
-        <div class="form-group">
-            <textarea id="descripcion" placeholder="Descripción del problema o tarea" rows="3"></textarea>
-        </div>
-        <div class="form-group">
-            <div class="input-with-icon">
-                <i class="fa-solid fa-flag"></i>
-                <select id="prioridad">
-                    <option>Baja</option><option selected>Media</option><option>Alta</option>
-                </select>
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-gears"></i>
+                    <select id="equipo"><option>Cargando...</option></select>
+                </div>
             </div>
+            <div class="form-group">
+                <textarea id="descripcion" placeholder="Descripción del problema o tarea" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <i class="fa-solid fa-flag"></i>
+                    <select id="prioridad">
+                        <option>Baja</option><option selected>Media</option><option>Alta</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="guardar()" class="btn-primary" style="width:100%"><i class="fa-solid fa-paper-plane"></i> Enviar solicitud</button>
         </div>
-        <button onclick="guardar()" class="btn-primary" style="width:100%"><i class="fa-solid fa-paper-plane"></i> Enviar solicitud</button>
-    </div>
-</div>
-<div class="footer">
-    <div class="footer-content">
-        <i class="fa-solid fa-phone phone-icon"></i>
-        <span>+54 9 11 2765 6821</span>
-    </div>
+    </main>
 </div>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
