@@ -269,7 +269,7 @@ button:hover {
     border-left: 3px solid #2ecc71;
 }
 .sidebar-footer {
-    padding: 20px;
+    padding: 10px;
     border-top: 1px solid #eef2f8;
     display: flex;
     flex-direction: column;
