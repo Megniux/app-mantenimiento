@@ -228,6 +228,45 @@
     }
 
     window.logout = async function() { await signOut(auth); sessionStorage.clear(); location.href = "login.html"; }
+    
+    function generarMenu(role) {
+        const nav = document.getElementById("sidebar-nav");
+        nav.innerHTML = "";
+
+        // Definir items según rol
+        const items = [];
+
+        // Todos ven: Nueva Solicitud, Ver Solicitudes
+        items.push({ icon: "fa-plus-circle", text: "Nueva Solicitud", href: "solicitud.html", visible: true });
+        items.push({ icon: "fa-list", text: "Ver Solicitudes", href: "consulta.html", visible: true });
+
+        if (role === "tecnico" || role === "supervisor" || role === "admin") {
+            items.push({ icon: "fa-chart-line", text: "Informes", href: "informes.html", visible: true });
+        }
+
+        if (role === "supervisor" || role === "admin") {
+            items.push({ icon: "fa-gears", text: "Gestionar Equipos", href: "gestion_equipos.html", visible: true });
+            items.push({ icon: "fa-location-dot", text: "Gestionar Ubicaciones", href: "gestion_ubicaciones.html", visible: true });
+        }
+
+        if (role === "admin") {
+            items.push({ icon: "fa-users", text: "Gestionar Usuarios", href: "gestion_usuarios.html", visible: true });
+        }
+
+        items.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "nav-item";
+            div.innerHTML = `<i class="fas ${item.icon}"></i><span>${item.text}</span>`;
+            div.onclick = () => location.href = item.href;
+            nav.appendChild(div);
+        });
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+        await signOut(auth);
+        sessionStorage.clear();
+        window.location.href = "login.html";
+    });
 </script>
 </body>
 </html>
