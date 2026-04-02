@@ -9,147 +9,162 @@
     <title>Consulta de Órdenes</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
+    <!-- Estilos adicionales específicos para la tabla y filtros -->
     <style>
-        .filtros {
+        .filter-group {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
-            justify-content: center;
+            gap: 12px;
             align-items: flex-end;
         }
-        .filtros .grupo-filtro {
+        .filter-group .grupo-filtro {
             display: flex;
             flex-direction: column;
+        }
+        .filter-group label {
+            font-size: 0.7rem;
+            margin-bottom: 2px;
+            color: #5a6e8a;
+        }
+        .filter-group input, .filter-group select {
+            padding: 6px 10px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            font-size: 12px;
             min-width: 120px;
         }
-        .filtros label {
-            font-size: 0.8rem;
-            margin-bottom: 2px;
-        }
-        .filtros input, .filtros select {
-            padding: 8px;
-            font-size: 0.9rem;
-        }
-        .ordenamiento {
+        .ordenamiento-controls {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-            gap: 10px;
-        }
-        .ordenamiento .izquierda {
-            display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
         }
-        table {
-            display: block;
-            overflow-x: auto;
+        .export-btn {
+            background: #1f3a5f;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
         }
         @media (max-width: 768px) {
-            .filtros .grupo-filtro {
-                width: calc(50% - 10px);
+            .filter-group .grupo-filtro {
+                width: calc(50% - 6px);
             }
-            .ordenamiento {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .ordenamiento .izquierda {
-                justify-content: center;
-                flex: 1;
+            .ordenamiento-controls {
+                flex-wrap: wrap;
             }
         }
     </style>
 </head>
 <body>
-<div class="header">
-    <div class="header-content">
-        <img src="logo.jpg" class="logo">
-        <h1>Sistema de Mantenimiento</h1>
-        <button class="logout-btn" onclick="logout()">Cerrar sesión</button>
-    </div>
+<div class="app-layout">
+    <!-- Sidebar (idéntica a index) -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="logo.jpg" alt="Logo" class="sidebar-logo">
+            <h2>Mantenimiento</h2>
+        </div>
+        <nav class="sidebar-nav" id="sidebar-nav">
+            <!-- Se genera dinámicamente -->
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar"></div>
+                <div>
+                    <div class="user-name" id="userName"></div>
+                    <div class="user-role" id="userRole"></div>
+                </div>
+            </div>
+            <button class="logout-btn-sidebar" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Órdenes de mantenimiento</h1>
+            </div>
+            <div class="actions-right">
+                <div class="search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="busqueda" placeholder="Buscar...">
+                </div>
+                <button class="btn-outline" id="exportBtn"><i class="fas fa-download"></i> Exportar CSV</button>
+            </div>
+        </div>
+
+        <div class="orders-card">
+            <div class="table-toolbar">
+                <div class="filter-group">
+                    <div class="grupo-filtro">
+                        <label>Tipo</label>
+                        <select id="filtroTipo">
+                            <option value="">Todos</option>
+                            <option value="Correctivo">Correctivo</option>
+                            <option value="Preventivo">Preventivo</option>
+                        </select>
+                    </div>
+                    <div class="grupo-filtro">
+                        <label>Estado</label>
+                        <select id="filtroEstado">
+                            <option value="">Todos</option>
+                            <option value="noCerrado">Todos los no cerrados</option>
+                            <option>Nuevo</option>
+                            <option>Pendiente</option>
+                            <option>En proceso</option>
+                            <option>Esperando proveedor</option>
+                            <option>Cerrado</option>
+                        </select>
+                    </div>
+                    <div class="grupo-filtro">
+                        <label>Solicitante</label>
+                        <select id="filtroUsuario">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="grupo-filtro">
+                        <label>Ubicación</label>
+                        <select id="filtroUbicacion">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="grupo-filtro">
+                        <label>Equipo</label>
+                        <select id="filtroEquipo">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="grupo-filtro">
+                        <button class="btn-primary-green" id="filtrarBtn">Filtrar</button>
+                    </div>
+                </div>
+                <div class="ordenamiento-controls">
+                    <span>Ordenar por:</span>
+                    <select id="ordenCampo">
+                        <option value="numero">Número de orden</option>
+                        <option value="fechaProgramada">Fecha programada</option>
+                    </select>
+                    <select id="ordenDireccion">
+                        <option value="asc">Ascendente</option>
+                        <option value="desc">Descendente</option>
+                    </select>
+                    <button id="aplicarOrdenBtn">Aplicar</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="order-table" id="tablaOrdenes">
+                    <thead>
+                        <tr><th>N° Orden</th><th>Tipo</th><th>Estado</th><th>Equipo</th><th>Descripción</th><th style="width: 50px;"></th></tr>
+                    </thead>
+                    <tbody id="tabla"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 </div>
-<div><button class="volver-btn" onclick="location.href='index.html'">← Menú inicio</button></div>
-<h2 style="text-align:center;">Consulta de Órdenes</h2>
 
-<div class="container">
-    <div class="filtros">
-        <div class="grupo-filtro">
-            <label>Buscar (N° orden, ubicación, equipo)</label>
-            <input type="text" id="busqueda" placeholder="Texto">
-        </div>
-        <div class="grupo-filtro">
-            <label>Tipo</label>
-            <select id="filtroTipo">
-                <option value="">Todos</option>
-                <option value="Correctivo">Correctivo</option>
-                <option value="Preventivo">Preventivo</option>
-            </select>
-        </div>
-        <div class="grupo-filtro">
-            <label>Estado</label>
-            <select id="filtroEstado">
-                <option value="">Todos</option>
-                <option value="noCerrado">Todos los no cerrados</option>
-                <option>Nuevo</option>
-                <option>Pendiente</option>
-                <option>En proceso</option>
-                <option>Esperando proveedor</option>
-                <option>Cerrado</option>
-            </select>
-        </div>
-        <div class="grupo-filtro">
-            <label>Usuario (solicitante)</label>
-            <select id="filtroUsuario">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="grupo-filtro">
-            <label>Ubicación</label>
-            <select id="filtroUbicacion">
-                <option value="">Todas</option>
-            </select>
-        </div>
-        <div class="grupo-filtro">
-            <label>Equipo</label>
-            <select id="filtroEquipo">
-                <option value="">Todos</option>
-            </select>
-        </div>
-        <div class="grupo-filtro">
-            <button onclick="cargar()">Filtrar</button>
-        </div>
-    </div>
-
-    <div class="ordenamiento">
-        <div class="izquierda">
-            <span>Ordenar por:</span>
-            <select id="ordenCampo">
-                <option value="numero">Número de orden</option>
-                <option value="fechaProgramada">Fecha programada</option>
-            </select>
-            <select id="ordenDireccion">
-                <option value="asc">Ascendente</option>
-                <option value="desc">Descendente</option>
-            </select>
-            <button onclick="cargar()">Aplicar orden</button>
-        </div>
-        <div>
-            <button onclick="exportarCSV()"><i class="fa-solid fa-download"></i> Exportar a CSV</button>
-        </div>
-    </div>
-
-    <table id="tablaOrdenes">
-        <thead>
-            <tr><th>N° Orden</th><th>Tipo</th><th>Estado</th><th>Equipo</th><th>Descripción</th><th>Acciones</th></tr>
-        </thead>
-        <tbody id="tabla"></tbody>
-    </table>
-</div>
-
-<!-- Modal Editar -->
+<!-- Modales (igual que antes) -->
 <div id="modalEditar" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalEditar')">&times;</span>
     <h3>Editar Orden</h3><input type="hidden" id="editId">
     <div class="form-group"><label>Estado:</label><select id="editEstado"></select></div>
@@ -163,7 +178,6 @@
     <div id="accionEspera"></div>
 </div></div>
 
-<!-- Modal Detalles -->
 <div id="modalDetalles" class="modal"><div class="modal-content"><span class="close" onclick="cerrarModal('modalDetalles')">&times;</span>
     <h3>Detalles de la Orden</h3><div id="detallesContenido"></div>
 </div></div>
@@ -181,7 +195,7 @@
         messagingSenderId: "555398253444",
         appId: "1:555398253444:web:565d98dbbe52844b5bebd1"
     };
-
+    
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
@@ -189,21 +203,36 @@
     let userRole = null;
     let todasOrdenes = [];
     let currentOrderId = null;
-    let listaTecnicos = []; // { uid, nombre }
+    let listaTecnicos = [];
 
-    onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-            window.location.href = "login.html";
-            return;
+    // ==================== SIDEBAR ====================
+    function generarSidebar(role) {
+        const nav = document.getElementById("sidebar-nav");
+        nav.innerHTML = "";
+        const items = [
+            { icon: "fa-plus-circle", text: "Nueva Solicitud", href: "solicitud.html", visible: true },
+            { icon: "fa-list", text: "Ver Solicitudes", href: "consulta.html", visible: true }
+        ];
+        if (role === "tecnico" || role === "supervisor" || role === "admin") {
+            items.push({ icon: "fa-chart-line", text: "Informes", href: "informes.html", visible: true });
         }
-        userRole = sessionStorage.getItem("userRole") || "usuario";
-        await cargarListasFiltros();
-        await cargarTecnicos();
-        await cargarTodasOrdenes();
-        configurarOrdenPredeterminado();
-        cargar();
-    });
+        if (role === "supervisor" || role === "admin") {
+            items.push({ icon: "fa-gears", text: "Gestionar Equipos", href: "gestion_equipos.html", visible: true });
+            items.push({ icon: "fa-location-dot", text: "Gestionar Ubicaciones", href: "gestion_ubicaciones.html", visible: true });
+        }
+        if (role === "admin") {
+            items.push({ icon: "fa-users", text: "Gestionar Usuarios", href: "gestion_usuarios.html", visible: true });
+        }
+        items.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "nav-item";
+            div.innerHTML = `<i class="fas ${item.icon}"></i><span>${item.text}</span>`;
+            div.onclick = () => location.href = item.href;
+            nav.appendChild(div);
+        });
+    }
 
+    // ==================== CARGAR DATOS ====================
     async function cargarTecnicos() {
         const usersSnap = await getDocs(collection(db, "users"));
         listaTecnicos = [];
@@ -213,7 +242,6 @@
                 listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
             }
         });
-        // Ordenar por nombre
         listaTecnicos.sort((a,b) => a.nombre.localeCompare(b.nombre));
     }
 
@@ -266,7 +294,6 @@
         if (userRole === "tecnico" || userRole === "admin") {
             campoOrden.value = "fechaProgramada";
             direccionOrden.value = "asc";
-            // Establecer filtro de estado a "noCerrado" por defecto
             filtroEstado.value = "noCerrado";
         } else {
             campoOrden.value = "numero";
@@ -274,6 +301,7 @@
         }
     }
 
+    // ==================== RENDER TABLA CON MENÚ ====================
     window.cargar = async function() {
         const tabla = document.getElementById("tabla");
         tabla.innerHTML = "";
@@ -322,20 +350,98 @@
 
         filtradas.forEach(orden => {
             const fila = document.createElement("tr");
-            const acciones = `<button onclick="verDetalles('${orden.id}')">Ver</button>`;
-            const botonEditar = (userRole !== "usuario") ? `<button onclick="abrirModal('${orden.id}')">Editar</button>` : "";
-            const botonEliminar = (userRole === "admin") ? `<button onclick="eliminarOrden('${orden.id}')">Eliminar</button>` : "";
-            fila.innerHTML =`
-                <td>${orden.numeroOrden}</td>\n
-                <td>${orden.tipo}</td>\n
-                <td>${orden.estado}</td>\n
-                <td>${orden.equipo}</td>\n
-                <td>${orden.descripcion}</td>\n
-                <td>${acciones} ${botonEditar} ${botonEliminar}</td>`;
+            fila.innerHTML = `
+                <td>${orden.numeroOrden}</td>
+                <td>${orden.tipo}</td>
+                <td>${orden.estado}</td>
+                <td>${orden.equipo}</td>
+                <td>${orden.descripcion}</td>
+                <td class="actions-menu">
+                    <div class="menu-trigger" data-id="${orden.id}"><i class="fas fa-ellipsis-v"></i></div>
+                    <div class="dropdown-menu" data-id="${orden.id}"></div>
+                </td>
+            `;
             tabla.appendChild(fila);
+        });
+
+        // Agregar eventos a los menús
+        document.querySelectorAll('.menu-trigger').forEach(trigger => {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = trigger.getAttribute('data-id');
+                const menu = trigger.parentElement.querySelector('.dropdown-menu');
+                // Cerrar cualquier otro menú abierto
+                document.querySelectorAll('.dropdown-menu.show').forEach(m => {
+                    if (m !== menu) m.classList.remove('show');
+                });
+                if (menu.classList.contains('show')) {
+                    menu.classList.remove('show');
+                } else {
+                    // Llenar menú según rol y estado
+                    const orden = todasOrdenes.find(o => o.id === id);
+                    menu.innerHTML = '';
+                    const addOption = (text, onClick) => {
+                        const btn = document.createElement('button');
+                        btn.textContent = text;
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            onClick();
+                            menu.classList.remove('show');
+                        };
+                        menu.appendChild(btn);
+                    };
+                    addOption('Ver detalles', () => verDetalles(id));
+                    if (userRole !== 'usuario') {
+                        // Verificar si está cerrada y rol no admin
+                        if (orden.estado === 'Cerrado' && userRole !== 'admin') {
+                            addOption('Editar (solo admin)', () => alert('Solo administradores pueden editar órdenes cerradas.'));
+                        } else {
+                            addOption('Editar', () => abrirModal(id));
+                        }
+                    }
+                    if (userRole === 'admin') {
+                        addOption('Eliminar', () => eliminarOrden(id));
+                    }
+                    menu.classList.add('show');
+                }
+            });
+        });
+
+        // Cerrar menús al hacer clic fuera
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.actions-menu')) {
+                document.querySelectorAll('.dropdown-menu.show').forEach(menu => menu.classList.remove('show'));
+            }
         });
     }
 
+    // ==================== INICIALIZACIÓN ====================
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) { window.location.href = "login.html"; return; }
+        userRole = sessionStorage.getItem("userRole") || "usuario";
+        const userName = sessionStorage.getItem("userName") || user.email;
+        document.getElementById("userName").innerText = userName;
+        document.getElementById("userRole").innerText = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+        const avatarInitial = userName.charAt(0).toUpperCase();
+        document.getElementById("userAvatar").innerText = avatarInitial;
+        generarSidebar(userRole);
+        await cargarListasFiltros();
+        await cargarTecnicos();
+        await cargarTodasOrdenes();
+        configurarOrdenPredeterminado();
+        cargar();
+    });
+
+    document.getElementById("filtrarBtn").addEventListener("click", () => cargar());
+    document.getElementById("aplicarOrdenBtn").addEventListener("click", () => cargar());
+    document.getElementById("exportBtn").addEventListener("click", () => exportarCSV());
+    document.getElementById("busqueda").addEventListener("input", () => cargar());
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+        await signOut(auth);
+        sessionStorage.clear();
+        window.location.href = "login.html";
+    });
+    
     window.eliminarOrden = async function(id) {
         if (!confirm("¿Está seguro de eliminar esta orden? Esta acción no se puede deshacer.")) return;
         try {
