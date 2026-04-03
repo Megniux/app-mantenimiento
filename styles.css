@@ -106,6 +106,44 @@ th {
     font-weight: normal;
 }
 
+/* Tabla gestionar equipos */
+#tablaEquipos.equipos-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+}
+#tablaEquipos.equipos-table th,
+#tablaEquipos.equipos-table td {
+    border-left: none;
+    border-right: none;
+}
+#tablaEquipos.equipos-table .col-acciones {
+    width: 72px;
+}
+#tablaEquipos.equipos-table .col-nombre {
+    width: auto;
+}
+#tablaEquipos.equipos-table th:last-child,
+#tablaEquipos.equipos-table td:last-child {
+    text-align: center;
+}
+.btn-delete-icon {
+    background: #5a6e8a;
+    color: #fff;
+    border-radius: 6px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-delete-icon:hover {
+    background: #4a5f7b;
+}
+
 
 /* Formularios */
 .form-group {
