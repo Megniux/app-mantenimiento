@@ -474,7 +474,7 @@ button:hover {
     border-radius: 20px;
     padding: 6px 14px;
 }
-.btn-outline :hover {
+.btn-outline:hover {
     background: #1f3a5f;
     color: #fff;
 }
