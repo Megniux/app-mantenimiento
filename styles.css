@@ -13,28 +13,6 @@ body {
     flex-direction: column;
     min-height: 100vh;
 }
-
-/* Header */
-.header {
-    background: #1f3a5f;
-    padding: 15px 20px;
-}
-.header-content {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-}
-.logo {
-    height: 60px;
-}
-.header h1 {
-    color: white;
-    font-size: 1.5rem;
-    margin: 0;
-    flex: 1;
-    text-align: center;
-}
 .logout-btn {
     background: #2c4a73;
     color: white;
@@ -70,7 +48,8 @@ body {
 
 .form-card {
     padding: 24px;
-    margin: 0;
+    max-width: 720px;
+    margin: auto;
     background: white;
     border-radius: 20px;
     border: 1px solid #edf2f7;
@@ -82,7 +61,7 @@ body {
     margin-bottom: 20px;
 }
 .form-section h3 {
-    font-size: 16px;
+    font-size: 18px;
     margin-bottom: 10px;
     color: #1f3a5f;
     border-bottom: 1px solid #ddd;
@@ -127,16 +106,7 @@ th {
     text-align: center;
     width: auto;
 }
-@media (max-width: 768px) {
-    th, td {
-        padding: 6px;
-        font-size: 0.8rem;
-    }
-    button {
-        padding: 5px 8px;
-        font-size: 0.7rem;
-    }
-}
+
 
 /* Formularios */
 .form-group {
@@ -190,6 +160,9 @@ button:hover {
     margin-top: 20px;
     font-size: 16px;
 }
+.btn-primary i {
+    margin-right: 12px;
+}
 
 /* Modal */
 .modal {
@@ -230,24 +203,6 @@ button:hover {
     font-weight: bold;
     display: inline-block;
     width: 150px;
-}
-
-/* Footer */
-.footer {
-    background: #2c4a73;
-    color: white;
-    padding: 15px 20px;
-    text-align: center;
-    margin-top: auto;
-}
-.footer-content {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-}
-.phone-icon {
-    font-size: 18px;
 }
 /* ===== NUEVOS ESTILOS PARA SIDEBAR Y MENÚ DE ACCIONES ===== */
 .app-layout {
@@ -567,6 +522,14 @@ button:hover {
     .top-bar {
         flex-direction: column;
         align-items: stretch;
+    }
+    th, td {
+        padding: 6px;
+        font-size: 0.8rem;
+    }
+    button {
+        padding: 5px 8px;
+        font-size: 0.7rem;
     }
 }
 
