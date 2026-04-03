@@ -411,8 +411,9 @@ button:hover {
     border: none;
     background: transparent;
     outline: none;
-    font-size: 12px;
+    font-size: 14px;
     width: 160px;
+    padding: 5px 10px;
 }
 
 .consulta-card {
