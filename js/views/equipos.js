@@ -16,7 +16,6 @@ async function cargarEquipos() {
     const actions = row.insertCell(1);
     const btn = document.createElement("button");
     btn.textContent = "Eliminar";
-    btn.style.background = "#dc3545";
     btn.addEventListener("click", () => eliminarEquipo(docSnap.id));
     actions.appendChild(btn);
   });
