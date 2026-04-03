@@ -403,7 +403,7 @@ button:hover {
     align-items: center;
     background: #f8fafc;
     border-radius: 28px;
-    padding: 5px 12px;
+    padding: 0 12px;
     gap: 6px;
     border: 1px solid #e2e8f0;
 }
@@ -473,6 +473,10 @@ button:hover {
     border: 1px solid #1f3a5f;
     border-radius: 20px;
     padding: 6px 14px;
+}
+.btn-outline :hover {
+    background: #1f3a5f;
+    color: #fff;
 }
 .btn-primary-green {
     background: #1f3a5f;
