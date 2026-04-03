@@ -166,7 +166,8 @@ input, select, textarea {
     margin-right: 8px;
 }
 .input-with-icon input,
-.input-with-icon select {
+.input-with-icon select,
+.input-with-icon textarea {
     border: none;
     outline: none;
     padding: 10px 0;
