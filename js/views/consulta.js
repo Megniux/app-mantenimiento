@@ -5,6 +5,7 @@ let userRole = null;
 let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
+const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 
 export async function initConsultaView({ role }) {
   userRole = role;
@@ -18,6 +19,7 @@ export async function initConsultaView({ role }) {
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
   document.getElementById("exportBtn").addEventListener("click", exportarCSV);
   document.getElementById("busqueda").addEventListener("input", cargar);
+  document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
 
   document.getElementById("mainContent").addEventListener("click", (e) => {
     if (e.target.matches(".close-modal")) cerrarModal(e.target.dataset.modal);
@@ -124,8 +126,13 @@ async function cargar() {
 
   filtradas.forEach((orden) => {
     const fila = document.createElement("tr");
-    fila.innerHTML = `<td>${orden.numeroOrden}</td><td>${orden.tipo}</td><td>${orden.estado}</td><td>${orden.equipo}</td><td>${orden.descripcion}</td>
-      <td class="actions-menu"><div class="menu-trigger" data-id="${orden.id}"><i class="fas fa-ellipsis-v"></i></div><div class="dropdown-menu" data-id="${orden.id}"></div></td>`;
+    fila.innerHTML = `<td class="nowrap-col">${orden.numeroOrden || ""}</td>
+      <td class="nowrap-col">${orden.tipo || ""}</td>
+      <td class="nowrap-col">${orden.estado || ""}</td>
+      <td class="wrap-col">${orden.equipo || ""}</td>
+      <td class="wrap-col">${orden.descripcion || ""}</td>
+      <td class="nowrap-col">${formatearFechaCorta(orden.fechaProgramada)}</td>
+      <td class="actions-menu"><button type="button" class="menu-trigger" data-id="${orden.id}" aria-label="Acciones"><i class="fas fa-ellipsis-v"></i></button><div class="dropdown-menu" data-id="${orden.id}"></div></td>`;
     tabla.appendChild(fila);
   });
 
@@ -144,8 +151,7 @@ async function cargar() {
       addOption("Ver detalles", () => verDetalles(id));
       const orden = todasOrdenes.find((o) => o.id === id);
       if (userRole !== "usuario") {
-        if (orden.estado === "Cerrado" && userRole !== "admin") addOption("Editar (solo admin)", () => alert("Solo administradores"));
-        else addOption("Editar", () => abrirModal(id));
+        if (!(orden.estado === "Cerrado" && userRole !== "admin")) addOption("Editar", () => abrirModal(id));
       }
       if (userRole === "admin") addOption("Eliminar", () => eliminarOrden(id));
       document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
@@ -180,9 +186,30 @@ async function verDetalles(id) {
   const snap = await getDoc(doc(db, "ordenes", id));
   if (!snap.exists()) return;
   const d = snap.data();
-  document.getElementById("detallesContenido").innerHTML = `<div class="detalle-linea"><span class="detalle-label">N° Orden:</span> ${d.numeroOrden}</div>
-  <div class="detalle-linea"><span class="detalle-label">Estado:</span> ${d.estado}</div>
-  <div class="detalle-linea"><span class="detalle-label">Descripción:</span> ${d.descripcion}</div>`;
+  const fields = [
+    ["N° Orden", d.numeroOrden], ["Tipo", d.tipo], ["Estado", d.estado], ["Solicitante", d.solicitante],
+    ["Ubicación", d.ubicacion], ["Equipo", d.equipo], ["Prioridad", d.prioridad], ["Frecuencia", d.frecuencia || "-"],
+    ["Técnico asignado", d.tecnicoAsignado || "-"], ["Descripción", d.descripcion || "-"],
+    ["Comentario mantenimiento", d.comentarioMantenimiento || "-"], ["Informe de cierre", d.informeCierre || "-"],
+    ["Fecha creación", formatearFechaLarga(d.fechaCreacion)], ["Fecha programada", formatearFechaLarga(d.fechaProgramada)],
+    ["Fecha cierre", formatearFechaLarga(d.fechaCierre)], ["Tiempo estimado (hs)", d.tiempoEstimado ?? "-"],
+    ["Tiempo real (hs)", d.tiempoReal ?? "-"]
+  ];
+  const detallesHtml = fields.map(([label, value]) => `<div class="detalle-linea"><span class="detalle-label">${label}:</span> ${value || "-"}</div>`).join("");
+  const historialRows = (d.historial || []).map((h) => `<tr>
+      <td>${formatearFechaLarga(h.fecha)}</td>
+      <td>${h.usuario || "-"}</td>
+      <td>${h.estado || "-"}</td>
+      <td>${h.camposModificados || "-"}</td>
+    </tr>`).join("");
+  document.getElementById("detallesContenido").innerHTML = `${detallesHtml}
+    <div class="form-section">
+      <h3>Historial</h3>
+      <table class="management-table historial-table">
+        <thead><tr><th>Fecha</th><th>Usuario</th><th>Estado</th><th>Campos modificados</th></tr></thead>
+        <tbody>${historialRows || '<tr><td colspan="4">Sin historial</td></tr>'}</tbody>
+      </table>
+    </div>`;
   document.getElementById("modalDetalles").style.display = "block";
 }
 
@@ -190,10 +217,9 @@ async function abrirModal(id) {
   currentOrderId = id;
   const snap = await getDoc(doc(db, "ordenes", id));
   const data = snap.data();
-  const estados = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
   const selectEstado = document.getElementById("editEstado");
   selectEstado.innerHTML = "";
-  estados.forEach((est) => {
+  ESTADOS.forEach((est) => {
     const opt = document.createElement("option");
     opt.value = est;
     opt.textContent = est;
@@ -216,6 +242,7 @@ async function abrirModal(id) {
   document.getElementById("editTiempoReal").value = data.tiempoReal || "";
   document.getElementById("editComentario").value = data.comentarioMantenimiento || "";
   document.getElementById("editInformeCierre").value = data.informeCierre || "";
+  actualizarCamposEstadoCierre();
 
   document.getElementById("guardarEdicionBtn").onclick = guardarEdicion;
   document.getElementById("modalEditar").style.display = "block";
@@ -226,20 +253,33 @@ async function guardarEdicion() {
   const snap = await getDoc(docRef);
   const data = snap.data();
   const nuevoEstado = document.getElementById("editEstado").value;
+  const tecnicoAsignado = document.getElementById("editTecnico").value;
+  const fechaProgramada = document.getElementById("editFechaProgramada").value;
+  const tiempoEstimado = parseFloat(document.getElementById("editTiempoEstimado").value) || null;
+  const tiempoReal = parseFloat(document.getElementById("editTiempoReal").value) || null;
+  const comentarioMantenimiento = document.getElementById("editComentario").value.trim();
+  const informeCierre = document.getElementById("editInformeCierre").value.trim();
+
+  if ((nuevoEstado === "Pendiente" || nuevoEstado === "En proceso") && (!tecnicoAsignado || !fechaProgramada)) {
+    return alert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
+  }
+  if (nuevoEstado === "Cerrado" && (!tecnicoAsignado || !fechaProgramada || !tiempoEstimado || !tiempoReal || !comentarioMantenimiento || !informeCierre)) {
+    return alert("Para pasar a Cerrado debe completar todos los campos.");
+  }
 
   const updateData = {
-    tecnicoAsignado: document.getElementById("editTecnico").value,
-    tiempoEstimado: parseFloat(document.getElementById("editTiempoEstimado").value) || null,
-    tiempoReal: parseFloat(document.getElementById("editTiempoReal").value) || null,
-    comentarioMantenimiento: document.getElementById("editComentario").value,
-    informeCierre: document.getElementById("editInformeCierre").value
+    tecnicoAsignado,
+    tiempoEstimado,
+    tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
+    comentarioMantenimiento,
+    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   };
-  if (document.getElementById("editFechaProgramada").value) updateData.fechaProgramada = new Date(document.getElementById("editFechaProgramada").value);
+  if (fechaProgramada) updateData.fechaProgramada = new Date(fechaProgramada);
 
   if (nuevoEstado !== data.estado) {
     updateData.estado = nuevoEstado;
     const historial = data.historial || [];
-    historial.push({ estado: nuevoEstado, fecha: new Date(), usuario: sessionStorage.getItem("userName") });
+    historial.push({ estado: nuevoEstado, fecha: new Date(), usuario: sessionStorage.getItem("userName"), camposModificados: "Estado y datos de mantenimiento" });
     updateData.historial = historial;
     if (nuevoEstado === "Cerrado") {
       updateData.fechaCierre = new Date();
@@ -274,4 +314,27 @@ async function generarPreventivaRecurrente(original) {
 function cerrarModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.style.display = "none";
+}
+
+function formatearFechaCorta(fecha) {
+  if (!fecha) return "";
+  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
+  if (Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
+function formatearFechaLarga(fecha) {
+  if (!fecha) return "-";
+  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleString("es-AR");
+}
+
+function actualizarCamposEstadoCierre() {
+  const esCerrado = document.getElementById("editEstado").value === "Cerrado";
+  document.getElementById("editTiempoRealGroup").style.display = esCerrado ? "block" : "none";
+  document.getElementById("editInformeCierreGroup").style.display = esCerrado ? "block" : "none";
 }
