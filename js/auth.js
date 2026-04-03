@@ -1,0 +1,73 @@
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { auth, db } from "./firebase-config.js";
+
+export const authState = {
+  user: null,
+  profile: null
+};
+
+export async function login(email, password) {
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  const uid = cred.user.uid;
+  const userDoc = await getDoc(doc(db, "users", uid));
+  const userData = userDoc.exists()
+    ? userDoc.data()
+    : { nombreCompleto: cred.user.email, rol: "usuario", email: cred.user.email };
+
+  const profile = {
+    uid,
+    nombre: userData.nombreCompleto || userData.email || cred.user.email,
+    rol: userData.rol || "usuario",
+    email: userData.email || cred.user.email
+  };
+
+  sessionStorage.setItem("userName", profile.nombre);
+  sessionStorage.setItem("userRole", profile.rol);
+  sessionStorage.setItem("userUid", profile.uid);
+
+  authState.user = cred.user;
+  authState.profile = profile;
+  return profile;
+}
+
+export async function logout() {
+  await signOut(auth);
+  sessionStorage.clear();
+  authState.user = null;
+  authState.profile = null;
+}
+
+export function watchAuth(callback) {
+  return onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      authState.user = null;
+      authState.profile = null;
+      callback(null);
+      return;
+    }
+
+    let nombre = sessionStorage.getItem("userName");
+    let rol = sessionStorage.getItem("userRole");
+    const uid = user.uid;
+
+    if (!nombre || !rol) {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        nombre = data.nombreCompleto || data.email || user.email;
+        rol = data.rol || "usuario";
+      } else {
+        nombre = user.email;
+        rol = "usuario";
+      }
+      sessionStorage.setItem("userName", nombre);
+      sessionStorage.setItem("userRole", rol);
+      sessionStorage.setItem("userUid", uid);
+    }
+
+    authState.user = user;
+    authState.profile = { uid, nombre, rol, email: user.email };
+    callback(authState.profile);
+  });
+}
