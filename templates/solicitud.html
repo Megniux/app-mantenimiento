@@ -5,17 +5,53 @@
       <h3>Datos generales</h3>
       <div class="form-group">
         <div class="input-with-icon">
-          <i class="fa-solid fa-list"></i>
+          <i class="fa-solid fa-user"></i>
           <input type="text" id="solicitante" disabled>
         </div>
       </div>
+      <div class="form-group" id="tipoGrupo">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-list"></i>
+          <select id="tipo"><option value="Correctivo">Correctivo</option><option value="Preventivo">Preventivo</option></select>
+        </div>
+      </div>
+      <div class="form-group" id="grupoFrecuencia" style="display:none;">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-repeat"></i>
+          <select id="frecuencia"><option value="">Seleccionar frecuencia</option><option>Diaria</option><option>Semanal</option><option>Quincenal</option><option>Mensual</option><option>Bimestral</option><option>Trimestral</option><option>Semestral</option><option>Anual</option></select>
+        </div>
+      </div>
     </div>   
-    <div class="form-group" id="tipoGrupo"><select id="tipo"><option value="Correctivo">Correctivo</option><option value="Preventivo">Preventivo</option></select></div>
-    <div class="form-group" id="grupoFrecuencia" style="display:none;"><select id="frecuencia"><option value="">Seleccionar frecuencia</option><option>Diaria</option><option>Semanal</option><option>Quincenal</option><option>Mensual</option><option>Bimestral</option><option>Trimestral</option><option>Semestral</option><option>Anual</option></select></div>
-    <div class="form-group"><i class="fa-solid fa-location-dot"></i><select id="ubicacion"><option>Cargando...</option></select></div>
-    <div class="form-group"><select id="equipo"><option>Cargando...</option></select></div>
-    <div class="form-group"><textarea id="descripcion" placeholder="Descripción del problema o tarea" rows="3"></textarea></div>
-    <div class="form-group"><select id="prioridad"><option>Baja</option><option selected>Media</option><option>Alta</option></select></div>
+    <div class="form-section">
+      <h3>Ubicación y equipo</h3>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-location-dot"></i>
+          <select id="ubicacion"><option>Cargando...</option></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-gears"></i>
+          <select id="equipo"><option>Cargando...</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="form-section">
+      <h3>Detalle</h3>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-align-left"></i>
+          <textarea id="descripcion" placeholder="Descripción del problema o tarea" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-flag"></i>
+          <select id="prioridad"><option>Baja</option><option selected>Media</option><option>Alta</option></select>
+        </div>
+      </div>
+    </div>
     <button id="guardarSolicitudBtn" type="button" class="btn-primary">Enviar solicitud</button>
   </form>
 </div>

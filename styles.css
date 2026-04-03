@@ -153,6 +153,26 @@ input, select, textarea {
     border-radius: 6px;
     border: 1px solid #ccc;
 }
+.input-with-icon {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 0 10px;
+    background: white;
+}
+.input-with-icon i {
+    color: #1f3a5f;
+    margin-right: 8px;
+}
+.input-with-icon input,
+.input-with-icon select {
+    border: none;
+    outline: none;
+    padding: 10px 0;
+    width: 100%;
+    font-size: 14px;
+}
 button {
     background: #1f3a5f;
     color: white;
