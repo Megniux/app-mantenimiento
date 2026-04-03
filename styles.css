@@ -3,6 +3,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    text-decoration: none;
 }
 
 body {
@@ -327,7 +328,7 @@ button:hover {
 /* Top bar */
 .top-bar {
     background: white;
-    padding: 14px 28px;
+    padding: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -379,7 +380,7 @@ button:hover {
 
 /* Tarjeta de tabla */
 .orders-card {
-    margin: 24px 28px;
+    margin: 0;
     background: white;
     border-radius: 20px;
     border: 1px solid #edf2f7;
@@ -522,7 +523,7 @@ button:hover {
     .user-info .user-avatar {
         margin: 0 auto;
     }
-    .logout-btn-sidebar i {
+    .logout-btn-sidebar span {
         display: none;
     }
     .nav-item {
@@ -539,9 +540,6 @@ button:hover {
     .top-bar {
         flex-direction: column;
         align-items: stretch;
-    }
-    .orders-card {
-        margin: 16px;
     }
 }
 
@@ -574,6 +572,5 @@ button:hover {
 
 @media (max-width: 480px) {
   .top-bar { padding: 10px 12px; }
-  .orders-card { margin: 8px; }
   .modal-content { width: 94%; }
 }
