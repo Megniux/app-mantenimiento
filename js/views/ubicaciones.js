@@ -15,8 +15,10 @@ async function cargarUbicaciones() {
     row.insertCell(0).textContent = docSnap.data().nombre;
     const actions = row.insertCell(1);
     const btn = document.createElement("button");
-    btn.textContent = "Eliminar";
-    btn.style.background = "#dc3545";
+    btn.type = "button";
+    btn.className = "btn-delete-icon";
+    btn.setAttribute("aria-label", `Eliminar ${docSnap.data().nombre}`);
+    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
     btn.addEventListener("click", () => eliminarUbicacion(docSnap.id));
     actions.appendChild(btn);
   });
