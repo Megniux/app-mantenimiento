@@ -544,3 +544,36 @@ button:hover {
         margin: 16px;
     }
 }
+
+.view-host { padding: 20px; }
+.view-wrapper { padding: 24px; }
+.login-box { max-width: 420px; margin: 24px auto; background:#fff; padding:24px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+.nav-item.disabled { opacity:.5; cursor:not-allowed; }
+.top-actions-inline { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin: 0 28px; flex-wrap: wrap; }
+
+@media (max-width: 768px) {
+  .view-host { padding: 12px; }
+  .sidebar { width:64px; min-width:64px; }
+  .nav-item { min-height: 48px; position: relative; }
+  .nav-item span { display:none; }
+  .nav-item:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: 70px;
+    background: #1f3a5f;
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .filter-group { display:grid; grid-template-columns: 1fr; width:100%; }
+  .order-table { min-width: 720px; }
+  .menu-trigger, .btn-outline, .logout-btn-sidebar, button { min-width: 44px; min-height: 44px; }
+  .modal-content { width: 92%; padding: 18px; }
+}
+
+@media (max-width: 480px) {
+  .top-bar { padding: 10px 12px; }
+  .orders-card { margin: 8px; }
+  .modal-content { width: 94%; }
+}

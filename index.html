@@ -1,119 +1,40 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>Inicio - Sistema de Mantenimiento</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Sistema de Mantenimiento (SPA)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="app-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <img src="logo.jpg" alt="Logo" class="sidebar-logo">
-            <h2>Mantenimiento</h2>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <img src="logo.jpg" alt="Logo" class="sidebar-logo">
+      <h2>Mantenimiento</h2>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">I</div>
+        <div>
+          <div class="user-name" id="userName">Invitado</div>
+          <div class="user-role" id="userRole">No autenticado</div>
         </div>
-        <nav class="sidebar-nav" id="sidebar-nav">
-            <!-- Los enlaces se generan dinámicamente según rol -->
-        </nav>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <div class="user-avatar" id="userAvatar"></div>
-                <div>
-                    <div class="user-name" id="userName"></div>
-                    <div class="user-role" id="userRole"></div>
-                </div>
-            </div>
-            <button class="logout-btn-sidebar" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
-        </div>
-    </aside>
+      </div>
+      <button class="logout-btn-sidebar" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Cerrar sesión</button>
+    </div>
+  </aside>
 
-    <main class="main-content">
-        <div class="top-bar">
-            <div class="page-title" style="padding: 10px 0;">
-                <h1>Inicio</h1>
-            </div>
-        </div>
-        <div class="orders-card" style="padding: 40px; text-align: center;">
-            <h2>Bienvenido al Sistema de Mantenimiento</h2>
-            <p>Seleccione una opción del menú lateral.</p>
-        </div>
-    </main>
+  <main class="main-content">
+    <div class="top-bar">
+      <div class="page-title"><h1 id="pageTitle">Iniciar Sesión</h1></div>
+    </div>
+    <section id="mainContent" class="view-host"></section>
+  </main>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyDew-CFyPQ8fIUPQf_vnInM9-JZEuV1zi8",
-        authDomain: "mantenimiento-app-170e5.firebaseapp.com",
-        projectId: "mantenimiento-app-170e5",
-        storageBucket: "mantenimiento-app-170e5.firebasestorage.app",
-        messagingSenderId: "555398253444",
-        appId: "1:555398253444:web:565d98dbbe52844b5bebd1"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-    onAuthStateChanged(auth, (user) => {
-        if (!user) {
-            window.location.href = "login.html";
-            return;
-        }
-        const role = sessionStorage.getItem("userRole") || "usuario";
-        const userName = sessionStorage.getItem("userName") || user.email;
-        document.getElementById("userName").innerText = userName;
-        document.getElementById("userRole").innerText = role.charAt(0).toUpperCase() + role.slice(1);
-        const avatarInitial = userName.charAt(0).toUpperCase();
-        document.getElementById("userAvatar").innerText = avatarInitial;
-        generarMenu(role);
-    });
-
-    function generarMenu(role) {
-        const nav = document.getElementById("sidebar-nav");
-        nav.innerHTML = "";
-
-        // Definir items según rol
-        const items = [];
-
-        // Todos ven: Nueva Solicitud, Ver Solicitudes
-        items.push({ icon: "fa-plus-circle", text: "Nueva Solicitud", href: "solicitud.html", visible: true });
-        items.push({ icon: "fa-list", text: "Ver Solicitudes", href: "consulta.html", visible: true });
-
-        if (role === "tecnico" || role === "supervisor" || role === "admin") {
-            items.push({ icon: "fa-chart-line", text: "Informes", href: "informes.html", visible: true });
-        }
-
-        if (role === "supervisor" || role === "admin") {
-            items.push({ icon: "fa-gears", text: "Gestionar Equipos", href: "gestion_equipos.html", visible: true });
-            items.push({ icon: "fa-location-dot", text: "Gestionar Ubicaciones", href: "gestion_ubicaciones.html", visible: true });
-        }
-
-        if (role === "admin") {
-            items.push({ icon: "fa-users", text: "Gestionar Usuarios", href: "gestion_usuarios.html", visible: true });
-        }
-
-        items.forEach(item => {
-            const div = document.createElement("div");
-            div.className = "nav-item";
-            div.innerHTML = `<i class="fas ${item.icon}"></i><span>${item.text}</span>`;
-            div.onclick = () => location.href = item.href;
-            nav.appendChild(div);
-        });
-    }
-
-    document.getElementById("logoutBtn").addEventListener("click", async () => {
-        await signOut(auth);
-        sessionStorage.clear();
-        window.location.href = "login.html";
-    });
-</script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
