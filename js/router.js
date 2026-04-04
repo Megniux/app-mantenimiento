@@ -36,6 +36,8 @@ const menuMeta = {
 const mainContent = document.getElementById("mainContent");
 const pageTitle = document.getElementById("pageTitle");
 const nav = document.getElementById("sidebar-nav");
+const appLayout = document.querySelector(".app-layout");
+const sidebarToggle = document.getElementById("sidebarToggle");
 
 function currentRoute() {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -120,6 +122,20 @@ export function navigate(routeKey) {
 }
 
 export function initRouter() {
+  if (appLayout && sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      const expanded = appLayout.classList.toggle("sidebar-expanded");
+      sidebarToggle.setAttribute("aria-expanded", String(expanded));
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 1024) {
+        appLayout.classList.remove("sidebar-expanded");
+        sidebarToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
   document.getElementById("logoutBtn").addEventListener("click", async () => {
     await logout();
     await cargarContenido("login", true);
