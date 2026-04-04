@@ -473,15 +473,13 @@ button:hover {
     font-size: 12px;
 }
 .btn-outline {
-    background: #fff;
-    color: #1f3a5f;
+    background: #8c929c;
     border: 1px solid #1f3a5f;
     border-radius: 20px;
     padding: 6px 14px;
 }
 .btn-outline:hover {
-    background: #1f3a5f;
-    color: #fff;
+    background: #e2e8f0;
 }
 .btn-primary-green {
     background: #1f3a5f;
