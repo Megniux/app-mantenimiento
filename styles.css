@@ -646,10 +646,6 @@ th {
     min-width: var(--sidebar-tablet);
   }
 
-  .mobile-sidebar-toggle {
-    display: none;
-  }
-
   .view-host,
   .view-wrapper {
     padding: 1rem;
