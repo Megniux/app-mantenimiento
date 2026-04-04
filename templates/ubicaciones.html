@@ -1,6 +1,28 @@
-<div class="container">
-  <h2>Lista de Ubicaciones</h2>
-  <table id="tablaUbicaciones"><thead><tr><th>Nombre</th><th>Acciones</th></tr></thead><tbody></tbody></table>
-  <div class="form-group"><input type="text" id="nuevaUbicacion" placeholder="Nombre de la ubicación"></div>
-  <button id="agregarUbicacionBtn">Agregar</button>
+<div class="form-card">
+  <div class="form-section">
+    <h3>Lista de Ubicaciones</h3>
+    <table id="tablaUbicaciones" class="management-table">
+      <colgroup>
+        <col class="col-principal">
+        <col class="col-acciones">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="form-section">
+    <h3>Agregar nueva ubicación</h3>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-location-dot"></i>
+        <input type="text" id="nuevaUbicacion" placeholder="Nombre de la ubicación">
+      </div>
+    </div>
+  </div>
+  <button id="agregarUbicacionBtn" type="button" class="btn-primary"><i class="fa-solid fa-paper-plane"></i>Agregar</button>
 </div>
