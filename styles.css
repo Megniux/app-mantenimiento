@@ -488,6 +488,7 @@ button:hover {
 
 .consulta-table {
     table-layout: fixed;
+    overflow: visible;
 }
 .consulta-table .col-numero { width: 120px; }
 .consulta-table .col-tipo { width: 110px; }
@@ -510,6 +511,10 @@ button:hover {
 .actions-menu {
     position: relative;
     display: inline-block;
+}
+.consulta-table td.actions-menu,
+.consulta-table td:last-child {
+    overflow: visible;
 }
 .menu-trigger {
     cursor: pointer;
