@@ -1,35 +1,84 @@
-<div class="orders-card">
-  <div class="top-actions-inline">
+<div class="form-card consulta-card">
+  <div class="form-section consulta-header-actions">
     <div class="search-wrapper"><i class="fas fa-search"></i><input type="text" id="busqueda" placeholder="Buscar..."></div>
-    <button class="btn-outline" id="exportBtn">Exportar CSV</button>
+    <button class="btn-outline" id="exportBtn" type="button">Exportar CSV</button>
   </div>
-  <div class="table-toolbar">
+  <div class="form-section table-toolbar">
     <div class="filter-group">
       <div class="grupo-filtro"><label>Tipo</label><select id="filtroTipo"><option value="">Todos</option><option value="Correctivo">Correctivo</option><option value="Preventivo">Preventivo</option></select></div>
       <div class="grupo-filtro"><label>Estado</label><select id="filtroEstado"><option value="">Todos</option><option value="noCerrado">Todos los no cerrados</option><option>Nuevo</option><option>Pendiente</option><option>En proceso</option><option>Esperando proveedor</option><option>Cerrado</option></select></div>
       <div class="grupo-filtro"><label>Solicitante</label><select id="filtroUsuario"><option value="">Todos</option></select></div>
       <div class="grupo-filtro"><label>Ubicación</label><select id="filtroUbicacion"><option value="">Todas</option></select></div>
       <div class="grupo-filtro"><label>Equipo</label><select id="filtroEquipo"><option value="">Todos</option></select></div>
-      <div class="grupo-filtro"><button class="btn-primary-green" id="filtrarBtn">Filtrar</button></div>
+      <div class="grupo-filtro"><button class="btn-primary-green" id="filtrarBtn" type="button">Filtrar</button></div>
     </div>
     <div class="ordenamiento-controls">
       <span>Ordenar por:</span><select id="ordenCampo"><option value="numero">Número de orden</option><option value="fechaProgramada">Fecha programada</option></select>
       <select id="ordenDireccion"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select>
-      <button id="aplicarOrdenBtn">Aplicar</button>
+      <button id="aplicarOrdenBtn" type="button">Aplicar</button>
     </div>
   </div>
-  <div style="overflow-x:auto;"><table class="order-table"><thead><tr><th>N° Orden</th><th>Tipo</th><th>Estado</th><th>Equipo</th><th>Descripción</th><th></th></tr></thead><tbody id="tabla"></tbody></table></div>
+  <div style="overflow-x:auto;">
+    <table class="management-table consulta-table">
+      <colgroup>
+        <col class="col-numero">
+        <col class="col-tipo">
+        <col class="col-estado">
+        <col class="col-equipo">
+        <col class="col-descripcion">
+        <col class="col-fecha-prog">
+        <col class="col-acciones">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>N° Orden</th>
+          <th>Tipo</th>
+          <th>Estado</th>
+          <th>Equipo</th>
+          <th>Descripción</th>
+          <th>Fecha prog.</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tabla"></tbody>
+    </table>
+  </div>
 </div>
 
-<div id="modalEditar" class="modal"><div class="modal-content"><span class="close close-modal" data-modal="modalEditar">&times;</span>
-  <h3>Editar Orden</h3>
-  <div class="form-group"><label>Estado:</label><select id="editEstado"></select></div>
-  <div class="form-group"><label>Técnico asignado:</label><select id="editTecnico"></select></div>
-  <div class="form-group"><label>Fecha programada:</label><input type="datetime-local" id="editFechaProgramada"></div>
-  <div class="form-group"><label>Tiempo estimado (hs):</label><input type="number" step="0.5" id="editTiempoEstimado"></div>
-  <div class="form-group"><label>Tiempo real (hs):</label><input type="number" step="0.5" id="editTiempoReal"></div>
-  <div class="form-group"><label>Comentario mantenimiento:</label><textarea id="editComentario" rows="2"></textarea></div>
-  <div class="form-group"><label>Informe de cierre:</label><textarea id="editInformeCierre" rows="2"></textarea></div>
-  <button id="guardarEdicionBtn">Guardar cambios</button>
+<div id="modalEditar" class="modal"><div class="modal-content">
+  <span class="close close-modal" data-modal="modalEditar">&times;</span>
+  <div class="form-card modal-form-card">
+    <h3>Editar Orden</h3>
+    <div class="form-section">
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-list"></i><select id="editEstado"></select></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-user-gear"></i><select id="editTecnico"></select></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-calendar-days"></i><input type="datetime-local" id="editFechaProgramada"></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-regular fa-clock"></i><input type="number" step="0.5" id="editTiempoEstimado" placeholder="Tiempo estimado (hs)"></div>
+      </div>
+      <div class="form-group" id="editTiempoRealGroup">
+        <div class="input-with-icon"><i class="fa-solid fa-hourglass-end"></i><input type="number" step="0.5" id="editTiempoReal" placeholder="Tiempo real (hs)"></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-comment"></i><textarea id="editComentario" rows="2" placeholder="Comentario mantenimiento"></textarea></div>
+      </div>
+      <div class="form-group" id="editInformeCierreGroup">
+        <div class="input-with-icon"><i class="fa-solid fa-file-circle-check"></i><textarea id="editInformeCierre" rows="2" placeholder="Informe de cierre"></textarea></div>
+      </div>
+    </div>
+    <button id="guardarEdicionBtn" type="button" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i>Guardar cambios</button>
+  </div>
 </div></div>
-<div id="modalDetalles" class="modal"><div class="modal-content"><span class="close close-modal" data-modal="modalDetalles">&times;</span><h3>Detalles</h3><div id="detallesContenido"></div></div></div>
+<div id="modalDetalles" class="modal"><div class="modal-content">
+  <span class="close close-modal" data-modal="modalDetalles">&times;</span>
+  <div class="form-card modal-form-card">
+    <h3>Ver Detalles</h3>
+    <div id="detallesContenido"></div>
+  </div>
+</div></div>

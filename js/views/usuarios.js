@@ -19,8 +19,10 @@ async function cargarUsuarios() {
     row.insertCell(2).textContent = data.rol;
     const actions = row.insertCell(3);
     const btn = document.createElement("button");
-    btn.textContent = "Eliminar";
-    btn.style.background = "#dc3545";
+    btn.type = "button";
+    btn.className = "btn-delete-icon";
+    btn.setAttribute("aria-label", `Eliminar ${data.email || "usuario"}`);
+    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
     btn.addEventListener("click", () => eliminarUsuario(docSnap.id));
     actions.appendChild(btn);
   });
