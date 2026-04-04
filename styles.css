@@ -307,10 +307,6 @@ button {
   padding: 0.5rem 0.9rem;
 }
 
-button:hover {
-  background: var(--color-primary-dark);
-}
-
 .btn-primary {
   width: 100%;
   margin-top: 0.8rem;
@@ -640,7 +636,7 @@ th {
 }
 
 @media (min-width: 640px) {
-
+  
   .sidebar {
     width: var(--sidebar-tablet);
     min-width: var(--sidebar-tablet);
