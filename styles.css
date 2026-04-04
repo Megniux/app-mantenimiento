@@ -174,11 +174,12 @@ body {
 .mobile-sidebar-toggle {
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: 0.625rem;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: transparent;
+  color: #8c929c;
 }
 
 .page-title h1 {
@@ -644,6 +645,11 @@ th {
     width: var(--sidebar-tablet);
     min-width: var(--sidebar-tablet);
   }
+
+  .mobile-sidebar-toggle {
+    display: none;
+  }
+
   .view-host,
   .view-wrapper {
     padding: 1rem;
