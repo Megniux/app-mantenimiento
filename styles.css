@@ -474,7 +474,7 @@ button:hover {
 }
 .btn-outline {
     background: #8c929c;
-    border: 1px solid #1f3a5f;
+    border: none;
     border-radius: 20px;
     padding: 6px 14px;
 }
