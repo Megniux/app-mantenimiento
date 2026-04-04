@@ -341,12 +341,12 @@ function actualizarCamposEstadoCierre() {
 }
 
 async function limpiarFiltros() {
-  document.getElementById("busqueda").value = "";
-  document.getElementById("filtroTipo").value = "";
-  document.getElementById("filtroEstado").value = "";
-  document.getElementById("filtroUsuario").value = "";
-  document.getElementById("filtroUbicacion").value = "";
-  document.getElementById("filtroEquipo").value = "";
+  document.getElementById("busqueda").value = "Todos";
+  document.getElementById("filtroTipo").value = "Todos";
+  document.getElementById("filtroEstado").value = "Todos";
+  document.getElementById("filtroUsuario").value = "Todos";
+  document.getElementById("filtroUbicacion").value = "Todas";
+  document.getElementById("filtroEquipo").value = "Todos";
   configurarOrdenPredeterminado();
   await cargar();
 }
