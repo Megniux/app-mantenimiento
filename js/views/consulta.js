@@ -16,6 +16,7 @@ export async function initConsultaView({ role }) {
   await cargar();
 
   document.getElementById("filtrarBtn").addEventListener("click", cargar);
+  document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
   document.getElementById("exportBtn").addEventListener("click", exportarCSV);
   document.getElementById("busqueda").addEventListener("input", cargar);
@@ -337,4 +338,15 @@ function actualizarCamposEstadoCierre() {
   const esCerrado = document.getElementById("editEstado").value === "Cerrado";
   document.getElementById("editTiempoRealGroup").style.display = esCerrado ? "block" : "none";
   document.getElementById("editInformeCierreGroup").style.display = esCerrado ? "block" : "none";
+}
+
+async function limpiarFiltros() {
+  document.getElementById("busqueda").value = "";
+  document.getElementById("filtroTipo").value = "";
+  document.getElementById("filtroEstado").value = "";
+  document.getElementById("filtroUsuario").value = "";
+  document.getElementById("filtroUbicacion").value = "";
+  document.getElementById("filtroEquipo").value = "";
+  configurarOrdenPredeterminado();
+  await cargar();
 }
