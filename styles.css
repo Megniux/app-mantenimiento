@@ -13,15 +13,6 @@ body {
     flex-direction: column;
     min-height: 100vh;
 }
-.logout-btn {
-    background: #2c4a73;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9rem;
-}
 
 /* Botón volver */
 .volver-btn {
@@ -91,7 +82,7 @@ table {
 td {
     padding: 4px;
     border: 1px solid #ddd;
-    font-size: 14.5px;
+    font-size: 14px;
     text-align: left;
     width: auto;
 }
@@ -100,7 +91,7 @@ th {
     color: white;
     padding: 9px;
     border: 1px solid #ddd;
-    font-size: 14.5px;
+    font-size: 14px;
     text-align: center;
     width: auto;
     font-weight: normal;
@@ -156,16 +147,18 @@ th {
 .btn-delete-icon {
     background: #5a6e8a;
     color: #fff;
-    border-radius: 6px;
+    border-radius: 25px;
     width: 34px;
     height: 34px;
     padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    font-size: 16px;
+
 }
 .btn-delete-icon:hover {
-    background: #4a5f7b;
+    background: #e2e8f0;
 }
 
 
@@ -284,6 +277,7 @@ button:hover {
     top: 0;
     left: 0;
     height: 100vh;
+    min-height: min-content;
     overflow-y: auto;
     z-index: 100;
 }
@@ -409,7 +403,7 @@ button:hover {
     align-items: center;
     background: #f8fafc;
     border-radius: 28px;
-    padding: 5px 12px;
+    padding: 0 12px;
     gap: 6px;
     border: 1px solid #e2e8f0;
 }
@@ -417,8 +411,9 @@ button:hover {
     border: none;
     background: transparent;
     outline: none;
-    font-size: 12px;
+    font-size: 14px;
     width: 160px;
+    padding: 5px 10px;
 }
 
 .consulta-card {
@@ -479,6 +474,10 @@ button:hover {
     border: 1px solid #1f3a5f;
     border-radius: 20px;
     padding: 6px 14px;
+}
+.btn-outline:hover {
+    background: #1f3a5f;
+    color: #fff;
 }
 .btn-primary-green {
     background: #1f3a5f;
@@ -635,7 +634,7 @@ button:hover {
     }
     th, td {
         padding: 6px;
-        font-size: 0.8rem;
+        font-size: 0.9rem;
     }
     button {
         padding: 5px 8px;
