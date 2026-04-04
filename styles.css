@@ -439,7 +439,7 @@ button:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    align-items: center;
+    align-items: flex-end;
 }
 .filter-group select, .filter-group input {
     padding: 6px 10px;
