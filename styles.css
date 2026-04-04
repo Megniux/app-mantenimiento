@@ -42,7 +42,17 @@ body {
   border-right: 1px solid #e9edf2;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: inherit;
+}
+
+.sidebar-content {
+  width: var(--sidebar-mobile);
+  min-width: var(--sidebar-mobile);
+  background: #f8fafc;
+  border-right: 1px solid #e9edf2;
+  display: flex;
+  flex-direction: column;
+  min-height: min-content;
   overflow-y: auto;
   z-index: 100;
   transition: width 0.2s ease;
@@ -111,6 +121,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  font-size: 0.85rem;
 }
 
 .user-info {
@@ -136,7 +147,7 @@ body {
   border: none;
   border-radius: 0.5rem;
   cursor: pointer;
-  min-height: 2.75rem;
+  min-height: 2rem;
   min-width: 2.75rem;
   display: inline-flex;
   align-items: center;
@@ -292,7 +303,7 @@ button {
   border: none;
   border-radius: 0.5rem;
   cursor: pointer;
-  padding: 0.6rem 0.9rem;
+  padding: 0.5rem 0.9rem;
 }
 
 button:hover {
@@ -387,12 +398,11 @@ button:hover {
   margin-bottom: 0;
 }
 
-.filter-group select,
-.filter-group input,
-.ordenamiento-controls select,
-.ordenamiento-controls button {
+.form-section select,
+.form-section input,
+.form-section button {
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .ordenamiento-controls {
