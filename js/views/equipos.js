@@ -18,7 +18,7 @@ async function cargarEquipos() {
     btn.type = "button";
     btn.className = "btn-delete-icon";
     btn.setAttribute("aria-label", `Eliminar ${docSnap.data().nombre}`);
-    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     btn.addEventListener("click", () => eliminarEquipo(docSnap.id));
     actions.appendChild(btn);
   });

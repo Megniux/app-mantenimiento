@@ -10,7 +10,7 @@ const routes = {
   login: { template: "templates/login.html", title: "Iniciar Sesión", init: null, roles: ["guest", "usuario", "tecnico", "supervisor", "admin"] },
   consulta: { template: "templates/consulta.html", title: "Consulta de Órdenes", init: initConsultaView, roles: ["usuario", "tecnico", "supervisor", "admin"] },
   solicitud: { template: "templates/solicitud.html", title: "Nueva Solicitud", init: initSolicitudView, roles: ["usuario", "tecnico", "supervisor", "admin"] },
-  informes: { template: "templates/informes.html", title: "Informes", init: initInformesView, roles: ["tecnico", "supervisor", "admin"] },
+  informes: { template: "templates/informes.html", title: "KPIs (Indicadores Clave)", init: initInformesView, roles: ["tecnico", "supervisor", "admin"] },
   equipos: { template: "templates/equipos.html", title: "Gestionar Equipos", init: initEquiposView, roles: ["supervisor", "admin"] },
   ubicaciones: { template: "templates/ubicaciones.html", title: "Gestionar Ubicaciones", init: initUbicacionesView, roles: ["supervisor", "admin"] },
   usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin"] }

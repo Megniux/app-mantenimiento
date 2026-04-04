@@ -22,7 +22,7 @@ async function cargarUsuarios() {
     btn.type = "button";
     btn.className = "btn-delete-icon";
     btn.setAttribute("aria-label", `Eliminar ${data.email || "usuario"}`);
-    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     btn.addEventListener("click", () => eliminarUsuario(docSnap.id));
     actions.appendChild(btn);
   });

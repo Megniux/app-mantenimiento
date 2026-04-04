@@ -18,7 +18,7 @@ async function cargarUbicaciones() {
     btn.type = "button";
     btn.className = "btn-delete-icon";
     btn.setAttribute("aria-label", `Eliminar ${docSnap.data().nombre}`);
-    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     btn.addEventListener("click", () => eliminarUbicacion(docSnap.id));
     actions.appendChild(btn);
   });
