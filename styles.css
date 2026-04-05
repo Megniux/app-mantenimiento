@@ -423,7 +423,6 @@ button {
 .form-section select,
 .form-section input,
 .form-section button {
-  border-radius: 999px;
   font-size: 0.85rem;
 }
 
