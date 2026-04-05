@@ -169,7 +169,7 @@ async function cargar() {
   filtradas.sort((a, b) => {
     const valA = ordenCampo === "numero" ? (parseInt(a.numeroOrden.split("-")[1]) || 0) : (a.fechaProgramada?.seconds || 0);
     const valB = ordenCampo === "numero" ? (parseInt(b.numeroOrden.split("-")[1]) || 0) : (b.fechaProgramada?.seconds || 0);
-    return ordenDireccion === "asc" ? valA - valB : valB - valA;
+    return ordenDireccion === "desc" ? valA - valB : valB - valA;
   });
 
   filtradas.forEach((orden) => {
@@ -394,6 +394,5 @@ async function limpiarFiltros() {
   document.getElementById("filtroUsuario").value = "";
   document.getElementById("filtroUbicacion").value = "";
   document.getElementById("filtroEquipo").value = "";
-  configurarOrdenPredeterminado();
   await cargar();
 }
