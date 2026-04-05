@@ -243,7 +243,7 @@ async function verDetalles(id) {
     ["Ubicación", d.ubicacion], ["Equipo", d.equipo], ["Prioridad", d.prioridad], ["Frecuencia", d.frecuencia || "-"],
     ["Técnico asignado", d.tecnicoAsignado || "-"], ["Descripción", d.descripcion || "-"],
     ["Comentario mantenimiento", d.comentarioMantenimiento || "-"], ["Informe de cierre", d.informeCierre || "-"],
-    ["Fecha creación", formatearFechaLarga(d.fechaCreacion)], ["Fecha programada", formatearFechaLarga(d.fechaProgramada)],
+    ["Fecha creación", formatearFechaLarga(d.fechaCreacion)], ["Fecha programada", formatearFechaCorta(d.fechaProgramada)],
     ["Fecha cierre", formatearFechaLarga(d.fechaCierre)], ["Tiempo estimado (hs)", d.tiempoEstimado ?? "-"],
     ["Tiempo real (hs)", d.tiempoReal ?? "-"]
   ];
@@ -289,7 +289,7 @@ async function abrirModal(id) {
     selectTecnico.appendChild(opt);
   });
 
-  document.getElementById("editFechaProgramada").value = data.fechaProgramada ? new Date(data.fechaProgramada.seconds * 1000).toISOString().slice(0, 16) : "";
+  document.getElementById("editFechaProgramada").value = formatearFechaInput(data.fechaProgramada);
   document.getElementById("editTiempoEstimado").value = data.tiempoEstimado || "";
   document.getElementById("editTiempoReal").value = data.tiempoReal || "";
   document.getElementById("editComentario").value = data.comentarioMantenimiento || "";
@@ -326,7 +326,7 @@ async function guardarEdicion() {
     comentarioMantenimiento,
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   };
-  if (fechaProgramada) updateData.fechaProgramada = new Date(fechaProgramada);
+  if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
   if (nuevoEstado !== data.estado) {
     updateData.estado = nuevoEstado;
@@ -356,6 +356,7 @@ async function generarPreventivaRecurrente(original) {
     numeroOrden,
     estado: "Nuevo",
     fechaCreacion: new Date(),
+    fechaProgramada: calcularProximaFechaProgramada(original.frecuencia),
     fechaCierre: null,
     historial: [{ estado: "Nuevo", fecha: new Date(), usuario: "Sistema" }]
   };
@@ -374,8 +375,8 @@ function formatearFechaCorta(fecha) {
   if (Number.isNaN(d.getTime())) return "";
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 function formatearFechaLarga(fecha) {
@@ -383,6 +384,41 @@ function formatearFechaLarga(fecha) {
   const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
   if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString("es-AR");
+}
+
+function formatearFechaInput(fecha) {
+  if (!fecha) return "";
+  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
+  if (Number.isNaN(d.getTime())) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function parsearFechaInput(fechaInput) {
+  const [yyyy, mm, dd] = fechaInput.split("-").map(Number);
+  return new Date(yyyy, mm - 1, dd);
+}
+
+function calcularProximaFechaProgramada(frecuencia) {
+  const proxima = new Date();
+  proxima.setHours(0, 0, 0, 0);
+  const ajustes = {
+    Diaria: { dias: 1 },
+    Semanal: { dias: 7 },
+    Quincenal: { dias: 15 },
+    Mensual: { meses: 1 },
+    Bimestral: { meses: 2 },
+    Trimestral: { meses: 3 },
+    Semestral: { meses: 6 },
+    Anual: { anios: 1 }
+  };
+  const ajuste = ajustes[frecuencia] || {};
+  if (ajuste.dias) proxima.setDate(proxima.getDate() + ajuste.dias);
+  if (ajuste.meses) proxima.setMonth(proxima.getMonth() + ajuste.meses);
+  if (ajuste.anios) proxima.setFullYear(proxima.getFullYear() + ajuste.anios);
+  return proxima;
 }
 
 function actualizarCamposEstadoCierre() {
