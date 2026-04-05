@@ -6,6 +6,7 @@ let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
+const MOBILE_BREAKPOINT = 1024;
 
 export async function initConsultaView({ role }) {
   userRole = role;
@@ -14,6 +15,7 @@ export async function initConsultaView({ role }) {
   await cargarTodasOrdenes();
   configurarOrdenPredeterminado();
   await cargar();
+  inicializarToolbarMovil();
 
   document.getElementById("filtrarBtn").addEventListener("click", cargar);
   document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
@@ -24,6 +26,51 @@ export async function initConsultaView({ role }) {
 
   document.getElementById("mainContent").addEventListener("click", (e) => {
     if (e.target.matches(".close-modal")) cerrarModal(e.target.dataset.modal);
+  });
+}
+
+function inicializarToolbarMovil() {
+  const toolbar = document.querySelector(".table-toolbar");
+  const toggleBtn = document.getElementById("toolbarToggleBtn");
+  if (!toolbar || !toggleBtn) return;
+
+  const closeToolbar = () => {
+    toolbar.classList.remove("mobile-open");
+    toggleBtn.setAttribute("aria-expanded", "false");
+  };
+
+  const toggleToolbar = () => {
+    if (window.innerWidth >= MOBILE_BREAKPOINT) return;
+    const abierto = toolbar.classList.toggle("mobile-open");
+    toggleBtn.setAttribute("aria-expanded", String(abierto));
+  };
+
+  toggleBtn.addEventListener("click", toggleToolbar);
+
+  const cierrePorAccionIds = [
+    "filtroTipo",
+    "filtroEstado",
+    "filtroUsuario",
+    "filtroUbicacion",
+    "filtroEquipo",
+    "ordenCampo",
+    "ordenDireccion",
+    "filtrarBtn",
+    "limpiarFiltrosBtn",
+    "aplicarOrdenBtn"
+  ];
+
+  cierrePorAccionIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const eventName = el.tagName === "BUTTON" ? "click" : "change";
+    el.addEventListener(eventName, () => {
+      if (window.innerWidth < MOBILE_BREAKPOINT) closeToolbar();
+    });
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth >= MOBILE_BREAKPOINT) closeToolbar();
   });
 }
 

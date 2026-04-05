@@ -38,6 +38,14 @@ const pageTitle = document.getElementById("pageTitle");
 const nav = document.getElementById("sidebar-nav");
 const appLayout = document.querySelector(".app-layout");
 const sidebarToggle = document.getElementById("sidebarToggle");
+const MOBILE_BREAKPOINT = 1024;
+
+function collapseSidebarOnMobile() {
+  if (!appLayout || !sidebarToggle) return;
+  if (window.innerWidth >= MOBILE_BREAKPOINT) return;
+  appLayout.classList.remove("sidebar-expanded");
+  sidebarToggle.setAttribute("aria-expanded", "false");
+}
 
 function currentRoute() {
   const hash = window.location.hash.replace(/^#\/?/, "");
@@ -73,9 +81,11 @@ function renderSidebar(activeRoute) {
     item.addEventListener("click", (e) => {
       e.preventDefault();
       if (!authState.profile) {
+        collapseSidebarOnMobile();
         navigate("login");
         return;
       }
+      collapseSidebarOnMobile();
       navigate(routeKey);
     });
     nav.appendChild(item);
@@ -129,7 +139,7 @@ export function initRouter() {
     });
 
     window.addEventListener("resize", () => {
-      if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= MOBILE_BREAKPOINT) {
         appLayout.classList.remove("sidebar-expanded");
         sidebarToggle.setAttribute("aria-expanded", "false");
       }
@@ -137,6 +147,7 @@ export function initRouter() {
   }
 
   document.getElementById("logoutBtn").addEventListener("click", async () => {
+    collapseSidebarOnMobile();
     await logout();
     await cargarContenido("login", true);
   });
