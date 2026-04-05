@@ -427,7 +427,7 @@ table {
 
 th,
 td {
-  border: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
   font-size: 0.8rem;
   padding: 0.5rem;
   text-align: left;
@@ -443,7 +443,6 @@ th {
 
 .management-table,
 #tablaEquipos.equipos-table {
-  border: 1px solid #ddd;
   border-radius: 0.625rem;
   overflow: hidden;
 }
