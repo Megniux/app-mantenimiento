@@ -320,6 +320,7 @@ button {
 }
 
 .btn-outline {
+  display: none;
   background: #8c929c;
   border-radius: 999px;
   padding: 0.55rem 0.85rem;
@@ -449,22 +450,21 @@ th {
   overflow: hidden;
 }
 
-.management-table td {
+.management-table td,
+.management-table th {
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.consulta-table {
-  min-width: 58rem;
-}
-
-.consulta-table .col-numero { width: 7rem; }
-.consulta-table .col-tipo { width: 6.5rem; }
-.consulta-table .col-estado { width: 8rem; }
-.consulta-table .col-equipo { width: 14rem; }
-.consulta-table .col-descripcion { width: 20rem; }
-.consulta-table .col-fecha-prog { width: 7rem; }
+.consulta-table .col-numero { width: 9%; }
+.consulta-table .col-tipo { width: 10%; }
+.consulta-table .col-estado { width: 9%; }
+.consulta-table .col-equipo { width: 13%; }
+.consulta-table .col-descripcion { width: 50%; }
+.consulta-table .col-fecha-prog { width: 9%; }
 .col-acciones { width: 1.6rem; }
 
 .consulta-table td.nowrap-col,
@@ -748,6 +748,10 @@ th {
   .container,
   .form-card {
     padding: 1.5rem;
+  }
+  
+  .btn-outline {
+  display: inline-block;
   }
 
   .btn-primary {
