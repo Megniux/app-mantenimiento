@@ -325,7 +325,7 @@ button {
   padding: 0.55rem 0.85rem;
 }
 
-.search-wrapper .btn-outline {
+.consulta-header-actions .btn-outline {
   display: none;
 }
 
@@ -756,7 +756,7 @@ th {
     padding: 1.5rem;
   }
   
-  .search-wrapper .btn-outline {
+  .consulta-header-actions .btn-outline {
   display: inline-block;
   }
 
