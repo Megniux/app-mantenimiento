@@ -7,6 +7,7 @@ let currentOrderId = null;
 let listaTecnicos = [];
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
+let listenerCierreMenuRegistrado = false;
 
 export async function initConsultaView({ role }) {
   userRole = role;
@@ -27,6 +28,18 @@ export async function initConsultaView({ role }) {
   document.getElementById("mainContent").addEventListener("click", (e) => {
     if (e.target.matches(".close-modal")) cerrarModal(e.target.dataset.modal);
   });
+
+  if (!listenerCierreMenuRegistrado) {
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".actions-menu")) return;
+      cerrarMenusDesplegables();
+    });
+    listenerCierreMenuRegistrado = true;
+  }
+}
+
+function cerrarMenusDesplegables() {
+  document.querySelectorAll(".dropdown-menu.show").forEach((menu) => menu.classList.remove("show"));
 }
 
 function inicializarToolbarMovil() {
@@ -195,12 +208,10 @@ async function cargar() {
         if (!(orden.estado === "Cerrado" && userRole !== "admin")) addOption("Editar", () => abrirModal(id));
       }
       if (userRole === "admin") addOption("Eliminar", () => eliminarOrden(id));
-      document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+      cerrarMenusDesplegables();
       menu.classList.add("show");
     });
   });
-
-  document.addEventListener("click", () => document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show")), { once: true });
 }
 
 async function eliminarOrden(id) {

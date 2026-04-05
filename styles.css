@@ -505,6 +505,14 @@ th {
   overflow-wrap: anywhere;
 }
 
+.consulta-table {
+  overflow: visible;
+}
+
+.consulta-table td.actions-menu {
+  overflow: visible;
+}
+
 .actions-menu {
   position: relative;
 }
