@@ -471,14 +471,8 @@ th {
 
 .consulta-table .col-numero,
 .consulta-table .col-estado,
-.consulta-table .col-fecha-prog { 
-  width: 9%;
-  text-align: center;
-}
-.consulta-table .col-tipo {
-  width: 10%;
-  text-align: center;
-}
+.consulta-table .col-fecha-prog { width: 9%; }
+.consulta-table .col-tipo { width: 10%; }
 .consulta-table .col-equipo { width: 13%; }
 .consulta-table .col-descripcion { width: 50%; }
 .col-acciones { width: 1.6rem; }
@@ -486,6 +480,7 @@ th {
 .consulta-table td.nowrap-col,
 .consulta-table th {
   white-space: nowrap;
+  text-align: center;
 }
 
 .consulta-table td.wrap-col {
