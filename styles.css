@@ -360,9 +360,27 @@ button {
   gap: 0.75rem;
 }
 
+.consulta-header-actions {
+  position: relative;
+}
+
+.toolbar-menu-trigger {
+  align-self: flex-end;
+}
+
 .table-toolbar {
   padding-bottom: 0.5rem;
   border-bottom: 1px solid #edf2f7;
+}
+
+@media (max-width: 1023px) {
+  .table-toolbar {
+    display: none;
+  }
+
+  .table-toolbar.mobile-open {
+    display: flex;
+  }
 }
 
 .search-wrapper {
@@ -701,6 +719,14 @@ th {
 }
 
 @media (min-width: 1024px) {
+  .toolbar-menu-trigger {
+    display: none;
+  }
+
+  .table-toolbar {
+    display: flex;
+  }
+
   .sidebar {
     width: var(--sidebar-desktop);
     min-width: 10.3rem;
