@@ -320,10 +320,13 @@ button {
 }
 
 .btn-outline {
-  display: none;
   background: #8c929c;
   border-radius: 999px;
   padding: 0.55rem 0.85rem;
+}
+
+.search-wrapper .btn-outline {
+  display: none;
 }
 
 .btn-primary-green {
@@ -753,7 +756,7 @@ th {
     padding: 1.5rem;
   }
   
-  .btn-outline {
+  .search-wrapper .btn-outline {
   display: inline-block;
   }
 
