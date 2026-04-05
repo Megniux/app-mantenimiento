@@ -290,10 +290,15 @@ button,
 .btn-outline,
 .btn-primary,
 .btn-primary-green,
-.menu-trigger,
 .volver-btn {
   min-height: 2.75rem;
   min-width: 2.75rem;
+}
+
+.btn-delete-icon,
+.menu-trigger {
+  min-height: 1.5rem;
+  min-width: 1.5rem;
 }
 
 button {
@@ -333,8 +338,6 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 1.5rem;
-  min-width: 1.5rem;
 }
 
 .btn-delete-icon:hover,
@@ -462,7 +465,7 @@ th {
 .consulta-table .col-equipo { width: 14rem; }
 .consulta-table .col-descripcion { width: 20rem; }
 .consulta-table .col-fecha-prog { width: 7rem; }
-.consulta-table .col-acciones { width: 4.5rem; }
+.col-acciones { width: 1.6rem; }
 
 .consulta-table td.nowrap-col,
 .consulta-table th {
