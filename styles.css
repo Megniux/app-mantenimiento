@@ -384,6 +384,7 @@ button {
   grid-template-columns: 1fr;
   gap: 0.625rem;
   width: 100%;
+  align-items: end;
 }
 
 .grupo-filtro {
@@ -414,6 +415,8 @@ button {
 
 .ordenamiento-controls span {
   font-size: 0.85rem;
+  white-space: nowrap;
+
 }
 
 table {
