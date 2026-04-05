@@ -428,7 +428,6 @@ table {
   table-layout: auto;
 }
 
-.form-section > table,
 .form-section > div[style*="overflow-x:auto"],
 .form-card > div[style*="overflow-x:auto"] {
   overflow-x: auto;
@@ -450,8 +449,7 @@ th {
   font-weight: 400;
 }
 
-.management-table,
-#tablaEquipos.equipos-table {
+.management-table {
   border-radius: 0.625rem;
   overflow: hidden;
 }
