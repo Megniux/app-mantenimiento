@@ -48,13 +48,6 @@ function inicializarToolbarMovil() {
   toggleBtn.addEventListener("click", toggleToolbar);
 
   const cierrePorAccionIds = [
-    "filtroTipo",
-    "filtroEstado",
-    "filtroUsuario",
-    "filtroUbicacion",
-    "filtroEquipo",
-    "ordenCampo",
-    "ordenDireccion",
     "filtrarBtn",
     "limpiarFiltrosBtn",
     "aplicarOrdenBtn"
