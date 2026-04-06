@@ -406,13 +406,15 @@ function calcularProximaFechaProgramada(frecuencia) {
   proxima.setHours(0, 0, 0, 0);
   const ajustes = {
     Diaria: { dias: 1 },
+    Interdiaria: { dias: 2 },
     Semanal: { dias: 7 },
     Quincenal: { dias: 15 },
     Mensual: { meses: 1 },
     Bimestral: { meses: 2 },
     Trimestral: { meses: 3 },
     Semestral: { meses: 6 },
-    Anual: { anios: 1 }
+    Anual: { anios: 1 },
+    Bienal: { anios: 2 }
   };
   const ajuste = ajustes[frecuencia] || {};
   if (ajuste.dias) proxima.setDate(proxima.getDate() + ajuste.dias);
