@@ -10,16 +10,21 @@ async function cargarEquipos() {
   const snapshot = await getDocs(collection(db, "equipos"));
   const tbody = document.querySelector("#tablaEquipos tbody");
   tbody.innerHTML = "";
+  const equipos = [];
   snapshot.forEach((docSnap) => {
+    equipos.push({ id: docSnap.id, nombre: docSnap.data().nombre });
+  });
+  equipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  equipos.forEach((equipo) => {
     const row = tbody.insertRow();
-    row.insertCell(0).textContent = docSnap.data().nombre;
+    row.insertCell(0).textContent = equipo.nombre;
     const actions = row.insertCell(1);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn-delete-icon";
-    btn.setAttribute("aria-label", `Eliminar ${docSnap.data().nombre}`);
+    btn.setAttribute("aria-label", `Eliminar ${equipo.nombre}`);
     btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
-    btn.addEventListener("click", () => eliminarEquipo(docSnap.id));
+    btn.addEventListener("click", () => eliminarEquipo(equipo.id));
     actions.appendChild(btn);
   });
 }

@@ -11,8 +11,16 @@ async function cargarUsuarios() {
   const snapshot = await getDocs(collection(db, "users"));
   const tbody = document.querySelector("#tablaUsuarios tbody");
   tbody.innerHTML = "";
+  const usuarios = [];
   snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
+    usuarios.push({ id: docSnap.id, ...docSnap.data() });
+  });
+  usuarios.sort((a, b) => {
+    const nombreA = a.nombreCompleto || a.email || "";
+    const nombreB = b.nombreCompleto || b.email || "";
+    return nombreA.localeCompare(nombreB, "es", { sensitivity: "base" });
+  });
+  usuarios.forEach((data) => {
     const row = tbody.insertRow();
     row.insertCell(0).textContent = data.email;
     row.insertCell(1).textContent = data.nombreCompleto;
@@ -23,7 +31,7 @@ async function cargarUsuarios() {
     btn.className = "btn-delete-icon";
     btn.setAttribute("aria-label", `Eliminar ${data.email || "usuario"}`);
     btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
-    btn.addEventListener("click", () => eliminarUsuario(docSnap.id));
+    btn.addEventListener("click", () => eliminarUsuario(data.id));
     actions.appendChild(btn);
   });
 }

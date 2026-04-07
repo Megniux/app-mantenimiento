@@ -10,16 +10,21 @@ async function cargarUbicaciones() {
   const snapshot = await getDocs(collection(db, "ubicaciones"));
   const tbody = document.querySelector("#tablaUbicaciones tbody");
   tbody.innerHTML = "";
+  const ubicaciones = [];
   snapshot.forEach((docSnap) => {
+    ubicaciones.push({ id: docSnap.id, nombre: docSnap.data().nombre });
+  });
+  ubicaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  ubicaciones.forEach((ubicacion) => {
     const row = tbody.insertRow();
-    row.insertCell(0).textContent = docSnap.data().nombre;
+    row.insertCell(0).textContent = ubicacion.nombre;
     const actions = row.insertCell(1);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn-delete-icon";
-    btn.setAttribute("aria-label", `Eliminar ${docSnap.data().nombre}`);
+    btn.setAttribute("aria-label", `Eliminar ${ubicacion.nombre}`);
     btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
-    btn.addEventListener("click", () => eliminarUbicacion(docSnap.id));
+    btn.addEventListener("click", () => eliminarUbicacion(ubicacion.id));
     actions.appendChild(btn);
   });
 }
