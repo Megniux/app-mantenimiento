@@ -471,8 +471,7 @@ th {
   border-radius: 0.625rem;
 }
 
-.management-table td,
-.management-table th {
+.management-table td {
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
