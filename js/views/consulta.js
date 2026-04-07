@@ -170,10 +170,18 @@ function configurarOrdenPredeterminado() {
   const campoOrden = document.getElementById("ordenCampo");
   const direccionOrden = document.getElementById("ordenDireccion");
   const filtroEstado = document.getElementById("filtroEstado");
+  const filtroTipo = document.getElementById("filtroTipo");
   if (userRole === "tecnico" || userRole === "admin") {
     campoOrden.value = "fechaProgramada";
     direccionOrden.value = "asc";
     filtroEstado.value = "noCerrado";
+    filtroTipo.value = "";
+  }
+  if (userRole === "usuario" || userRole === "supervisor") {
+    campoOrden.value = "numero";
+    direccionOrden.value = "desc";
+    filtroEstado.value = "";
+    filtroTipo.value = "Correctivo";
   }
 }
 
