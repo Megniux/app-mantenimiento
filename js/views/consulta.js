@@ -237,9 +237,33 @@ async function eliminarOrden(id) {
 }
 
 function exportarCSV() {
-  const headers = ["N° Orden", "Tipo", "Estado", "Solicitante", "Ubicación", "Equipo", "Descripción"];
-  const rows = todasOrdenes.map((o) => [o.numeroOrden, o.tipo, o.estado, o.solicitante, o.ubicacion, o.equipo, o.descripcion]);
-  const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  if (!todasOrdenes.length) {
+    alert("No hay órdenes para exportar.");
+    return;
+  }
+
+  const headers = Array.from(
+    todasOrdenes.reduce((campos, orden) => {
+      Object.keys(orden).forEach((campo) => campos.add(campo));
+      return campos;
+    }, new Set())
+  );
+
+  const serializarValor = (valor) => {
+    if (valor == null) return "";
+    if (valor instanceof Date) return valor.toISOString();
+    if (typeof valor === "object") {
+      if (typeof valor.toDate === "function") return valor.toDate().toISOString();
+      return JSON.stringify(valor);
+    }
+    return String(valor);
+  };
+
+  const rows = todasOrdenes.map((orden) => headers.map((header) => serializarValor(orden[header])));
+  const csv = [headers, ...rows]
+    .map((row) => row.map((col) => `"${String(col).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
