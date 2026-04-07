@@ -437,6 +437,6 @@ async function limpiarFiltros() {
   document.getElementById("filtroUbicacion").value = "";
   document.getElementById("filtroEquipo").value = "";
   document.getElementById("ordenCampo").value = "numero";
-  document.getElementById("ordenDireccion").value = "asc";
+  document.getElementById("ordenDireccion").value = "desc";
   await cargar();
 }
