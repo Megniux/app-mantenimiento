@@ -464,6 +464,7 @@ th {
   color: white;
   text-align: center;
   font-weight: 400;
+  white-space: nowrap;
 }
 
 .management-table {
@@ -491,13 +492,8 @@ th {
 .consulta-table .col-descripcion { width: 50%; }
 .col-acciones { width: 1.6rem; }
 
-.consulta-table td.nowrap-col,
-.consulta-table th {
-  white-space: nowrap;
-  text-align: center;
-}
-
-.consulta-table td.wrap-col {
+.consulta-table td.wrap-col,
+.consulta-table td.nowrap-col {
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -721,6 +717,11 @@ th {
   th,
   td {
     font-size: 0.86rem;
+  }
+
+  .consulta-table td.nowrap-col {
+    white-space: nowrap;
+    text-align: center;
   }
 
   .modal-content {
