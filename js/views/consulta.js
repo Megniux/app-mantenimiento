@@ -8,6 +8,25 @@ let listaTecnicos = [];
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
+const CAMPOS_DETALLE_ORDEN = [
+  { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
+  { label: "Tipo", getValue: (orden) => orden.tipo },
+  { label: "Estado", getValue: (orden) => orden.estado },
+  { label: "Solicitante", getValue: (orden) => orden.solicitante },
+  { label: "Ubicación", getValue: (orden) => orden.ubicacion },
+  { label: "Equipo", getValue: (orden) => orden.equipo },
+  { label: "Prioridad", getValue: (orden) => orden.prioridad },
+  { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
+  { label: "Técnico asignado", getValue: (orden) => orden.tecnicoAsignado || "-" },
+  { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
+  { label: "Comentario mantenimiento", getValue: (orden) => orden.comentarioMantenimiento || "-" },
+  { label: "Informe de cierre", getValue: (orden) => orden.informeCierre || "-" },
+  { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) },
+  { label: "Fecha programada", getValue: (orden) => formatearFechaCorta(orden.fechaProgramada) },
+  { label: "Fecha cierre", getValue: (orden) => formatearFechaLarga(orden.fechaCierre) },
+  { label: "Tiempo estimado (hs)", getValue: (orden) => orden.tiempoEstimado ?? "-" },
+  { label: "Tiempo real (hs)", getValue: (orden) => orden.tiempoReal ?? "-" }
+];
 
 export async function initConsultaView({ role }) {
   userRole = role;
@@ -237,9 +256,23 @@ async function eliminarOrden(id) {
 }
 
 function exportarCSV() {
-  const headers = ["N° Orden", "Tipo", "Estado", "Solicitante", "Ubicación", "Equipo", "Descripción"];
-  const rows = todasOrdenes.map((o) => [o.numeroOrden, o.tipo, o.estado, o.solicitante, o.ubicacion, o.equipo, o.descripcion]);
-  const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  if (!todasOrdenes.length) {
+    alert("No hay órdenes para exportar.");
+    return;
+  }
+
+  const headers = CAMPOS_DETALLE_ORDEN.map((campo) => campo.label);
+  const serializarValor = (valor) => {
+    if (valor == null) return "";
+    if (typeof valor === "object") return JSON.stringify(valor);
+    return String(valor);
+  };
+
+  const rows = todasOrdenes.map((orden) => CAMPOS_DETALLE_ORDEN.map((campo) => serializarValor(campo.getValue(orden))));
+  const csv = [headers, ...rows]
+    .map((row) => row.map((col) => `"${col.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
@@ -253,15 +286,7 @@ async function verDetalles(id) {
   const snap = await getDoc(doc(db, "ordenes", id));
   if (!snap.exists()) return;
   const d = snap.data();
-  const fields = [
-    ["N° Orden", d.numeroOrden], ["Tipo", d.tipo], ["Estado", d.estado], ["Solicitante", d.solicitante],
-    ["Ubicación", d.ubicacion], ["Equipo", d.equipo], ["Prioridad", d.prioridad], ["Frecuencia", d.frecuencia || "-"],
-    ["Técnico asignado", d.tecnicoAsignado || "-"], ["Descripción", d.descripcion || "-"],
-    ["Comentario mantenimiento", d.comentarioMantenimiento || "-"], ["Informe de cierre", d.informeCierre || "-"],
-    ["Fecha creación", formatearFechaLarga(d.fechaCreacion)], ["Fecha programada", formatearFechaCorta(d.fechaProgramada)],
-    ["Fecha cierre", formatearFechaLarga(d.fechaCierre)], ["Tiempo estimado (hs)", d.tiempoEstimado ?? "-"],
-    ["Tiempo real (hs)", d.tiempoReal ?? "-"]
-  ];
+  const fields = CAMPOS_DETALLE_ORDEN.map((campo) => [campo.label, campo.getValue(d)]);
   const detallesHtml = fields.map(([label, value]) => `<div class="detalle-linea"><span class="detalle-label">${label}:</span> ${value || "-"}</div>`).join("");
   const historialRows = (d.historial || []).map((h) => `<tr>
       <td>${formatearFechaLarga(h.fecha)}</td>
