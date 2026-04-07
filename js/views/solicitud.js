@@ -18,20 +18,30 @@ async function cargarOpciones() {
   const ubicacionesSnap = await getDocs(collection(db, "ubicaciones"));
   const ubicacionSelect = document.getElementById("ubicacion");
   ubicacionSelect.innerHTML = '<option value="">Seleccionar ubicación</option>';
+  const ubicaciones = [];
   ubicacionesSnap.forEach((d) => {
+    ubicaciones.push(d.data().nombre);
+  });
+  ubicaciones.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  ubicaciones.forEach((nombre) => {
     const opt = document.createElement("option");
-    opt.value = d.data().nombre;
-    opt.textContent = d.data().nombre;
+    opt.value = nombre;
+    opt.textContent = nombre;
     ubicacionSelect.appendChild(opt);
   });
 
   const equiposSnap = await getDocs(collection(db, "equipos"));
   const equipoSelect = document.getElementById("equipo");
   equipoSelect.innerHTML = '<option value="">Seleccionar equipo</option>';
+  const equipos = [];
   equiposSnap.forEach((d) => {
+    equipos.push(d.data().nombre);
+  });
+  equipos.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  equipos.forEach((nombre) => {
     const opt = document.createElement("option");
-    opt.value = d.data().nombre;
-    opt.textContent = d.data().nombre;
+    opt.value = nombre;
+    opt.textContent = nombre;
     equipoSelect.appendChild(opt);
   });
 }

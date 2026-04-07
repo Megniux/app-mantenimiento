@@ -96,9 +96,14 @@ async function cargarListasFiltros() {
   const usersSnap = await getDocs(collection(db, "users"));
   const selectUsuario = document.getElementById("filtroUsuario");
   selectUsuario.innerHTML = '<option value="">Todos</option>';
+  const usuarios = [];
   usersSnap.forEach((docSnap) => {
     const data = docSnap.data();
     const nombre = data.nombreCompleto || data.email;
+    usuarios.push(nombre);
+  });
+  usuarios.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  usuarios.forEach((nombre) => {
     const opt = document.createElement("option");
     opt.value = nombre;
     opt.textContent = nombre;
@@ -108,20 +113,30 @@ async function cargarListasFiltros() {
   const ubicacionesSnap = await getDocs(collection(db, "ubicaciones"));
   const selectUbicacion = document.getElementById("filtroUbicacion");
   selectUbicacion.innerHTML = '<option value="">Todas</option>';
+  const ubicaciones = [];
   ubicacionesSnap.forEach((docSnap) => {
+    ubicaciones.push(docSnap.data().nombre);
+  });
+  ubicaciones.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  ubicaciones.forEach((nombre) => {
     const opt = document.createElement("option");
-    opt.value = docSnap.data().nombre;
-    opt.textContent = docSnap.data().nombre;
+    opt.value = nombre;
+    opt.textContent = nombre;
     selectUbicacion.appendChild(opt);
   });
 
   const equiposSnap = await getDocs(collection(db, "equipos"));
   const selectEquipo = document.getElementById("filtroEquipo");
   selectEquipo.innerHTML = '<option value="">Todos</option>';
+  const equipos = [];
   equiposSnap.forEach((docSnap) => {
+    equipos.push(docSnap.data().nombre);
+  });
+  equipos.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  equipos.forEach((nombre) => {
     const opt = document.createElement("option");
-    opt.value = docSnap.data().nombre;
-    opt.textContent = docSnap.data().nombre;
+    opt.value = nombre;
+    opt.textContent = nombre;
     selectEquipo.appendChild(opt);
   });
 }
