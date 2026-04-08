@@ -49,7 +49,6 @@ export async function initConsultaView({ role }) {
   await cargar();
   inicializarToolbarMovil();
 
-  document.getElementById("filtrarBtn").addEventListener("click", cargar);
   document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
   document.getElementById("exportBtn").addEventListener("click", exportarCSV);
@@ -92,7 +91,6 @@ function inicializarToolbarMovil() {
   toggleBtn.addEventListener("click", toggleToolbar);
 
   const cierrePorAccionIds = [
-    "filtrarBtn",
     "limpiarFiltrosBtn",
     "aplicarOrdenBtn"
   ];
