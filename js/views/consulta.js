@@ -403,7 +403,14 @@ async function guardarEdicion() {
     updateData.estado = nuevoEstado;
     if (nuevoEstado === "Cerrado") {
       updateData.fechaCierre = new Date();
-      if (data.tipo === "Preventivo" && data.frecuencia) await generarPreventivaRecurrente(data);
+      if (data.tipo === "Preventivo" && data.frecuencia) {
+        const ordenCerrada = {
+          ...data,
+          ...updateData,
+          estado: nuevoEstado
+        };
+        await generarPreventivaRecurrente(ordenCerrada);
+      }
     }
   }
 
@@ -460,11 +467,18 @@ async function generarPreventivaRecurrente(original) {
   const nueva = {
     ...original,
     numeroOrden,
-    estado: "Nuevo",
+    estado: "Pendiente",
     fechaCreacion: new Date(),
     fechaProgramada: calcularProximaFechaProgramada(original.frecuencia),
     fechaCierre: null,
-    historial: [{ estado: "Nuevo", fecha: new Date(), usuario: "Sistema" }]
+    tiempoReal: null,
+    informeCierre: "",
+    historial: [{
+      estado: "Pendiente",
+      fecha: new Date(),
+      usuario: "Sistema",
+      camposModificados: "Creación automática por cierre de preventiva recurrente"
+    }]
   };
   delete nueva.id;
   await addDoc(collection(db, "ordenes"), nueva);
