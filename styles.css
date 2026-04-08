@@ -587,7 +587,8 @@ th {
   margin-top: 1.3rem;
 }
 
-#detallesContenido {
+#detallesContenido,
+#detallesContenidoEditar {
   font-size: 0.9rem;
 }
 

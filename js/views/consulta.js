@@ -8,6 +8,18 @@ let listaTecnicos = [];
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
+const CAMPOS_RESUMEN_EDICION = [
+  { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
+  { label: "Tipo", getValue: (orden) => orden.tipo },
+  { label: "Solicitante", getValue: (orden) => orden.solicitante },
+  { label: "Ubicación", getValue: (orden) => orden.ubicacion },
+  { label: "Equipo", getValue: (orden) => orden.equipo },
+  { label: "Prioridad", getValue: (orden) => orden.prioridad },
+  { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
+  { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
+  { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) }
+];
+
 const CAMPOS_DETALLE_ORDEN = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
@@ -317,6 +329,11 @@ async function abrirModal(id) {
   currentOrderId = id;
   const snap = await getDoc(doc(db, "ordenes", id));
   const data = snap.data();
+  const resumenEdicionHtml = CAMPOS_RESUMEN_EDICION
+    .map((campo) => `<div class="detalle-linea"><span class="detalle-label">${campo.label}:</span> ${campo.getValue(data) || "-"}</div>`)
+    .join("");
+  document.getElementById("detallesContenidoEditar").innerHTML = resumenEdicionHtml;
+
   const selectEstado = document.getElementById("editEstado");
   selectEstado.innerHTML = "";
   ESTADOS.forEach((est) => {
