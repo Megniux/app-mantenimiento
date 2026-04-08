@@ -376,8 +376,8 @@ async function guardarEdicion() {
   };
   if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
+  const estadoCambio = nuevoEstado !== data.estado;
   const camposModificados = obtenerCamposModificadosAnteriores(data, {
-    estado: nuevoEstado,
     tecnicoAsignado,
     fechaProgramada: fechaProgramada || null,
     tiempoEstimado,
@@ -386,7 +386,7 @@ async function guardarEdicion() {
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   });
 
-  if (!camposModificados.length) {
+  if (!camposModificados.length && !estadoCambio) {
     return alert("No hay cambios para guardar.");
   }
 
@@ -395,7 +395,7 @@ async function guardarEdicion() {
     estado: nuevoEstado,
     fecha: new Date(),
     usuario: sessionStorage.getItem("userName"),
-    camposModificados: camposModificados.join(" | ")
+    camposModificados: camposModificados.join(" | ") || "-"
   });
   updateData.historial = historial;
 
