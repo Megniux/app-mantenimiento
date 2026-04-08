@@ -376,20 +376,78 @@ async function guardarEdicion() {
   };
   if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
+  const camposModificados = obtenerCamposModificadosAnteriores(data, {
+    estado: nuevoEstado,
+    tecnicoAsignado,
+    fechaProgramada: fechaProgramada || null,
+    tiempoEstimado,
+    tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
+    comentarioMantenimiento,
+    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
+  });
+
+  if (!camposModificados.length) {
+    return alert("No hay cambios para guardar.");
+  }
+
+  const historial = data.historial || [];
+  historial.push({
+    estado: nuevoEstado,
+    fecha: new Date(),
+    usuario: sessionStorage.getItem("userName"),
+    camposModificados: camposModificados.join(" | ")
+  });
+  updateData.historial = historial;
+
   if (nuevoEstado !== data.estado) {
     updateData.estado = nuevoEstado;
-    const historial = data.historial || [];
-    historial.push({ estado: nuevoEstado, fecha: new Date(), usuario: sessionStorage.getItem("userName"), camposModificados: "Estado y datos de mantenimiento" });
-    updateData.historial = historial;
     if (nuevoEstado === "Cerrado") {
       updateData.fechaCierre = new Date();
       if (data.tipo === "Preventivo" && data.frecuencia) await generarPreventivaRecurrente(data);
     }
   }
+
   await updateDoc(docRef, updateData);
   cerrarModal("modalEditar");
   await cargarTodasOrdenes();
   await cargar();
+}
+
+
+function obtenerCamposModificadosAnteriores(actual, actualizado) {
+  const mapeo = {
+    estado: "Estado",
+    tecnicoAsignado: "Técnico asignado",
+    fechaProgramada: "Fecha programada",
+    tiempoEstimado: "Tiempo estimado",
+    tiempoReal: "Tiempo real",
+    comentarioMantenimiento: "Comentario mantenimiento",
+    informeCierre: "Informe de cierre"
+  };
+
+  return Object.keys(mapeo).flatMap((campo) => {
+    const valorActual = normalizarValorComparacion(campo, actual[campo]);
+    const valorActualizado = normalizarValorComparacion(campo, actualizado[campo]);
+    if (valorActual === valorActualizado) return [];
+    return `${mapeo[campo]}: antes "${normalizarValorVisual(campo, actual[campo])}"`;
+  });
+}
+
+function normalizarValorComparacion(campo, valor) {
+  if (campo === "fechaProgramada") {
+    const fecha = formatearFechaInput(valor);
+    return fecha || "";
+  }
+  if (valor === null || valor === undefined) return "";
+  return String(valor).trim();
+}
+
+function normalizarValorVisual(campo, valor) {
+  if (campo === "fechaProgramada") {
+    return formatearFechaCorta(valor) || "-";
+  }
+  if (valor === null || valor === undefined || valor === "") return "-";
+  return String(valor).trim();
 }
 
 async function generarPreventivaRecurrente(original) {
