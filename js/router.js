@@ -20,7 +20,7 @@ const menuByRole = {
   guest: ["solicitud", "consulta"],
   usuario: ["solicitud", "consulta"],
   tecnico: ["solicitud", "consulta", "informes"],
-  supervisor: ["solicitud", "consulta", "informes", "equipos", "ubicaciones"],
+  supervisor: ["solicitud", "consulta", "informes"],
   admin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"]
 };
 
