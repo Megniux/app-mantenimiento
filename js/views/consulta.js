@@ -533,12 +533,12 @@ function formatearFechaInput(fecha) {
 
 function parsearFechaInput(fechaInput) {
   const [yyyy, mm, dd] = fechaInput.split("-").map(Number);
-  return new Date(yyyy, mm - 1, dd);
+  return new Date(yyyy, mm - 1, dd, 23, 59, 0, 0);
 }
 
 function calcularProximaFechaProgramada(frecuencia) {
   const proxima = new Date();
-  proxima.setHours(0, 0, 0, 0);
+  proxima.setHours(23, 59, 0, 0);
   const ajustes = {
     Diaria: { dias: 1 },
     Interdiaria: { dias: 2 },
