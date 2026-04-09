@@ -3,7 +3,7 @@ import { db } from "../firebase-config.js";
 
 export async function initSolicitudView({ role, userName }) {
   document.getElementById("solicitante").value = userName;
-  if (role === "usuario" && userRole === "supervisor") {
+  if (role === "usuario" || role === "supervisor") {
     document.getElementById("tipoGrupo").style.display = "none";
     document.getElementById("tipo").value = "Correctivo";
   }
