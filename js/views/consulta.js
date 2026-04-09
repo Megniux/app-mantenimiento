@@ -358,6 +358,9 @@ async function abrirModal(id) {
 }
 
 async function guardarEdicion() {
+  const btn = document.getElementById("guardarEdicionBtn");
+  if (!btn || btn.disabled) return;
+
   const docRef = doc(db, "ordenes", currentOrderId);
   const snap = await getDoc(docRef);
   const data = snap.data();
@@ -399,34 +402,46 @@ async function guardarEdicion() {
     return alert("No hay cambios para guardar.");
   }
 
-  const historial = data.historial || [];
-  historial.push({
-    estado: nuevoEstado,
-    fecha: new Date(),
-    usuario: sessionStorage.getItem("userName"),
-    camposModificados: camposModificados.join(" | ") || "-"
-  });
-  updateData.historial = historial;
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
-  if (nuevoEstado !== data.estado) {
-    updateData.estado = nuevoEstado;
-    if (nuevoEstado === "Cerrado") {
-      updateData.fechaCierre = new Date();
-      if (data.tipo === "Preventivo" && data.frecuencia) {
-        const ordenCerrada = {
-          ...data,
-          ...updateData,
-          estado: nuevoEstado
-        };
-        await generarPreventivaRecurrente(ordenCerrada);
+  try {
+    const historial = data.historial || [];
+    historial.push({
+      estado: nuevoEstado,
+      fecha: new Date(),
+      usuario: sessionStorage.getItem("userName"),
+      camposModificados: camposModificados.join(" | ") || "-"
+    });
+    updateData.historial = historial;
+
+    if (nuevoEstado !== data.estado) {
+      updateData.estado = nuevoEstado;
+      if (nuevoEstado === "Cerrado") {
+        updateData.fechaCierre = new Date();
+        if (data.tipo === "Preventivo" && data.frecuencia) {
+          const ordenCerrada = {
+            ...data,
+            ...updateData,
+            estado: nuevoEstado
+          };
+          await generarPreventivaRecurrente(ordenCerrada);
+        }
       }
     }
-  }
 
-  await updateDoc(docRef, updateData);
-  cerrarModal("modalEditar");
-  await cargarTodasOrdenes();
-  await cargar();
+    await updateDoc(docRef, updateData);
+    cerrarModal("modalEditar");
+    await cargarTodasOrdenes();
+    await cargar();
+  } catch (error) {
+    console.error(error);
+    alert(`Error al guardar cambios: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
 }
 
 

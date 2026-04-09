@@ -30,12 +30,28 @@ async function cargarUbicaciones() {
 }
 
 async function agregarUbicacion() {
+  const btn = document.getElementById("agregarUbicacionBtn");
+  if (!btn || btn.disabled) return;
+
   const input = document.getElementById("nuevaUbicacion");
   const nombre = input.value.trim();
   if (!nombre) return alert("Ingrese un nombre");
-  await addDoc(collection(db, "ubicaciones"), { nombre });
-  input.value = "";
-  await cargarUbicaciones();
+
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+  try {
+    await addDoc(collection(db, "ubicaciones"), { nombre });
+    input.value = "";
+    await cargarUbicaciones();
+  } catch (error) {
+    console.error(error);
+    alert(`Error al agregar ubicación: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
 }
 
 async function eliminarUbicacion(id) {

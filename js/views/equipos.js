@@ -30,12 +30,28 @@ async function cargarEquipos() {
 }
 
 async function agregarEquipo() {
+  const btn = document.getElementById("agregarEquipoBtn");
+  if (!btn || btn.disabled) return;
+
   const input = document.getElementById("nuevoEquipo");
   const nombre = input.value.trim();
   if (!nombre) return alert("Ingrese un nombre");
-  await addDoc(collection(db, "equipos"), { nombre });
-  input.value = "";
-  await cargarEquipos();
+
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+  try {
+    await addDoc(collection(db, "equipos"), { nombre });
+    input.value = "";
+    await cargarEquipos();
+  } catch (error) {
+    console.error(error);
+    alert(`Error al agregar equipo: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
 }
 
 async function eliminarEquipo(id) {
