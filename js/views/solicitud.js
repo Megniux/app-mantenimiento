@@ -67,6 +67,9 @@ async function generarNumero(tipo) {
 }
 
 async function guardar() {
+  const btn = document.getElementById("guardarSolicitudBtn");
+  if (!btn || btn.disabled) return;
+
   const solicitante = document.getElementById("solicitante").value;
   const tipo = document.getElementById("tipo").value;
   const ubicacion = document.getElementById("ubicacion").value;
@@ -78,19 +81,31 @@ async function guardar() {
 
   if (!ubicacion || !equipo || !descripcion) return alert("Complete todos los campos.");
 
-  const numeroOrden = await generarNumero(tipo);
-  await addDoc(collection(db, "ordenes"), {
-    numeroOrden, tipo, estado: "Nuevo", fechaCreacion: new Date(),
-    fechaProgramada: null, fechaCierre: null, solicitante, solicitanteUid: uid,
-    ubicacion, equipo, descripcion, prioridad,
-    frecuencia: tipo === "Preventivo" ? frecuencia : "",
-    tecnicoAsignado: "", tiempoEstimado: null, tiempoReal: null,
-    comentarioMantenimiento: "", informeCierre: "",
-    fechaInicioEspera: null, tiempoTotalEspera: 0,
-    historial: [{ estado: "Nuevo", fecha: new Date(), usuario: solicitante }]
-  });
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
-  alert(`Orden creada: ${numeroOrden}`);
-  document.getElementById("solicitudForm").reset();
-  document.getElementById("solicitante").value = solicitante;
+  try {
+    const numeroOrden = await generarNumero(tipo);
+    await addDoc(collection(db, "ordenes"), {
+      numeroOrden, tipo, estado: "Nuevo", fechaCreacion: new Date(),
+      fechaProgramada: null, fechaCierre: null, solicitante, solicitanteUid: uid,
+      ubicacion, equipo, descripcion, prioridad,
+      frecuencia: tipo === "Preventivo" ? frecuencia : "",
+      tecnicoAsignado: "", tiempoEstimado: null, tiempoReal: null,
+      comentarioMantenimiento: "", informeCierre: "",
+      fechaInicioEspera: null, tiempoTotalEspera: 0,
+      historial: [{ estado: "Nuevo", fecha: new Date(), usuario: solicitante }]
+    });
+
+    alert(`Orden creada: ${numeroOrden}`);
+    document.getElementById("solicitudForm").reset();
+    document.getElementById("solicitante").value = solicitante;
+  } catch (error) {
+    console.error(error);
+    alert(`Error al guardar: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
 }

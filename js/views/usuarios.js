@@ -37,19 +37,34 @@ async function cargarUsuarios() {
 }
 
 async function crearUsuario() {
+  const btn = document.getElementById("crearUsuarioBtn");
+  if (!btn || btn.disabled) return;
+
   const email = document.getElementById("email").value.trim();
   const nombre = document.getElementById("nombre").value.trim();
   const password = document.getElementById("password").value;
   const rol = document.getElementById("rol").value;
   if (!email || !nombre || !password) return alert("Complete todos los campos");
 
-  const userCred = await createUserWithEmailAndPassword(auth, email, password);
-  await setDoc(doc(db, "users", userCred.user.uid), { email, nombreCompleto: nombre, rol });
-  alert("Usuario creado exitosamente");
-  document.getElementById("email").value = "";
-  document.getElementById("nombre").value = "";
-  document.getElementById("password").value = "";
-  await cargarUsuarios();
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+  try {
+    const userCred = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, "users", userCred.user.uid), { email, nombreCompleto: nombre, rol });
+    alert("Usuario creado exitosamente");
+    document.getElementById("email").value = "";
+    document.getElementById("nombre").value = "";
+    document.getElementById("password").value = "";
+    await cargarUsuarios();
+  } catch (error) {
+    console.error(error);
+    alert(`Error al crear usuario: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
 }
 
 async function eliminarUsuario(uid) {
