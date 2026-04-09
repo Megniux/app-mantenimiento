@@ -438,7 +438,6 @@ async function guardarEdicion() {
 
 function obtenerCamposModificadosAnteriores(actual, actualizado) {
   const mapeo = {
-    estado: "Estado",
     tecnicoAsignado: "Técnico asignado",
     fechaProgramada: "Fecha programada",
     tiempoEstimado: "Tiempo estimado",
