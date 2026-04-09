@@ -181,17 +181,11 @@ function configurarOrdenPredeterminado() {
   const direccionOrden = document.getElementById("ordenDireccion");
   const filtroEstado = document.getElementById("filtroEstado");
   const filtroTipo = document.getElementById("filtroTipo");
-  if (userRole === "tecnico" || userRole === "admin") {
+  if (userRole === "tecnico" || userRole === "admin" || userRole === "usuario" || userRole === "supervisor") {
     campoOrden.value = "fechaProgramada";
     direccionOrden.value = "asc";
     filtroEstado.value = "noCerrado";
     filtroTipo.value = "";
-  }
-  if (userRole === "usuario" || userRole === "supervisor") {
-    campoOrden.value = "numero";
-    direccionOrden.value = "desc";
-    filtroEstado.value = "";
-    filtroTipo.value = "Correctivo";
   }
 }
 
@@ -256,7 +250,7 @@ async function cargar() {
       };
       addOption("Ver detalles", () => verDetalles(id));
       const orden = todasOrdenes.find((o) => o.id === id);
-      if (userRole !== "usuario") {
+      if (userRole !== "usuario" && userRole !== "supervisor") {
         if (!(orden.estado === "Cerrado" && userRole !== "admin")) addOption("Editar", () => abrirModal(id));
       }
       if (userRole === "admin") addOption("Eliminar", () => eliminarOrden(id));
