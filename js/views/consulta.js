@@ -468,7 +468,7 @@ function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHi
     const valorActual = normalizarValorComparacion(campo, actual[campo]);
     const valorActualizado = normalizarValorComparacion(campo, actualizado[campo]);
     if (valorActual === valorActualizado) return [];
-    return `${mapeo[campo]}: antes "${normalizarValorVisual(campo, actual[campo])}"`;
+    return `${mapeo[campo]} anterior: "${normalizarValorVisual(campo, actual[campo])}"`;
   });
 }
 
