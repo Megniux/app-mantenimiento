@@ -488,7 +488,7 @@ th {
 .consulta-table .col-fecha-prog { width: 9%; }
 .consulta-table .col-tipo { width: 10%; }
 .consulta-table .col-equipo { width: 13%; }
-.consulta-table .col-descripcion { width: 50%; }
+.consulta-table .col-descripcion { width: 50%; min-width: 10rem; }
 .col-acciones { width: 1.6rem; }
 
 .consulta-table td.wrap-col,
