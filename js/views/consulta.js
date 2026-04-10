@@ -389,7 +389,7 @@ async function guardarEdicion() {
   if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
   const estadoCambio = nuevoEstado !== data.estado;
-  const camposModificados = obtenerCamposModificadosAnteriores(data, {
+  const cambiosDetectados = obtenerCamposModificadosAnteriores(data, {
     tecnicoAsignado,
     fechaProgramada: fechaProgramada || null,
     tiempoEstimado,
@@ -397,8 +397,16 @@ async function guardarEdicion() {
     comentarioMantenimiento,
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   });
+  const camposModificados = obtenerCamposModificadosAnteriores(data, {
+    tecnicoAsignado,
+    fechaProgramada: fechaProgramada || null,
+    tiempoEstimado,
+    tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
+    comentarioMantenimiento,
+    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
+  }, ["tiempoReal", "informeCierre"]);
 
-  if (!camposModificados.length && !estadoCambio) {
+  if (!cambiosDetectados.length && !estadoCambio) {
     return alert("No hay cambios para guardar.");
   }
 
@@ -445,7 +453,7 @@ async function guardarEdicion() {
 }
 
 
-function obtenerCamposModificadosAnteriores(actual, actualizado) {
+function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHistorial = []) {
   const mapeo = {
     tecnicoAsignado: "Técnico asignado",
     fechaProgramada: "Fecha programada",
@@ -456,6 +464,7 @@ function obtenerCamposModificadosAnteriores(actual, actualizado) {
   };
 
   return Object.keys(mapeo).flatMap((campo) => {
+    if (camposOcultosHistorial.includes(campo)) return [];
     const valorActual = normalizarValorComparacion(campo, actual[campo]);
     const valorActualizado = normalizarValorComparacion(campo, actualizado[campo]);
     if (valorActual === valorActualizado) return [];
