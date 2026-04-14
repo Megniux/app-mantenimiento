@@ -153,6 +153,24 @@ body {
   justify-content: center;
 }
 
+.sidebar-contacts {
+  display: none;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.55rem;
+  gap: 0.45rem;
+}
+
+.sidebar-contact-link {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  word-break: break-word;
+}
+
+.sidebar-contact-link:hover {
+  text-decoration: underline;
+}
+
 .main-content {
   flex: 1;
   min-width: 0;
@@ -680,6 +698,10 @@ th {
   gap: 0.5rem;
 }
 
+.app-layout.sidebar-expanded .sidebar-contacts {
+  display: grid;
+}
+
 @media (min-width: 640px) {
   
   .sidebar {
@@ -789,6 +811,10 @@ th {
   .logout-btn-sidebar {
     justify-content: center;
     gap: 0.5rem;
+  }
+
+  .sidebar-contacts {
+    display: grid;
   }
 
   .mobile-sidebar-toggle {
