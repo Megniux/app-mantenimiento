@@ -304,7 +304,6 @@ textarea {
 }
 
 button,
-.btn-outline,
 .btn-primary,
 .btn-primary-green,
 .volver-btn {
@@ -362,21 +361,10 @@ button {
 .login-reset-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
 }
 
 .is-hidden {
   display: none !important;
-}
-
-.btn-outline {
-  background: #8c929c;
-  border-radius: 999px;
-  padding: 0.55rem 0.85rem;
-}
-
-.consulta-header-actions .btn-outline {
-  display: none;
 }
 
 .btn-primary-green {
@@ -395,7 +383,6 @@ button {
 }
 
 .btn-delete-icon:hover,
-.btn-outline:hover,
 .logout-btn-sidebar:hover,
 .menu-trigger:hover {
   background: #e2e8f0;
@@ -793,6 +780,12 @@ th {
   .kpi-card .kpi-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .login-reset-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0.2rem;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -864,10 +857,6 @@ th {
   .container,
   .form-card {
     padding: 1.5rem;
-  }
-  
-  .consulta-header-actions .btn-outline {
-  display: inline-block;
   }
 
   .btn-primary {
