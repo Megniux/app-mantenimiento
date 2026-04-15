@@ -110,6 +110,7 @@ export async function cargarContenido(routeKey, push = true) {
 
   if (finalRoute === "login") {
     const form = document.getElementById("loginForm");
+    const loginTitle = document.getElementById("loginTitle");
     const passwordInput = document.getElementById("loginPassword");
     const loginSubmitBtn = document.getElementById("loginSubmitBtn");
     const forgotPasswordLink = document.getElementById("forgotPasswordLink");
@@ -119,6 +120,7 @@ export async function cargarContenido(routeKey, push = true) {
     const cancelResetBtn = document.getElementById("cancelResetBtn");
 
     const enableResetMode = () => {
+      loginTitle.textContent = "Reestablecer Contraseña";
       passwordInput?.classList.add("is-hidden");
       loginSubmitBtn?.classList.add("is-hidden");
       forgotPasswordLink?.classList.add("is-hidden");
@@ -129,6 +131,7 @@ export async function cargarContenido(routeKey, push = true) {
     };
 
     const disableResetMode = () => {
+      loginTitle.textContent = "Iniciar Sesión";
       passwordInput?.classList.remove("is-hidden");
       loginSubmitBtn?.classList.remove("is-hidden");
       forgotPasswordLink?.classList.remove("is-hidden");

@@ -721,6 +721,10 @@ th {
   display: grid;
 }
 
+#loginForm {
+  margin-top: 0.8rem;
+}
+
 @media (min-width: 640px) {
   
   .sidebar {
