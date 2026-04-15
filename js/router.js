@@ -110,8 +110,33 @@ export async function cargarContenido(routeKey, push = true) {
 
   if (finalRoute === "login") {
     const form = document.getElementById("loginForm");
+    const passwordInput = document.getElementById("loginPassword");
+    const loginSubmitBtn = document.getElementById("loginSubmitBtn");
     const forgotPasswordLink = document.getElementById("forgotPasswordLink");
     const loginMessage = document.getElementById("loginMessage");
+    const resetActions = document.getElementById("resetActions");
+    const resetPasswordBtn = document.getElementById("resetPasswordBtn");
+    const cancelResetBtn = document.getElementById("cancelResetBtn");
+
+    const enableResetMode = () => {
+      passwordInput?.classList.add("is-hidden");
+      loginSubmitBtn?.classList.add("is-hidden");
+      forgotPasswordLink?.classList.add("is-hidden");
+      resetActions?.classList.remove("is-hidden");
+      if (loginMessage) {
+        loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contraseña.";
+      }
+    };
+
+    const disableResetMode = () => {
+      passwordInput?.classList.remove("is-hidden");
+      loginSubmitBtn?.classList.remove("is-hidden");
+      forgotPasswordLink?.classList.remove("is-hidden");
+      resetActions?.classList.add("is-hidden");
+      if (loginMessage) {
+        loginMessage.textContent = "";
+      }
+    };
 
     form?.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -126,7 +151,11 @@ export async function cargarContenido(routeKey, push = true) {
       }
     });
 
-    forgotPasswordLink?.addEventListener("click", async () => {
+    forgotPasswordLink?.addEventListener("click", () => {
+      enableResetMode();
+    });
+
+    resetPasswordBtn?.addEventListener("click", async () => {
       const email = document.getElementById("loginEmail")?.value.trim();
       if (!email) {
         if (loginMessage) {
@@ -146,6 +175,11 @@ export async function cargarContenido(routeKey, push = true) {
         }
       }
     });
+
+    cancelResetBtn?.addEventListener("click", () => {
+      disableResetMode();
+    });
+
     return;
   }
 

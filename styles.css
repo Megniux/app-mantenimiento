@@ -359,6 +359,16 @@ button {
   color: var(--color-muted);
 }
 
+.login-reset-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
 .btn-outline {
   background: #8c929c;
   border-radius: 999px;
