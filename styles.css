@@ -336,6 +336,39 @@ button {
   margin-right: 0.5rem;
 }
 
+.link-button {
+  background: transparent;
+  color: var(--color-primary);
+  border: none;
+  padding: 0;
+  margin-top: 0.8rem;
+  min-height: auto;
+  min-width: auto;
+  font-size: 0.9rem;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: var(--color-primary-dark);
+  background: transparent;
+}
+
+.login-message {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.login-reset-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
 .btn-outline {
   background: #8c929c;
   border-radius: 999px;

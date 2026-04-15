@@ -1,4 +1,4 @@
-import { authState, watchAuth, login, logout } from "./auth.js";
+import { authState, watchAuth, login, logout, resetPassword } from "./auth.js";
 import { initConsultaView } from "./views/consulta.js";
 import { initSolicitudView } from "./views/solicitud.js";
 import { initEquiposView } from "./views/equipos.js";
@@ -110,10 +110,39 @@ export async function cargarContenido(routeKey, push = true) {
 
   if (finalRoute === "login") {
     const form = document.getElementById("loginForm");
+    const passwordInput = document.getElementById("loginPassword");
+    const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+    const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+    const loginMessage = document.getElementById("loginMessage");
+    const resetActions = document.getElementById("resetActions");
+    const resetPasswordBtn = document.getElementById("resetPasswordBtn");
+    const cancelResetBtn = document.getElementById("cancelResetBtn");
+
+    const enableResetMode = () => {
+      passwordInput?.classList.add("is-hidden");
+      loginSubmitBtn?.classList.add("is-hidden");
+      forgotPasswordLink?.classList.add("is-hidden");
+      resetActions?.classList.remove("is-hidden");
+      if (loginMessage) {
+        loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contraseña.";
+      }
+    };
+
+    const disableResetMode = () => {
+      passwordInput?.classList.remove("is-hidden");
+      loginSubmitBtn?.classList.remove("is-hidden");
+      forgotPasswordLink?.classList.remove("is-hidden");
+      resetActions?.classList.add("is-hidden");
+      if (loginMessage) {
+        loginMessage.textContent = "";
+      }
+    };
+
     form?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("loginEmail").value;
       const password = document.getElementById("loginPassword").value;
+      if (loginMessage) loginMessage.textContent = "";
       try {
         await login(email, password);
         navigate("consulta");
@@ -121,6 +150,36 @@ export async function cargarContenido(routeKey, push = true) {
         alert(`Error de login: ${err.message}`);
       }
     });
+
+    forgotPasswordLink?.addEventListener("click", () => {
+      enableResetMode();
+    });
+
+    resetPasswordBtn?.addEventListener("click", async () => {
+      const email = document.getElementById("loginEmail")?.value.trim();
+      if (!email) {
+        if (loginMessage) {
+          loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contraseña.";
+        }
+        return;
+      }
+
+      try {
+        await resetPassword(email);
+        if (loginMessage) {
+          loginMessage.textContent = "Te enviamos un correo para reestablecer tu contraseña.";
+        }
+      } catch (err) {
+        if (loginMessage) {
+          loginMessage.textContent = `No se pudo enviar el correo: ${err.message}`;
+        }
+      }
+    });
+
+    cancelResetBtn?.addEventListener("click", () => {
+      disableResetMode();
+    });
+
     return;
   }
 
