@@ -220,9 +220,20 @@ async function cargar() {
   });
 
   filtradas.sort((a, b) => {
+    // 1. Orden principal según el campo elegido
     const valA = obtenerValorOrden(a, ordenCampo);
     const valB = obtenerValorOrden(b, ordenCampo);
-    return ordenDireccion === "asc" ? valA - valB : valB - valA;
+
+    if (valA !== valB) {
+      return ordenDireccion === "asc" ? valA - valB : valB - valA;
+    }
+
+    // 2. Si son iguales, orden secundario por nombre del equipo (ascendente siempre)
+    const equipoA = (a.equipo || "").toLowerCase();
+    const equipoB = (b.equipo || "").toLowerCase();
+    if (equipoA < equipoB) return -1;
+    if (equipoA > equipoB) return 1;
+    return 0;
   });
 
   filtradas.forEach((orden) => {
