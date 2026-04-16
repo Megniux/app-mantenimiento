@@ -169,6 +169,7 @@ export async function cargarContenido(routeKey, push = true) {
 
       try {
         await resetPassword(email);
+        disableResetMode();
         if (loginMessage) {
           loginMessage.textContent = "Te enviamos un correo para reestablecer tu contraseña. Revisa tu bandeja de entrada y carpeta de spam.";
         }
