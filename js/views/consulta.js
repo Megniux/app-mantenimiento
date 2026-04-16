@@ -206,7 +206,8 @@ async function cargar() {
     if (busqueda) {
       const coincide = orden.numeroOrden?.toLowerCase().includes(busqueda)
         || orden.ubicacion?.toLowerCase().includes(busqueda)
-        || orden.equipo?.toLowerCase().includes(busqueda);
+        || orden.equipo?.toLowerCase().includes(busqueda)
+        || orden.descripcion?.toLowerCase().includes(busqueda);
       if (!coincide) return false;
     }
     if (tipo && orden.tipo !== tipo) return false;
@@ -219,8 +220,8 @@ async function cargar() {
   });
 
   filtradas.sort((a, b) => {
-    const valA = ordenCampo === "numero" ? (parseInt(a.numeroOrden.split("-")[1]) || 0) : (a.fechaProgramada?.seconds || 0);
-    const valB = ordenCampo === "numero" ? (parseInt(b.numeroOrden.split("-")[1]) || 0) : (b.fechaProgramada?.seconds || 0);
+    const valA = obtenerValorOrden(a, ordenCampo);
+    const valB = obtenerValorOrden(b, ordenCampo);
     return ordenDireccion === "asc" ? valA - valB : valB - valA;
   });
 
@@ -258,6 +259,16 @@ async function cargar() {
       menu.classList.add("show");
     });
   });
+}
+
+function obtenerValorOrden(orden, campoOrden) {
+  if (campoOrden === "numero") {
+    return parseInt(orden.numeroOrden?.split("-")[1], 10) || 0;
+  }
+  if (campoOrden === "fechaCierre") {
+    return orden.fechaCierre?.seconds || 0;
+  }
+  return orden.fechaProgramada?.seconds || 0;
 }
 
 async function eliminarOrden(id) {
