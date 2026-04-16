@@ -304,6 +304,7 @@ textarea {
 }
 
 button,
+.btn-outline,
 .btn-primary,
 .btn-primary-green,
 .volver-btn {
@@ -367,6 +368,16 @@ button {
   display: none !important;
 }
 
+.btn-outline {
+  background: #8c929c;
+  border-radius: 999px;
+  padding: 0.55rem 0.85rem;
+}
+
+.consulta-header-actions .btn-outline {
+  display: none;
+}
+
 .btn-primary-green {
   background: var(--color-primary);
   border-radius: 999px;
@@ -383,6 +394,7 @@ button {
 }
 
 .btn-delete-icon:hover,
+.btn-outline:hover,
 .logout-btn-sidebar:hover,
 .menu-trigger:hover {
   background: #e2e8f0;
@@ -861,6 +873,10 @@ th {
   .container,
   .form-card {
     padding: 1.5rem;
+  }
+      
+  .consulta-header-actions .btn-outline {
+  display: inline-block;
   }
 
   .btn-primary {
