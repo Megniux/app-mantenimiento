@@ -355,8 +355,8 @@ button {
 
 .login-message {
   margin-top: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--color-muted);
+  font-size: 0.9rem;
+  color: #000000;
 }
 
 .login-reset-actions {
