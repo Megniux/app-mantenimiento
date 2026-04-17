@@ -1,23 +1,27 @@
-import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, runTransaction, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
+const CLIENTE_DEFAULT = "cliente_principal";
 let userRole = null;
+let tenantContext = { clienteId: null, esSuperadmin: false };
 let todasOrdenes = [];
+let ordenesFiltradasActuales = [];
 let currentOrderId = null;
 let listaTecnicos = [];
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
+
 const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
   { label: "Solicitante", getValue: (orden) => orden.solicitante },
-  { label: "Ubicación", getValue: (orden) => orden.ubicacion },
+  { label: "Ubicacion", getValue: (orden) => orden.ubicacion },
   { label: "Equipo", getValue: (orden) => orden.equipo },
   { label: "Prioridad", getValue: (orden) => orden.prioridad },
   { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
-  { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
-  { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) }
+  { label: "Descripcion", getValue: (orden) => orden.descripcion || "-" },
+  { label: "Fecha creacion", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) }
 ];
 
 const CAMPOS_DETALLE_ORDEN = [
@@ -25,23 +29,25 @@ const CAMPOS_DETALLE_ORDEN = [
   { label: "Tipo", getValue: (orden) => orden.tipo },
   { label: "Estado", getValue: (orden) => orden.estado },
   { label: "Solicitante", getValue: (orden) => orden.solicitante },
-  { label: "Ubicación", getValue: (orden) => orden.ubicacion },
+  { label: "Ubicacion", getValue: (orden) => orden.ubicacion },
   { label: "Equipo", getValue: (orden) => orden.equipo },
   { label: "Prioridad", getValue: (orden) => orden.prioridad },
   { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
-  { label: "Técnico asignado", getValue: (orden) => orden.tecnicoAsignado || "-" },
-  { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
+  { label: "Tecnico asignado", getValue: (orden) => orden.tecnicoAsignado || "-" },
+  { label: "Descripcion", getValue: (orden) => orden.descripcion || "-" },
   { label: "Comentario mantenimiento", getValue: (orden) => orden.comentarioMantenimiento || "-" },
   { label: "Informe de cierre", getValue: (orden) => orden.informeCierre || "-" },
-  { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) },
+  { label: "Fecha creacion", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) },
   { label: "Fecha programada", getValue: (orden) => formatearFechaCorta(orden.fechaProgramada) },
   { label: "Fecha cierre", getValue: (orden) => formatearFechaLarga(orden.fechaCierre) },
   { label: "Tiempo estimado (hs)", getValue: (orden) => orden.tiempoEstimado ?? "-" },
   { label: "Tiempo real (hs)", getValue: (orden) => orden.tiempoReal ?? "-" }
 ];
 
-export async function initConsultaView({ role }) {
+export async function initConsultaView({ role, clienteId }) {
   userRole = role;
+  tenantContext = resolverContextoTenant({ role, clienteId });
+
   await cargarListasFiltros();
   await cargarTecnicos();
   await cargarTodasOrdenes();
@@ -68,6 +74,68 @@ export async function initConsultaView({ role }) {
   }
 }
 
+function resolverContextoTenant({ role, clienteId }) {
+  const rol = role || sessionStorage.getItem("userRole") || "usuario";
+  const esSuperadmin = rol === "superadmin";
+  const clienteFuente = (clienteId || sessionStorage.getItem("userClienteId") || "").trim();
+
+  if (clienteFuente) return { clienteId: clienteFuente, esSuperadmin };
+  if (!esSuperadmin) return { clienteId: CLIENTE_DEFAULT, esSuperadmin: false };
+  return { clienteId: null, esSuperadmin: true };
+}
+
+function normalizarClienteId(valor) {
+  const cliente = typeof valor === "string" ? valor.trim() : "";
+  return cliente || CLIENTE_DEFAULT;
+}
+
+function puedeAccederDocumento(data) {
+  if (tenantContext.esSuperadmin && !tenantContext.clienteId) return true;
+  return normalizarClienteId(data?.clienteId) === normalizarClienteId(tenantContext.clienteId);
+}
+
+function contadorRefPorCliente(clienteId) {
+  return doc(collection(doc(db, "config", "contadores"), "clientes"), clienteId);
+}
+
+async function obtenerDocsPorCliente(nombreColeccion) {
+  const items = [];
+  const vistos = new Set();
+
+  if (tenantContext.esSuperadmin && !tenantContext.clienteId) {
+    const snapGlobal = await getDocs(collection(db, nombreColeccion));
+    snapGlobal.forEach((docSnap) => items.push({ id: docSnap.id, ...docSnap.data() }));
+    return items;
+  }
+
+  const clienteId = normalizarClienteId(tenantContext.clienteId);
+  const tenantSnap = await getDocs(query(collection(db, nombreColeccion), where("clienteId", "==", clienteId)));
+  tenantSnap.forEach((docSnap) => {
+    vistos.add(docSnap.id);
+    items.push({ id: docSnap.id, ...docSnap.data() });
+  });
+
+  if (clienteId === CLIENTE_DEFAULT) {
+    const snapshotCompleto = await getDocs(collection(db, nombreColeccion));
+    snapshotCompleto.forEach((docSnap) => {
+      if (vistos.has(docSnap.id)) return;
+      const data = docSnap.data();
+      if (data.clienteId) return;
+      items.push({ id: docSnap.id, ...data, clienteId: CLIENTE_DEFAULT });
+    });
+  }
+
+  return items;
+}
+
+async function obtenerOrdenValida(id) {
+  const snap = await getDoc(doc(db, "ordenes", id));
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  if (!puedeAccederDocumento(data)) return null;
+  return { id: snap.id, ...data };
+}
+
 function cerrarMenusDesplegables() {
   document.querySelectorAll(".dropdown-menu.show").forEach((menu) => menu.classList.remove("show"));
 }
@@ -90,10 +158,7 @@ function inicializarToolbarMovil() {
 
   toggleBtn.addEventListener("click", toggleToolbar);
 
-  const cierrePorAccionIds = [
-    "limpiarFiltrosBtn",
-    "aplicarOrdenBtn"
-  ];
+  const cierrePorAccionIds = ["limpiarFiltrosBtn", "aplicarOrdenBtn"];
 
   cierrePorAccionIds.forEach((id) => {
     const el = document.getElementById(id);
@@ -110,28 +175,22 @@ function inicializarToolbarMovil() {
 }
 
 async function cargarTecnicos() {
-  const usersSnap = await getDocs(collection(db, "users"));
-  listaTecnicos = [];
-  usersSnap.forEach((docSnap) => {
-    const data = docSnap.data();
-    if (data.rol === "tecnico" || data.rol === "admin") {
-      listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
-    }
-  });
-  listaTecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const users = await obtenerDocsPorCliente("users");
+  listaTecnicos = users
+    .filter((data) => data.rol === "tecnico" || data.rol === "admin" || data.rol === "superadmin")
+    .map((data) => ({ uid: data.id, nombre: data.nombreCompleto || data.email }));
+
+  listaTecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
 }
 
 async function cargarListasFiltros() {
-  const usersSnap = await getDocs(collection(db, "users"));
   const selectUsuario = document.getElementById("filtroUsuario");
   selectUsuario.innerHTML = '<option value="">Todos</option>';
-  const usuarios = [];
-  usersSnap.forEach((docSnap) => {
-    const data = docSnap.data();
-    const nombre = data.nombreCompleto || data.email;
-    usuarios.push(nombre);
-  });
-  usuarios.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const usuarios = (await obtenerDocsPorCliente("users"))
+    .map((data) => data.nombreCompleto || data.email)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+
   usuarios.forEach((nombre) => {
     const opt = document.createElement("option");
     opt.value = nombre;
@@ -139,14 +198,13 @@ async function cargarListasFiltros() {
     selectUsuario.appendChild(opt);
   });
 
-  const ubicacionesSnap = await getDocs(collection(db, "ubicaciones"));
   const selectUbicacion = document.getElementById("filtroUbicacion");
   selectUbicacion.innerHTML = '<option value="">Todas</option>';
-  const ubicaciones = [];
-  ubicacionesSnap.forEach((docSnap) => {
-    ubicaciones.push(docSnap.data().nombre);
-  });
-  ubicaciones.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const ubicaciones = (await obtenerDocsPorCliente("ubicaciones"))
+    .map((data) => data.nombre)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+
   ubicaciones.forEach((nombre) => {
     const opt = document.createElement("option");
     opt.value = nombre;
@@ -154,14 +212,13 @@ async function cargarListasFiltros() {
     selectUbicacion.appendChild(opt);
   });
 
-  const equiposSnap = await getDocs(collection(db, "equipos"));
   const selectEquipo = document.getElementById("filtroEquipo");
   selectEquipo.innerHTML = '<option value="">Todos</option>';
-  const equipos = [];
-  equiposSnap.forEach((docSnap) => {
-    equipos.push(docSnap.data().nombre);
-  });
-  equipos.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  const equipos = (await obtenerDocsPorCliente("equipos"))
+    .map((data) => data.nombre)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+
   equipos.forEach((nombre) => {
     const opt = document.createElement("option");
     opt.value = nombre;
@@ -171,9 +228,7 @@ async function cargarListasFiltros() {
 }
 
 async function cargarTodasOrdenes() {
-  const querySnapshot = await getDocs(collection(db, "ordenes"));
-  todasOrdenes = [];
-  querySnapshot.forEach((docSnap) => todasOrdenes.push({ id: docSnap.id, ...docSnap.data() }));
+  todasOrdenes = await obtenerDocsPorCliente("ordenes");
 }
 
 function configurarOrdenPredeterminado() {
@@ -181,7 +236,8 @@ function configurarOrdenPredeterminado() {
   const direccionOrden = document.getElementById("ordenDireccion");
   const filtroEstado = document.getElementById("filtroEstado");
   const filtroTipo = document.getElementById("filtroTipo");
-  if (userRole === "tecnico" || userRole === "admin" || userRole === "usuario" || userRole === "supervisor") {
+
+  if (["tecnico", "admin", "usuario", "supervisor", "superadmin"].includes(userRole)) {
     campoOrden.value = "fechaProgramada";
     direccionOrden.value = "asc";
     filtroEstado.value = "noCerrado";
@@ -220,7 +276,6 @@ async function cargar() {
   });
 
   filtradas.sort((a, b) => {
-    // 1. Orden principal según el campo elegido
     const valA = obtenerValorOrden(a, ordenCampo);
     const valB = obtenerValorOrden(b, ordenCampo);
 
@@ -228,13 +283,14 @@ async function cargar() {
       return ordenDireccion === "asc" ? valA - valB : valB - valA;
     }
 
-    // 2. Si son iguales, orden secundario por nombre del equipo (ascendente siempre)
     const equipoA = (a.equipo || "").toLowerCase();
     const equipoB = (b.equipo || "").toLowerCase();
     if (equipoA < equipoB) return -1;
     if (equipoA > equipoB) return 1;
     return 0;
   });
+
+  ordenesFiltradasActuales = filtradas;
 
   filtradas.forEach((orden) => {
     const fila = document.createElement("tr");
@@ -257,15 +313,21 @@ async function cargar() {
       const addOption = (text, onClick) => {
         const btn = document.createElement("button");
         btn.textContent = text;
-        btn.onclick = (ev) => { ev.stopPropagation(); onClick(); menu.classList.remove("show"); };
+        btn.onclick = (ev) => {
+          ev.stopPropagation();
+          onClick();
+          menu.classList.remove("show");
+        };
         menu.appendChild(btn);
       };
       addOption("Ver detalles", () => verDetalles(id));
       const orden = todasOrdenes.find((o) => o.id === id);
       if (userRole !== "usuario" && userRole !== "supervisor") {
-        if (!(orden.estado === "Cerrado" && userRole !== "admin")) addOption("Editar", () => abrirModal(id));
+        if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
+          addOption("Editar", () => abrirModal(id));
+        }
       }
-      if (userRole === "admin") addOption("Eliminar", () => eliminarOrden(id));
+      if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
       cerrarMenusDesplegables();
       menu.classList.add("show");
     });
@@ -283,15 +345,21 @@ function obtenerValorOrden(orden, campoOrden) {
 }
 
 async function eliminarOrden(id) {
-  if (!confirm("¿Está seguro de eliminar esta orden?")) return;
+  const orden = await obtenerOrdenValida(id);
+  if (!orden) {
+    alert("No tienes permisos para eliminar esta orden.");
+    return;
+  }
+
+  if (!confirm("¿Esta seguro de eliminar esta orden?")) return;
   await deleteDoc(doc(db, "ordenes", id));
   await cargarTodasOrdenes();
   await cargar();
 }
 
 function exportarCSV() {
-  if (!todasOrdenes.length) {
-    alert("No hay órdenes para exportar.");
+  if (!ordenesFiltradasActuales.length) {
+    alert("No hay ordenes para exportar.");
     return;
   }
 
@@ -302,7 +370,7 @@ function exportarCSV() {
     return String(valor);
   };
 
-  const rows = todasOrdenes.map((orden) => CAMPOS_DETALLE_ORDEN.map((campo) => serializarValor(campo.getValue(orden))));
+  const rows = ordenesFiltradasActuales.map((orden) => CAMPOS_DETALLE_ORDEN.map((campo) => serializarValor(campo.getValue(orden))));
   const csv = [headers, ...rows]
     .map((row) => row.map((col) => `"${col.replace(/"/g, '""')}"`).join(","))
     .join("\n");
@@ -317,12 +385,15 @@ function exportarCSV() {
 }
 
 async function verDetalles(id) {
-  const snap = await getDoc(doc(db, "ordenes", id));
-  if (!snap.exists()) return;
-  const d = snap.data();
-  const fields = CAMPOS_DETALLE_ORDEN.map((campo) => [campo.label, campo.getValue(d)]);
+  const orden = await obtenerOrdenValida(id);
+  if (!orden) {
+    alert("No tienes permisos para ver esta orden.");
+    return;
+  }
+
+  const fields = CAMPOS_DETALLE_ORDEN.map((campo) => [campo.label, campo.getValue(orden)]);
   const detallesHtml = fields.map(([label, value]) => `<div class="detalle-linea"><span class="detalle-label">${label}:</span> ${value || "-"}</div>`).join("");
-  const historialRows = (d.historial || []).map((h) => `<tr>
+  const historialRows = (orden.historial || []).map((h) => `<tr>
       <td>${formatearFechaLarga(h.fecha)}</td>
       <td>${h.usuario || "-"}</td>
       <td>${h.estado || "-"}</td>
@@ -340,11 +411,15 @@ async function verDetalles(id) {
 }
 
 async function abrirModal(id) {
+  const orden = await obtenerOrdenValida(id);
+  if (!orden) {
+    alert("No tienes permisos para editar esta orden.");
+    return;
+  }
+
   currentOrderId = id;
-  const snap = await getDoc(doc(db, "ordenes", id));
-  const data = snap.data();
   const resumenEdicionHtml = CAMPOS_RESUMEN_EDICION
-    .map((campo) => `<div class="detalle-linea"><span class="detalle-label">${campo.label}:</span> ${campo.getValue(data) || "-"}</div>`)
+    .map((campo) => `<div class="detalle-linea"><span class="detalle-label">${campo.label}:</span> ${campo.getValue(orden) || "-"}</div>`)
     .join("");
   document.getElementById("detallesContenidoEditar").innerHTML = resumenEdicionHtml;
 
@@ -354,25 +429,25 @@ async function abrirModal(id) {
     const opt = document.createElement("option");
     opt.value = est;
     opt.textContent = est;
-    opt.selected = data.estado === est;
+    opt.selected = orden.estado === est;
     selectEstado.appendChild(opt);
   });
 
   const selectTecnico = document.getElementById("editTecnico");
-  selectTecnico.innerHTML = '<option value="">Seleccionar técnico</option>';
+  selectTecnico.innerHTML = '<option value="">Seleccionar tecnico</option>';
   listaTecnicos.forEach((t) => {
     const opt = document.createElement("option");
     opt.value = t.nombre;
     opt.textContent = t.nombre;
-    opt.selected = data.tecnicoAsignado === t.nombre;
+    opt.selected = orden.tecnicoAsignado === t.nombre;
     selectTecnico.appendChild(opt);
   });
 
-  document.getElementById("editFechaProgramada").value = formatearFechaInput(data.fechaProgramada);
-  document.getElementById("editTiempoEstimado").value = data.tiempoEstimado || "";
-  document.getElementById("editTiempoReal").value = data.tiempoReal || "";
-  document.getElementById("editComentario").value = data.comentarioMantenimiento || "";
-  document.getElementById("editInformeCierre").value = data.informeCierre || "";
+  document.getElementById("editFechaProgramada").value = formatearFechaInput(orden.fechaProgramada);
+  document.getElementById("editTiempoEstimado").value = orden.tiempoEstimado || "";
+  document.getElementById("editTiempoReal").value = orden.tiempoReal || "";
+  document.getElementById("editComentario").value = orden.comentarioMantenimiento || "";
+  document.getElementById("editInformeCierre").value = orden.informeCierre || "";
   actualizarCamposEstadoCierre();
 
   document.getElementById("guardarEdicionBtn").onclick = guardarEdicion;
@@ -385,7 +460,17 @@ async function guardarEdicion() {
 
   const docRef = doc(db, "ordenes", currentOrderId);
   const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    alert("La orden ya no existe.");
+    return;
+  }
+
   const data = snap.data();
+  if (!puedeAccederDocumento(data)) {
+    alert("No tienes permisos para modificar esta orden.");
+    return;
+  }
+
   const nuevoEstado = document.getElementById("editEstado").value;
   const tecnicoAsignado = document.getElementById("editTecnico").value;
   const fechaProgramada = document.getElementById("editFechaProgramada").value;
@@ -395,7 +480,7 @@ async function guardarEdicion() {
   const informeCierre = document.getElementById("editInformeCierre").value.trim();
 
   if ((nuevoEstado === "Pendiente" || nuevoEstado === "En proceso") && (!tecnicoAsignado || !fechaProgramada)) {
-    return alert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
+    return alert("Para pasar a Pendiente o En proceso debe indicar fecha programada y tecnico asignado.");
   }
   if (nuevoEstado === "Cerrado" && (!tecnicoAsignado || !fechaProgramada || !tiempoEstimado || !tiempoReal || !comentarioMantenimiento || !informeCierre)) {
     return alert("Para pasar a Cerrado debe completar todos los campos.");
@@ -406,7 +491,8 @@ async function guardarEdicion() {
     tiempoEstimado,
     tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
     comentarioMantenimiento,
-    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
+    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : "",
+    clienteId: normalizarClienteId(data.clienteId)
   };
   if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
@@ -419,6 +505,7 @@ async function guardarEdicion() {
     comentarioMantenimiento,
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   });
+
   const camposModificados = obtenerCamposModificadosAnteriores(data, {
     tecnicoAsignado,
     fechaProgramada: fechaProgramada || null,
@@ -454,7 +541,8 @@ async function guardarEdicion() {
           const ordenCerrada = {
             ...data,
             ...updateData,
-            estado: nuevoEstado
+            estado: nuevoEstado,
+            clienteId: normalizarClienteId(data.clienteId)
           };
           await generarPreventivaRecurrente(ordenCerrada);
         }
@@ -474,10 +562,9 @@ async function guardarEdicion() {
   }
 }
 
-
 function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHistorial = []) {
   const mapeo = {
-    tecnicoAsignado: "Técnico asignado",
+    tecnicoAsignado: "Tecnico asignado",
     fechaProgramada: "Fecha programada",
     tiempoEstimado: "Tiempo estimado",
     tiempoReal: "Tiempo real",
@@ -515,11 +602,28 @@ function normalizarValorVisual(campo, valor) {
 }
 
 async function generarPreventivaRecurrente(original) {
-  const refCont = doc(db, "config", "contador");
-  const snapCont = await getDoc(refCont);
-  const cont = snapCont.data();
-  const numeroOrden = `OMP-${String(cont.contadorOMP).padStart(4, "0")}`;
-  await updateDoc(refCont, { contadorOMP: cont.contadorOMP + 1 });
+  const clienteId = normalizarClienteId(original.clienteId);
+  const refCont = contadorRefPorCliente(clienteId);
+  const refContLegacy = doc(db, "config", "contador");
+
+  const numeroOrden = await runTransaction(db, async (trx) => {
+    const contSnap = await trx.get(refCont);
+    let data = contSnap.exists() ? contSnap.data() : null;
+
+    if (!data) {
+      const legacySnap = await trx.get(refContLegacy);
+      const legacyData = legacySnap.exists() ? legacySnap.data() : {};
+      data = {
+        contadorOMC: Number(legacyData.contadorOMC) || 1,
+        contadorOMP: Number(legacyData.contadorOMP) || 1
+      };
+    }
+
+    const contadorOMC = Number(data.contadorOMC) || 1;
+    const contadorOMP = Number(data.contadorOMP) || 1;
+    trx.set(refCont, { contadorOMC, contadorOMP: contadorOMP + 1 }, { merge: true });
+    return `OMP-${String(contadorOMP).padStart(4, "0")}`;
+  });
 
   const nueva = {
     ...original,
@@ -530,11 +634,12 @@ async function generarPreventivaRecurrente(original) {
     fechaCierre: null,
     tiempoReal: null,
     informeCierre: "",
+    clienteId,
     historial: [{
       estado: "Pendiente",
       fecha: new Date(),
       usuario: "Sistema",
-      camposModificados: "Creación automática por cierre de preventiva recurrente"
+      camposModificados: "Creacion automatica por cierre de preventiva recurrente"
     }]
   };
   delete nueva.id;

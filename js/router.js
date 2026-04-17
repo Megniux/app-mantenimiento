@@ -6,14 +6,17 @@ import { initUbicacionesView } from "./views/ubicaciones.js";
 import { initUsuariosView } from "./views/usuarios.js";
 import { initInformesView } from "./views/informes.js";
 
+const rolesAuth = ["guest", "usuario", "tecnico", "supervisor", "admin", "superadmin"];
+const rolesApp = ["usuario", "tecnico", "supervisor", "admin", "superadmin"];
+
 const routes = {
-  login: { template: "templates/login.html", title: "Iniciar Sesión", init: null, roles: ["guest", "usuario", "tecnico", "supervisor", "admin"] },
-  consulta: { template: "templates/consulta.html", title: "Consulta de Órdenes", init: initConsultaView, roles: ["usuario", "tecnico", "supervisor", "admin"] },
-  solicitud: { template: "templates/solicitud.html", title: "Nueva Solicitud", init: initSolicitudView, roles: ["usuario", "tecnico", "supervisor", "admin"] },
-  informes: { template: "templates/informes.html", title: "KPIs (Indicadores Clave)", init: initInformesView, roles: ["tecnico", "supervisor", "admin"] },
-  equipos: { template: "templates/equipos.html", title: "Gestionar Equipos", init: initEquiposView, roles: ["supervisor", "admin"] },
-  ubicaciones: { template: "templates/ubicaciones.html", title: "Gestionar Ubicaciones", init: initUbicacionesView, roles: ["supervisor", "admin"] },
-  usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin"] }
+  login: { template: "templates/login.html", title: "Iniciar Sesion", init: null, roles: rolesAuth },
+  consulta: { template: "templates/consulta.html", title: "Consulta de Ordenes", init: initConsultaView, roles: rolesApp },
+  solicitud: { template: "templates/solicitud.html", title: "Nueva Solicitud", init: initSolicitudView, roles: rolesApp },
+  informes: { template: "templates/informes.html", title: "KPIs (Indicadores Clave)", init: initInformesView, roles: ["tecnico", "supervisor", "admin", "superadmin"] },
+  equipos: { template: "templates/equipos.html", title: "Gestionar Equipos", init: initEquiposView, roles: ["supervisor", "admin", "superadmin"] },
+  ubicaciones: { template: "templates/ubicaciones.html", title: "Gestionar Ubicaciones", init: initUbicacionesView, roles: ["supervisor", "admin", "superadmin"] },
+  usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin", "superadmin"] }
 };
 
 const menuByRole = {
@@ -21,7 +24,8 @@ const menuByRole = {
   usuario: ["solicitud", "consulta"],
   tecnico: ["solicitud", "consulta", "informes"],
   supervisor: ["solicitud", "consulta", "informes"],
-  admin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"]
+  admin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"],
+  superadmin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"]
 };
 
 const menuMeta = {
@@ -71,7 +75,7 @@ function renderSidebar(activeRoute) {
   const role = authState.profile?.rol || "guest";
   nav.innerHTML = "";
 
-  for (const routeKey of menuByRole[role]) {
+  for (const routeKey of (menuByRole[role] || [])) {
     const item = document.createElement("a");
     item.href = `#/${routeKey}`;
     item.className = `nav-item ${activeRoute === routeKey ? "active" : ""}`;
@@ -120,18 +124,18 @@ export async function cargarContenido(routeKey, push = true) {
     const cancelResetBtn = document.getElementById("cancelResetBtn");
 
     const enableResetMode = () => {
-      loginTitle.textContent = "Reestablecer Contraseña";
+      loginTitle.textContent = "Reestablecer Contrasena";
       passwordInput?.classList.add("is-hidden");
       loginSubmitBtn?.classList.add("is-hidden");
       forgotPasswordLink?.classList.add("is-hidden");
       resetActions?.classList.remove("is-hidden");
       if (loginMessage) {
-        loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contraseña.";
+        loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contrasena.";
       }
     };
 
     const disableResetMode = () => {
-      loginTitle.textContent = "Iniciar Sesión";
+      loginTitle.textContent = "Iniciar Sesion";
       passwordInput?.classList.remove("is-hidden");
       loginSubmitBtn?.classList.remove("is-hidden");
       forgotPasswordLink?.classList.remove("is-hidden");
@@ -162,7 +166,7 @@ export async function cargarContenido(routeKey, push = true) {
       const email = document.getElementById("loginEmail")?.value.trim();
       if (!email) {
         if (loginMessage) {
-          loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contraseña.";
+          loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contrasena.";
         }
         return;
       }
@@ -172,7 +176,7 @@ export async function cargarContenido(routeKey, push = true) {
         disableResetMode();
         forgotPasswordLink?.classList.add("is-hidden");
         if (loginMessage) {
-          loginMessage.textContent = "Te enviamos un correo para reestablecer tu contraseña. Revisa tu bandeja de entrada y carpeta de spam.";
+          loginMessage.textContent = "Te enviamos un correo para reestablecer tu contrasena. Revisa tu bandeja de entrada y carpeta de spam.";
         }
       } catch (err) {
         if (loginMessage) {
@@ -188,7 +192,11 @@ export async function cargarContenido(routeKey, push = true) {
     return;
   }
 
-  await route.init?.({ role: authState.profile.rol, userName: authState.profile.nombre });
+  await route.init?.({
+    role: authState.profile.rol,
+    userName: authState.profile.nombre,
+    clienteId: authState.profile.clienteId
+  });
 }
 
 export function navigate(routeKey) {

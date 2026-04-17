@@ -1,12 +1,58 @@
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-export async function initInformesView() {
-  const ordenesSnap = await getDocs(collection(db, "ordenes"));
-  const ordenes = [];
-  ordenesSnap.forEach((d) => ordenes.push({ id: d.id, ...d.data() }));
+const CLIENTE_DEFAULT = "cliente_principal";
+
+export async function initInformesView({ role, clienteId }) {
+  const tenantContext = resolverContextoTenant({ role, clienteId });
+  const ordenes = await obtenerOrdenesPorCliente(tenantContext);
+
   renderCorrectivos(ordenes.filter((o) => o.tipo === "Correctivo"));
   renderPreventivos(ordenes.filter((o) => o.tipo === "Preventivo"), ordenes);
+}
+
+function resolverContextoTenant({ role, clienteId }) {
+  const rol = role || sessionStorage.getItem("userRole") || "usuario";
+  const esSuperadmin = rol === "superadmin";
+  const clienteFuente = (clienteId || sessionStorage.getItem("userClienteId") || "").trim();
+  if (clienteFuente) return { clienteId: clienteFuente, esSuperadmin };
+  if (!esSuperadmin) return { clienteId: CLIENTE_DEFAULT, esSuperadmin: false };
+  return { clienteId: null, esSuperadmin: true };
+}
+
+function normalizarClienteId(valor) {
+  const cliente = typeof valor === "string" ? valor.trim() : "";
+  return cliente || CLIENTE_DEFAULT;
+}
+
+async function obtenerOrdenesPorCliente(tenantContext) {
+  const ordenes = [];
+  const vistos = new Set();
+
+  if (tenantContext.esSuperadmin && !tenantContext.clienteId) {
+    const ordenesSnap = await getDocs(collection(db, "ordenes"));
+    ordenesSnap.forEach((d) => ordenes.push({ id: d.id, ...d.data() }));
+    return ordenes;
+  }
+
+  const clienteId = normalizarClienteId(tenantContext.clienteId);
+  const tenantSnap = await getDocs(query(collection(db, "ordenes"), where("clienteId", "==", clienteId)));
+  tenantSnap.forEach((docSnap) => {
+    vistos.add(docSnap.id);
+    ordenes.push({ id: docSnap.id, ...docSnap.data() });
+  });
+
+  if (clienteId === CLIENTE_DEFAULT) {
+    const allSnap = await getDocs(collection(db, "ordenes"));
+    allSnap.forEach((docSnap) => {
+      if (vistos.has(docSnap.id)) return;
+      const data = docSnap.data();
+      if (data.clienteId) return;
+      ordenes.push({ id: docSnap.id, ...data, clienteId: CLIENTE_DEFAULT });
+    });
+  }
+
+  return ordenes;
 }
 
 function renderCorrectivos(correctivos) {
@@ -33,9 +79,9 @@ function renderCorrectivos(correctivos) {
 
   document.getElementById("kpiCorrectivos").innerHTML = `
     ${kpiItem("Tiempo medio de respuesta", `${formatoNumero(tiempoRespuestaHoras)} hs`)}
-    ${kpiItem("Tiempo medio de finalización", `${formatoNumero(tiempoFinalizacionHoras)} hs`)}
-    ${kpiItem("Tasa de finalización", `Abiertas: ${abiertas} (${tasaAbiertas}%) | Cerradas: ${cerradas.length} (${tasaCerradas}%)`)}
-    ${kpiItem("Tasa de finalización en tiempo", `${cerradasEnTiempo} de ${cerradas.length} (${tasaEnTiempo}%)`)}
+    ${kpiItem("Tiempo medio de finalizacion", `${formatoNumero(tiempoFinalizacionHoras)} hs`)}
+    ${kpiItem("Tasa de finalizacion", `Abiertas: ${abiertas} (${tasaAbiertas}%) | Cerradas: ${cerradas.length} (${tasaCerradas}%)`)}
+    ${kpiItem("Tasa de finalizacion en tiempo", `${cerradasEnTiempo} de ${cerradas.length} (${tasaEnTiempo}%)`)}
   `;
 }
 
@@ -49,7 +95,7 @@ function renderPreventivos(preventivos, todas) {
   const planificado = porcentaje(horasPreventivas, horasTotales);
 
   document.getElementById("kpiPreventivos").innerHTML = `
-    ${kpiItem("Tasa de finalización en tiempo", `${cerradasEnTiempo} de ${cerradas.length} (${tasaEnTiempo}%)`)}
+    ${kpiItem("Tasa de finalizacion en tiempo", `${cerradasEnTiempo} de ${cerradas.length} (${tasaEnTiempo}%)`)}
     ${kpiItem("% mantenimiento planificado", `${formatoNumero(horasPreventivas)} hs preventivas de ${formatoNumero(horasTotales)} hs totales (${planificado}%)`)}
   `;
 }

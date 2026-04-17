@@ -1,0 +1,143 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasProfile() {
+      return signedIn() && currentUserDoc().exists();
+    }
+
+    function currentRole() {
+      return hasProfile() ? currentUserDoc().data.rol : null;
+    }
+
+    function isSuperadmin() {
+      return currentRole() == "superadmin";
+    }
+
+    function isTenantAdmin() {
+      return currentRole() == "admin";
+    }
+
+    function canManageTenantUsers() {
+      return isSuperadmin() || isTenantAdmin();
+    }
+
+    function currentTenant() {
+      return hasProfile() ? currentUserDoc().data.clienteId : null;
+    }
+
+    function hasTenant() {
+      return currentTenant() is string && currentTenant().size() > 0;
+    }
+
+    function tenantMatchFromResource() {
+      return isSuperadmin()
+        || (hasTenant() && (
+          (resource.data.clienteId is string && resource.data.clienteId == currentTenant())
+          || (!("clienteId" in resource.data) && currentTenant() == "cliente_principal")
+        ));
+    }
+
+    function tenantMatchFromRequest() {
+      return isSuperadmin()
+        || (hasTenant()
+          && request.resource.data.clienteId is string
+          && request.resource.data.clienteId == currentTenant());
+    }
+
+    function validTenantUpdate() {
+      return isSuperadmin() || (
+        tenantMatchFromResource()
+        && tenantMatchFromRequest()
+        && (
+          (("clienteId" in resource.data) && resource.data.clienteId == request.resource.data.clienteId)
+          || (
+            !("clienteId" in resource.data)
+            && currentTenant() == "cliente_principal"
+            && request.resource.data.clienteId == "cliente_principal"
+          )
+        )
+      );
+    }
+
+    match /ordenes/{docId} {
+      allow read: if signedIn() && tenantMatchFromResource();
+      allow create: if signedIn() && tenantMatchFromRequest();
+      allow update: if signedIn() && validTenantUpdate();
+      allow delete: if signedIn() && tenantMatchFromResource();
+    }
+
+    match /equipos/{docId} {
+      allow read: if signedIn() && tenantMatchFromResource();
+      allow create: if signedIn() && tenantMatchFromRequest();
+      allow update: if signedIn() && validTenantUpdate();
+      allow delete: if signedIn() && tenantMatchFromResource();
+    }
+
+    match /ubicaciones/{docId} {
+      allow read: if signedIn() && tenantMatchFromResource();
+      allow create: if signedIn() && tenantMatchFromRequest();
+      allow update: if signedIn() && validTenantUpdate();
+      allow delete: if signedIn() && tenantMatchFromResource();
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (
+        uid == request.auth.uid
+        || isSuperadmin()
+        || tenantMatchFromResource()
+      );
+
+      allow create: if signedIn() && canManageTenantUsers() && (
+        isSuperadmin()
+          ? (
+              request.resource.data.rol == "superadmin"
+              || (request.resource.data.clienteId is string && request.resource.data.clienteId.size() > 0)
+            )
+          : (
+              request.resource.data.rol != "superadmin"
+              && tenantMatchFromRequest()
+            )
+      );
+
+      allow update: if signedIn() && (
+        isSuperadmin()
+        || (
+          canManageTenantUsers()
+          && resource.data.rol != "superadmin"
+          && request.resource.data.rol != "superadmin"
+          && validTenantUpdate()
+        )
+      );
+
+      allow delete: if signedIn() && (
+        isSuperadmin()
+        || (
+          canManageTenantUsers()
+          && resource.data.rol != "superadmin"
+          && tenantMatchFromResource()
+        )
+      );
+    }
+
+    match /config/contador {
+      allow read: if signedIn();
+      allow write: if isSuperadmin();
+    }
+
+    match /config/contadores/clientes/{clienteId} {
+      allow read, write: if signedIn() && (
+        isSuperadmin()
+        || (hasTenant() && currentTenant() == clienteId)
+      );
+    }
+  }
+}

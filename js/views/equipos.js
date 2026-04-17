@@ -1,21 +1,71 @@
-import { collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-export async function initEquiposView() {
+const CLIENTE_DEFAULT = "cliente_principal";
+let tenantContext = { clienteId: null, esSuperadmin: false };
+
+export async function initEquiposView({ role, clienteId }) {
+  tenantContext = resolverContextoTenant({ role, clienteId });
   await cargarEquipos();
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
 }
 
+function resolverContextoTenant({ role, clienteId }) {
+  const rol = role || sessionStorage.getItem("userRole") || "usuario";
+  const esSuperadmin = rol === "superadmin";
+  const clienteFuente = (clienteId || sessionStorage.getItem("userClienteId") || "").trim();
+  if (clienteFuente) return { clienteId: clienteFuente, esSuperadmin };
+  if (!esSuperadmin) return { clienteId: CLIENTE_DEFAULT, esSuperadmin: false };
+  return { clienteId: null, esSuperadmin: true };
+}
+
+function normalizarClienteId(valor) {
+  const cliente = typeof valor === "string" ? valor.trim() : "";
+  return cliente || CLIENTE_DEFAULT;
+}
+
+function puedeAccederDocumento(data) {
+  if (tenantContext.esSuperadmin && !tenantContext.clienteId) return true;
+  return normalizarClienteId(data?.clienteId) === normalizarClienteId(tenantContext.clienteId);
+}
+
+async function obtenerEquiposPorCliente() {
+  const equipos = [];
+  const vistos = new Set();
+
+  if (tenantContext.esSuperadmin && !tenantContext.clienteId) {
+    const snapshotGlobal = await getDocs(collection(db, "equipos"));
+    snapshotGlobal.forEach((docSnap) => equipos.push({ id: docSnap.id, ...docSnap.data() }));
+    return equipos;
+  }
+
+  const clienteId = normalizarClienteId(tenantContext.clienteId);
+  const snapshotTenant = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", clienteId)));
+  snapshotTenant.forEach((docSnap) => {
+    vistos.add(docSnap.id);
+    equipos.push({ id: docSnap.id, ...docSnap.data() });
+  });
+
+  if (clienteId === CLIENTE_DEFAULT) {
+    const snapshotCompleto = await getDocs(collection(db, "equipos"));
+    snapshotCompleto.forEach((docSnap) => {
+      if (vistos.has(docSnap.id)) return;
+      const data = docSnap.data();
+      if (data.clienteId) return;
+      equipos.push({ id: docSnap.id, ...data, clienteId: CLIENTE_DEFAULT });
+    });
+  }
+
+  return equipos;
+}
+
 async function cargarEquipos() {
-  const snapshot = await getDocs(collection(db, "equipos"));
+  const snapshot = await obtenerEquiposPorCliente();
   const tbody = document.querySelector("#tablaEquipos tbody");
   tbody.innerHTML = "";
-  const equipos = [];
-  snapshot.forEach((docSnap) => {
-    equipos.push({ id: docSnap.id, nombre: docSnap.data().nombre });
-  });
-  equipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
-  equipos.forEach((equipo) => {
+
+  snapshot.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
+  snapshot.forEach((equipo) => {
     const row = tbody.insertRow();
     row.insertCell(0).textContent = equipo.nombre;
     const actions = row.insertCell(1);
@@ -37,12 +87,15 @@ async function agregarEquipo() {
   const nombre = input.value.trim();
   if (!nombre) return alert("Ingrese un nombre");
 
+  const clienteId = tenantContext.clienteId ? normalizarClienteId(tenantContext.clienteId) : null;
+  if (!clienteId) return alert("No se encontro clienteId para crear equipos.");
+
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
   try {
-    await addDoc(collection(db, "equipos"), { nombre });
+    await addDoc(collection(db, "equipos"), { nombre, clienteId });
     input.value = "";
     await cargarEquipos();
   } catch (error) {
@@ -55,7 +108,13 @@ async function agregarEquipo() {
 }
 
 async function eliminarEquipo(id) {
-  if (!confirm("¿Eliminar equipo? Se eliminará de todas las órdenes asociadas.")) return;
+  const equipoSnap = await getDoc(doc(db, "equipos", id));
+  if (!equipoSnap.exists() || !puedeAccederDocumento(equipoSnap.data())) {
+    alert("No tienes permisos para eliminar este equipo.");
+    return;
+  }
+
+  if (!confirm("¿Eliminar equipo? Se eliminara de todas las ordenes asociadas.")) return;
   await deleteDoc(doc(db, "equipos", id));
   await cargarEquipos();
 }

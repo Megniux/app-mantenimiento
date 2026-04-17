@@ -2,35 +2,60 @@ import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword,
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
 
+const CLIENTE_DEFAULT = "cliente_principal";
+
 export const authState = {
   user: null,
   profile: null
 };
 
-export async function login(email, password) {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  const uid = cred.user.uid;
-  const userDoc = await getDoc(doc(db, "users", uid));
-  const userData = userDoc.exists()
-    ? userDoc.data()
-    : { nombreCompleto: cred.user.email, rol: "usuario", email: cred.user.email };
+function normalizarClienteId(userData, rol) {
+  if (rol === "superadmin") return null;
+  const clienteId = typeof userData?.clienteId === "string" ? userData.clienteId.trim() : "";
+  return clienteId || CLIENTE_DEFAULT;
+}
 
-  const profile = {
+function construirPerfil(uid, userData, fallbackEmail) {
+  const rol = userData?.rol || "usuario";
+  return {
     uid,
-    nombre: userData.nombreCompleto || userData.email || cred.user.email,
-    rol: userData.rol || "usuario",
-    email: userData.email || cred.user.email
+    nombre: userData?.nombreCompleto || userData?.email || fallbackEmail,
+    rol,
+    email: userData?.email || fallbackEmail,
+    clienteId: normalizarClienteId(userData, rol)
   };
+}
 
+function persistirSesion(profile) {
   sessionStorage.setItem("userName", profile.nombre);
   sessionStorage.setItem("userRole", profile.rol);
   sessionStorage.setItem("userUid", profile.uid);
 
+  if (profile.clienteId) {
+    sessionStorage.setItem("userClienteId", profile.clienteId);
+  } else {
+    sessionStorage.removeItem("userClienteId");
+  }
+}
+
+async function cargarPerfil(uid, fallbackEmail) {
+  const userDoc = await getDoc(doc(db, "users", uid));
+  const userData = userDoc.exists()
+    ? userDoc.data()
+    : { nombreCompleto: fallbackEmail, rol: "usuario", email: fallbackEmail };
+
+  return construirPerfil(uid, userData, fallbackEmail);
+}
+
+export async function login(email, password) {
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  const profile = await cargarPerfil(cred.user.uid, cred.user.email);
+
+  persistirSesion(profile);
   authState.user = cred.user;
   authState.profile = profile;
   return profile;
 }
-
 
 export async function resetPassword(email) {
   await sendPasswordResetEmail(auth, email);
@@ -43,6 +68,25 @@ export async function logout() {
   authState.profile = null;
 }
 
+function cargarPerfilDesdeSesion(user) {
+  const uid = sessionStorage.getItem("userUid");
+  const nombre = sessionStorage.getItem("userName");
+  const rol = sessionStorage.getItem("userRole");
+
+  if (!uid || uid !== user.uid || !nombre || !rol) return null;
+
+  const clienteIdSesion = (sessionStorage.getItem("userClienteId") || "").trim();
+  const clienteId = rol === "superadmin" ? null : (clienteIdSesion || CLIENTE_DEFAULT);
+
+  return {
+    uid: user.uid,
+    nombre,
+    rol,
+    email: user.email,
+    clienteId
+  };
+}
+
 export function watchAuth(callback) {
   return onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -52,27 +96,14 @@ export function watchAuth(callback) {
       return;
     }
 
-    let nombre = sessionStorage.getItem("userName");
-    let rol = sessionStorage.getItem("userRole");
-    const uid = user.uid;
-
-    if (!nombre || !rol) {
-      const userDoc = await getDoc(doc(db, "users", uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        nombre = data.nombreCompleto || data.email || user.email;
-        rol = data.rol || "usuario";
-      } else {
-        nombre = user.email;
-        rol = "usuario";
-      }
-      sessionStorage.setItem("userName", nombre);
-      sessionStorage.setItem("userRole", rol);
-      sessionStorage.setItem("userUid", uid);
+    let profile = cargarPerfilDesdeSesion(user);
+    if (!profile) {
+      profile = await cargarPerfil(user.uid, user.email);
+      persistirSesion(profile);
     }
 
     authState.user = user;
-    authState.profile = { uid, nombre, rol, email: user.email };
+    authState.profile = profile;
     callback(authState.profile);
   });
 }
