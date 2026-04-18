@@ -18,7 +18,7 @@ const COLECCIONES = ["ordenes", "equipos", "ubicaciones", "users"];
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
 
-  const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || "./pruebas-ae2ce-firebase-adminsdk-fbsvc-877aa6c1a8.json";
   if (credentialsPath) {
     const absolutePath = path.resolve(credentialsPath);
     const raw = fs.readFileSync(absolutePath, "utf8");
