@@ -291,6 +291,15 @@ export function initRouter() {
         sidebarToggle.setAttribute("aria-expanded", "false");
       }
     });
+    // Cerrar sidebar al hacer click fuera en mobile
+    document.addEventListener("click", (e) => {
+      if (window.innerWidth >= MOBILE_BREAKPOINT) return;
+      if (!appLayout.classList.contains("sidebar-expanded")) return;
+      const sidebar = document.getElementById("sidebar");
+      if (sidebar.contains(e.target)) return;
+      if (sidebarToggle.contains(e.target)) return;
+      collapseSidebarOnMobile();
+    });
   }
 
   document.getElementById("logoutBtn").addEventListener("click", async () => {
