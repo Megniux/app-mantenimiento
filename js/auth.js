@@ -53,27 +53,40 @@ export function watchAuth(callback) {
       return;
     }
 
+    // Si ya tenemos el perfil en authState, usarlo directamente
+    if (authState.profile && authState.profile.uid === user.uid) {
+      callback(authState.profile);
+      return;
+    }
+
+    const uid = user.uid;
     let nombre = sessionStorage.getItem("userName");
     let rol = sessionStorage.getItem("userRole");
     let clienteId = sessionStorage.getItem("userClienteId");
-    const uid = user.uid;
 
     if (!nombre || !rol) {
-      const userDoc = await getDoc(doc(db, "users", uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        nombre = data.nombreCompleto || data.email || user.email;
-        rol = data.rol || "usuario";
-        clienteId = data.clienteId || "";
-      } else {
+      try {
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          nombre = data.nombreCompleto || data.email || user.email;
+          rol = data.rol || "usuario";
+          clienteId = data.clienteId || "";
+        } else {
+          nombre = user.email;
+          rol = "usuario";
+          clienteId = "";
+        }
+        sessionStorage.setItem("userName", nombre);
+        sessionStorage.setItem("userRole", rol);
+        sessionStorage.setItem("userUid", uid);
+        sessionStorage.setItem("userClienteId", clienteId);
+      } catch (err) {
+        // Si falla la lectura de Firestore, usar datos mínimos del token
         nombre = user.email;
         rol = "usuario";
         clienteId = "";
       }
-      sessionStorage.setItem("userName", nombre);
-      sessionStorage.setItem("userRole", rol);
-      sessionStorage.setItem("userUid", uid);
-      sessionStorage.setItem("userClienteId", clienteId);
     }
 
     authState.user = user;
