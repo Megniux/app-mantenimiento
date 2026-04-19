@@ -76,7 +76,8 @@ export async function initConsultaView({ role, clienteId }) {
 }
 
 function cerrarMenusDesplegables() {
-  document.querySelectorAll(".dropdown-menu.show").forEach((menu) => menu.classList.remove("show"));
+  const menu = document.getElementById("floatingDropdown");
+  if (menu) menu.remove();
 }
 
 function inicializarToolbarMovil() {
@@ -256,35 +257,60 @@ async function cargar() {
   });
 
   document.querySelectorAll(".menu-trigger").forEach((trigger) => {
-    trigger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const id = trigger.dataset.id;
-      const menu = trigger.parentElement.querySelector(".dropdown-menu");
-      menu.innerHTML = "";
-      const addOption = (text, onClick) => {
-        const btn = document.createElement("button");
-        btn.textContent = text;
-        btn.onclick = (ev) => { ev.stopPropagation(); onClick(); menu.classList.remove("show"); };
-        menu.appendChild(btn);
-      };
-      addOption("Ver detalles", () => verDetalles(id));
-      const orden = todasOrdenes.find((o) => o.id === id);
-      if (userRole !== "usuario" && userRole !== "supervisor") {
-        if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) addOption("Editar", () => abrirModal(id));
-      }
-      if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
-      cerrarMenusDesplegables();
-      menu.classList.add("show");
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
 
-      // Detectar si el menú se sale del viewport y abrirlo hacia arriba
-      const menuRect = menu.getBoundingClientRect();
-      if (menuRect.bottom > window.innerHeight) {
-        menu.classList.add("open-up");
-      } else {
-        menu.classList.remove("open-up");
+    // Si ya hay un menú abierto para este trigger, cerrarlo
+    const existing = document.getElementById("floatingDropdown");
+    if (existing) {
+      const existingId = existing.dataset.triggerId;
+      existing.remove();
+      if (existingId === trigger.dataset.id) return;
+    }
+
+    const id = trigger.dataset.id;
+    const orden = todasOrdenes.find((o) => o.id === id);
+
+    // Crear menú flotante en el body
+    const menu = document.createElement("div");
+    menu.id = "floatingDropdown";
+    menu.className = "dropdown-menu show";
+    menu.dataset.triggerId = id;
+
+    const addOption = (text, onClick) => {
+      const btn = document.createElement("button");
+      btn.textContent = text;
+      btn.onclick = (ev) => { ev.stopPropagation(); onClick(); cerrarMenusDesplegables(); };
+      menu.appendChild(btn);
+    };
+
+    addOption("Ver detalles", () => verDetalles(id));
+    if (userRole !== "usuario" && userRole !== "supervisor") {
+      if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
+        addOption("Editar", () => abrirModal(id));
       }
-    });
+    }
+    if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
+
+    document.body.appendChild(menu);
+
+    // Posicionar el menú junto al trigger
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuHeight = menu.offsetHeight;
+    const spaceBelow = window.innerHeight - triggerRect.bottom;
+
+    if (spaceBelow < menuHeight) {
+      // Abrir hacia arriba
+      menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
+    } else {
+      // Abrir hacia abajo
+      menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
+    }
+    menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
+    menu.style.position = "absolute";
+    menu.style.zIndex = "9999";
   });
+});
 }
 
 function obtenerValorOrden(orden, campoOrden) {
