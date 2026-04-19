@@ -44,9 +44,9 @@ const CAMPOS_DETALLE_ORDEN = [
 export async function initConsultaView({ role, clienteId }) {
   userRole = role;
   _clienteId = clienteId || "";
-  try { await cargarListasFiltros(); } catch (e) { console.error("cargarListasFiltros:", e); }
-  try { await cargarTecnicos(); } catch (e) { console.error("cargarTecnicos:", e); }
-  try { await cargarTodasOrdenes(); } catch (e) { console.error("cargarTodasOrdenes:", e); }
+  await cargarListasFiltros();
+  await cargarTecnicos();
+  await cargarTodasOrdenes();
   configurarOrdenPredeterminado();
   await cargar();
   inicializarToolbarMovil();
@@ -90,13 +90,17 @@ function inicializarToolbarMovil() {
     toggleBtn.setAttribute("aria-expanded", "false");
   };
 
-  const toggleToolbar = () => {
+  const toggleToolbar = (e) => {
+    e.stopPropagation();
     if (window.innerWidth >= MOBILE_BREAKPOINT) return;
     const abierto = toolbar.classList.toggle("mobile-open");
     toggleBtn.setAttribute("aria-expanded", String(abierto));
   };
 
-  toggleBtn.addEventListener("click", toggleToolbar);
+  // Clonar el botón para eliminar listeners previos antes de agregar uno nuevo
+  const nuevoBtn = toggleBtn.cloneNode(true);
+  toggleBtn.parentNode.replaceChild(nuevoBtn, toggleBtn);
+  nuevoBtn.addEventListener("click", toggleToolbar);
 
   const cierrePorAccionIds = ["limpiarFiltrosBtn", "aplicarOrdenBtn"];
   cierrePorAccionIds.forEach((id) => {
@@ -108,35 +112,28 @@ function inicializarToolbarMovil() {
     });
   });
 
+  // Usar AbortController para limpiar el listener de resize al recargar la vista
+  const controller = new AbortController();
   window.addEventListener("resize", () => {
     if (window.innerWidth >= MOBILE_BREAKPOINT) closeToolbar();
-  });
+  }, { signal: controller.signal });
+
+  // Guardar referencia para abortar en la próxima carga
+  if (window._toolbarResizeController) {
+    window._toolbarResizeController.abort();
+  }
+  window._toolbarResizeController = controller;
 }
 
 async function cargarTecnicos() {
+  const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId)));
   listaTecnicos = [];
-  try {
-    const tecnicosSnap = await getDocs(
-      query(collection(db, "users"),
-        where("clienteId", "==", _clienteId),
-        where("rol", "==", "tecnico"))
-    );
-    tecnicosSnap.forEach((docSnap) => {
-      const data = docSnap.data();
+  usersSnap.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (data.rol === "tecnico") {
       listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
-    });
-  } catch (e) { console.error("Error cargando técnicos:", e); }
-
-  try {
-    const superadminsSnap = await getDocs(
-      query(collection(db, "users"), where("rol", "==", "superadmin"))
-    );
-    superadminsSnap.forEach((docSnap) => {
-      const data = docSnap.data();
-      listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
-    });
-  } catch (e) { console.error("Error cargando superadmins:", e); }
-
+    }
+  });
   listaTecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
@@ -264,60 +261,70 @@ async function cargar() {
   });
 
   document.querySelectorAll(".menu-trigger").forEach((trigger) => {
-  trigger.addEventListener("click", (e) => {
-    e.stopPropagation();
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
 
-    // Si ya hay un menú abierto para este trigger, cerrarlo
-    const existing = document.getElementById("floatingDropdown");
-    if (existing) {
-      const existingId = existing.dataset.triggerId;
-      existing.remove();
-      if (existingId === trigger.dataset.id) return;
-    }
-
-    const id = trigger.dataset.id;
-    const orden = todasOrdenes.find((o) => o.id === id);
-
-    // Crear menú flotante en el body
-    const menu = document.createElement("div");
-    menu.id = "floatingDropdown";
-    menu.className = "dropdown-menu show";
-    menu.dataset.triggerId = id;
-
-    const addOption = (text, onClick) => {
-      const btn = document.createElement("button");
-      btn.textContent = text;
-      btn.onclick = (ev) => { ev.stopPropagation(); onClick(); cerrarMenusDesplegables(); };
-      menu.appendChild(btn);
-    };
-
-    addOption("Ver detalles", () => verDetalles(id));
-    if (userRole !== "usuario" && userRole !== "supervisor") {
-      if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
-        addOption("Editar", () => abrirModal(id));
+      // Si ya hay un menú abierto para este trigger, cerrarlo
+      const existing = document.getElementById("floatingDropdown");
+      if (existing) {
+        const existingId = existing.dataset.triggerId;
+        existing.remove();
+        if (existingId === trigger.dataset.id) return;
       }
-    }
-    if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
 
-    document.body.appendChild(menu);
+      const id = trigger.dataset.id;
+      const orden = todasOrdenes.find((o) => o.id === id);
 
-    // Posicionar el menú junto al trigger
-    const triggerRect = trigger.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight;
-    const spaceBelow = window.innerHeight - triggerRect.bottom;
+      // Crear menú flotante en el body
+      const menu = document.createElement("div");
+      menu.id = "floatingDropdown";
+      menu.className = "dropdown-menu show";
+      menu.dataset.triggerId = id;
 
-    if (spaceBelow < menuHeight) {
-      // Abrir hacia arriba
-      menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
-    } else {
-      // Abrir hacia abajo
-      menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
-    }
-    menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
-    menu.style.position = "absolute";
-    menu.style.zIndex = "9999";
+      const addOption = (text, onClick) => {
+        const btn = document.createElement("button");
+        btn.textContent = text;
+        btn.onclick = (ev) => { ev.stopPropagation(); onClick(); cerrarMenusDesplegables(); };
+        menu.appendChild(btn);
+      };
+
+      addOption("Ver detalles", () => verDetalles(id));
+      if (userRole !== "usuario" && userRole !== "supervisor") {
+        if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
+          addOption("Editar", () => abrirModal(id));
+        }
+      }
+      if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
+
+      document.body.appendChild(menu);
+
+      // Posicionar el menú junto al trigger
+      const triggerRect = trigger.getBoundingClientRect();
+      const menuHeight = menu.offsetHeight;
+      const spaceBelow = window.innerHeight - triggerRect.bottom;
+
+      if (spaceBelow < menuHeight) {
+        // Abrir hacia arriba
+        menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
+      } else {
+        // Abrir hacia abajo
+        menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
+      }
+      menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
+      menu.style.position = "absolute";
+      menu.style.zIndex = "9999";
+    });
   });
-});
+
+  document.querySelectorAll("#tabla tr").forEach((fila) => {
+    fila.style.cursor = "pointer";
+    fila.addEventListener("click", (e) => {
+      if (e.target.closest(".actions-menu")) return;
+      const trigger = fila.querySelector(".menu-trigger");
+      if (!trigger) return;
+      verDetalles(trigger.dataset.id);
+    });
+  });
 }
 
 function obtenerValorOrden(orden, campoOrden) {
