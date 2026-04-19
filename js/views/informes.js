@@ -1,8 +1,9 @@
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-export async function initInformesView() {
-  const ordenesSnap = await getDocs(collection(db, "ordenes"));
+export async function initInformesView({ clienteId } = {}) {
+  const _clienteId = clienteId || "";
+  const ordenesSnap = await getDocs(query(collection(db, "ordenes"), where("clienteId", "==", _clienteId)));
   const ordenes = [];
   ordenesSnap.forEach((d) => ordenes.push({ id: d.id, ...d.data() }));
   renderCorrectivos(ordenes.filter((o) => o.tipo === "Correctivo"));

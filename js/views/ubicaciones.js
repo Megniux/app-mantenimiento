@@ -1,13 +1,16 @@
-import { collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-export async function initUbicacionesView() {
+let _clienteId = "";
+
+export async function initUbicacionesView({ clienteId } = {}) {
+  _clienteId = clienteId || "";
   await cargarUbicaciones();
   document.getElementById("agregarUbicacionBtn").addEventListener("click", agregarUbicacion);
 }
 
 async function cargarUbicaciones() {
-  const snapshot = await getDocs(collection(db, "ubicaciones"));
+  const snapshot = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
   const tbody = document.querySelector("#tablaUbicaciones tbody");
   tbody.innerHTML = "";
   const ubicaciones = [];
@@ -42,7 +45,7 @@ async function agregarUbicacion() {
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
   try {
-    await addDoc(collection(db, "ubicaciones"), { nombre });
+    await addDoc(collection(db, "ubicaciones"), { nombre, clienteId: _clienteId });
     input.value = "";
     await cargarUbicaciones();
   } catch (error) {
