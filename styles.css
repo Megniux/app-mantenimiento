@@ -610,7 +610,6 @@ th {
 }
 
 .modal {
-  display: none;
   position: fixed;
   z-index: 1000;
   inset: 0;
@@ -735,6 +734,38 @@ th {
 
 #loginForm {
   margin-top: 0.8rem;
+}
+
+/* ── Cliente selector (solo visible para superadmin) ── */
+.cliente-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.cliente-selector-label {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.cliente-select {
+  font-size: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  background: #f8fafc;
+  color: var(--color-primary);
+  cursor: pointer;
+  width: auto;
+  min-width: 9rem;
+  max-width: 16rem;
+}
+
+.cliente-select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 
 @media (min-width: 640px) {

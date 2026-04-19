@@ -5,15 +5,16 @@ import { initEquiposView } from "./views/equipos.js";
 import { initUbicacionesView } from "./views/ubicaciones.js";
 import { initUsuariosView } from "./views/usuarios.js";
 import { initInformesView } from "./views/informes.js";
+import { collection, getDocs, query, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";import { db } from "./firebase-config.js";
 
 const routes = {
-  login: { template: "templates/login.html", title: "Iniciar Sesión", init: null, roles: ["guest", "usuario", "tecnico", "supervisor", "admin"] },
-  consulta: { template: "templates/consulta.html", title: "Consulta de Órdenes", init: initConsultaView, roles: ["usuario", "tecnico", "supervisor", "admin"] },
-  solicitud: { template: "templates/solicitud.html", title: "Nueva Solicitud", init: initSolicitudView, roles: ["usuario", "tecnico", "supervisor", "admin"] },
-  informes: { template: "templates/informes.html", title: "KPIs (Indicadores Clave)", init: initInformesView, roles: ["tecnico", "supervisor", "admin"] },
-  equipos: { template: "templates/equipos.html", title: "Gestionar Equipos", init: initEquiposView, roles: ["supervisor", "admin"] },
-  ubicaciones: { template: "templates/ubicaciones.html", title: "Gestionar Ubicaciones", init: initUbicacionesView, roles: ["supervisor", "admin"] },
-  usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin"] }
+  login: { template: "templates/login.html", title: "Iniciar Sesión", init: null, roles: ["guest", "usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  consulta: { template: "templates/consulta.html", title: "Consulta de Órdenes", init: initConsultaView, roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  solicitud: { template: "templates/solicitud.html", title: "Nueva Solicitud", init: initSolicitudView, roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  informes: { template: "templates/informes.html", title: "KPIs (Indicadores Clave)", init: initInformesView, roles: ["tecnico", "supervisor", "admin", "superadmin"] },
+  equipos: { template: "templates/equipos.html", title: "Gestionar Equipos", init: initEquiposView, roles: ["supervisor", "admin", "superadmin"] },
+  ubicaciones: { template: "templates/ubicaciones.html", title: "Gestionar Ubicaciones", init: initUbicacionesView, roles: ["supervisor", "admin", "superadmin"] },
+  usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin", "superadmin"] }
 };
 
 const menuByRole = {
@@ -21,7 +22,8 @@ const menuByRole = {
   usuario: ["solicitud", "consulta"],
   tecnico: ["solicitud", "consulta", "informes"],
   supervisor: ["solicitud", "consulta", "informes"],
-  admin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"]
+  admin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"],
+  superadmin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"]
 };
 
 const menuMeta = {
@@ -39,6 +41,16 @@ const nav = document.getElementById("sidebar-nav");
 const appLayout = document.querySelector(".app-layout");
 const sidebarToggle = document.getElementById("sidebarToggle");
 const MOBILE_BREAKPOINT = 1024;
+let listenerCierreMenuRegistrado = false;
+
+// clienteId activo para la sesión actual
+// Para superadmin: viene del select del top-bar
+// Para el resto: viene del perfil del usuario
+let activeClienteId = "";
+
+export function getActiveClienteId() {
+  return activeClienteId;
+}
 
 function collapseSidebarOnMobile() {
   if (!appLayout || !sidebarToggle) return;
@@ -92,10 +104,81 @@ function renderSidebar(activeRoute) {
   }
 }
 
+// Carga la lista de clientes y renderiza el select en el top-bar (solo superadmin)
+async function renderClienteSelector(selectedId = "") {
+  const container = document.getElementById("clienteSelectorContainer");
+  if (!container) return;
+
+  const role = authState.profile?.rol;
+  if (role !== "superadmin") {
+    container.innerHTML = "";
+    container.classList.add("is-hidden");
+    return;
+  }
+
+  container.classList.remove("is-hidden");
+
+  const snap = await getDocs(query(collection(db, "clientes"), orderBy("nombre")));
+  const clientes = [];
+  snap.forEach((d) => clientes.push({ id: d.id, nombre: d.data().nombre }));
+
+  if (!clientes.length) {
+    container.innerHTML = `<span class="cliente-selector-label">Sin clientes</span>`;
+    activeClienteId = "";
+    return;
+  }
+
+  // Determinar el seleccionado: parámetro → sessionStorage → primero de la lista
+  const storedId = sessionStorage.getItem("superadminClienteId");
+  const resolvedId = selectedId || storedId || clientes[0].id;
+  const clienteExiste = clientes.find((c) => c.id === resolvedId);
+  activeClienteId = clienteExiste ? resolvedId : clientes[0].id;
+  sessionStorage.setItem("superadminClienteId", activeClienteId);
+
+  const select = document.createElement("select");
+  select.id = "clienteSelect";
+  select.className = "cliente-select";
+  clientes.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.nombre;
+    opt.selected = c.id === activeClienteId;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener("change", async () => {
+    activeClienteId = select.value;
+    sessionStorage.setItem("superadminClienteId", activeClienteId);
+    // Recargar la vista actual con el nuevo clienteId
+    await cargarContenido(currentRoute(), false);
+  });
+
+  container.innerHTML = "";
+  const label = document.createElement("span");
+  label.className = "cliente-selector-label";
+  label.textContent = "Cliente:";
+  container.appendChild(label);
+  container.appendChild(select);
+}
+
 export async function cargarContenido(routeKey, push = true) {
   const role = authState.profile?.rol || "guest";
   const finalRoute = canAccess(routeKey, role) ? routeKey : (authState.profile ? "consulta" : "login");
   const route = routes[finalRoute];
+
+  // Resolver clienteId activo
+  if (role === "superadmin") {
+    await renderClienteSelector(activeClienteId);
+    // activeClienteId ya fue seteado en renderClienteSelector
+  } else {
+    // Ocultar selector si no es superadmin
+    const container = document.getElementById("clienteSelectorContainer");
+    if (container) {
+      container.innerHTML = "";
+      container.classList.add("is-hidden");
+    }
+    activeClienteId = authState.profile?.clienteId || "";
+  }
 
   const response = await fetch(route.template, { cache: "no-store" });
   mainContent.innerHTML = await response.text();
@@ -166,7 +249,6 @@ export async function cargarContenido(routeKey, push = true) {
         }
         return;
       }
-
       try {
         await resetPassword(email);
         disableResetMode();
@@ -188,7 +270,8 @@ export async function cargarContenido(routeKey, push = true) {
     return;
   }
 
-  await route.init?.({ role: authState.profile.rol, userName: authState.profile.nombre });
+  await renderTelefonos(activeClienteId);
+  await route.init?.({ role: authState.profile.rol, userName: authState.profile.nombre, clienteId: activeClienteId });
 }
 
 export function navigate(routeKey) {
@@ -223,4 +306,25 @@ export function initRouter() {
     const route = currentRoute();
     await cargarContenido(route, false);
   });
+}
+
+async function renderTelefonos(clienteId) {
+  const container = document.querySelector(".sidebar-contacts");
+  if (!container) return;
+
+  if (!clienteId) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const snap = await getDoc(doc(db, "clientes", clienteId));
+  const telefonos = snap.exists() ? (snap.data().telefonos || []) : [];
+
+  if (!telefonos.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = `<h3>Telefonos de contacto</h3>
+    ${telefonos.map((t) => `<a class="sidebar-contact-link" href="tel:${t.numero}">${t.label}</a>`).join("")}`;
 }

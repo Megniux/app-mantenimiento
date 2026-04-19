@@ -13,24 +13,25 @@ export async function login(email, password) {
   const userDoc = await getDoc(doc(db, "users", uid));
   const userData = userDoc.exists()
     ? userDoc.data()
-    : { nombreCompleto: cred.user.email, rol: "usuario", email: cred.user.email };
+    : { nombreCompleto: cred.user.email, rol: "usuario", email: cred.user.email, clienteId: "" };
 
   const profile = {
     uid,
     nombre: userData.nombreCompleto || userData.email || cred.user.email,
     rol: userData.rol || "usuario",
-    email: userData.email || cred.user.email
+    email: userData.email || cred.user.email,
+    clienteId: userData.clienteId || ""
   };
 
   sessionStorage.setItem("userName", profile.nombre);
   sessionStorage.setItem("userRole", profile.rol);
   sessionStorage.setItem("userUid", profile.uid);
+  sessionStorage.setItem("userClienteId", profile.clienteId);
 
   authState.user = cred.user;
   authState.profile = profile;
   return profile;
 }
-
 
 export async function resetPassword(email) {
   await sendPasswordResetEmail(auth, email);
@@ -54,6 +55,7 @@ export function watchAuth(callback) {
 
     let nombre = sessionStorage.getItem("userName");
     let rol = sessionStorage.getItem("userRole");
+    let clienteId = sessionStorage.getItem("userClienteId");
     const uid = user.uid;
 
     if (!nombre || !rol) {
@@ -62,17 +64,20 @@ export function watchAuth(callback) {
         const data = userDoc.data();
         nombre = data.nombreCompleto || data.email || user.email;
         rol = data.rol || "usuario";
+        clienteId = data.clienteId || "";
       } else {
         nombre = user.email;
         rol = "usuario";
+        clienteId = "";
       }
       sessionStorage.setItem("userName", nombre);
       sessionStorage.setItem("userRole", rol);
       sessionStorage.setItem("userUid", uid);
+      sessionStorage.setItem("userClienteId", clienteId);
     }
 
     authState.user = user;
-    authState.profile = { uid, nombre, rol, email: user.email };
+    authState.profile = { uid, nombre, rol, email: user.email, clienteId: clienteId || "" };
     callback(authState.profile);
   });
 }

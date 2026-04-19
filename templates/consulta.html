@@ -48,7 +48,7 @@
   </div>
 </div>
 
-<div id="modalEditar" class="modal"><div class="modal-content">
+<div id="modalEditar" class="modal is-hidden"><div class="modal-content">
   <span class="close close-modal" data-modal="modalEditar">&times;</span>
   <div class="form-card modal-form-card form-section">
     <h3>Editar Orden</h3>
@@ -66,20 +66,20 @@
       <div class="form-group">
         <div class="input-with-icon"><i class="fa-regular fa-clock"></i><input type="number" step="0.5" id="editTiempoEstimado" placeholder="Tiempo estimado (hs)"></div>
       </div>
-      <div class="form-group" id="editTiempoRealGroup">
+      <div class="form-group is-hidden" id="editTiempoRealGroup">
         <div class="input-with-icon"><i class="fa-solid fa-hourglass-end"></i><input type="number" step="0.5" id="editTiempoReal" placeholder="Tiempo real (hs)"></div>
       </div>
       <div class="form-group">
         <div class="input-with-icon"><i class="fa-solid fa-comment"></i><textarea id="editComentario" rows="7" placeholder="Comentario mantenimiento"></textarea></div>
       </div>
-      <div class="form-group" id="editInformeCierreGroup">
+      <div class="form-group is-hidden" id="editInformeCierreGroup">
         <div class="input-with-icon"><i class="fa-solid fa-file-circle-check"></i><textarea id="editInformeCierre" rows="7" placeholder="Informe de cierre"></textarea></div>
       </div>
     </div>
     <button id="guardarEdicionBtn" type="button" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i>Guardar cambios</button>
   </div>
 </div></div>
-<div id="modalDetalles" class="modal"><div class="modal-content">
+<div id="modalDetalles" class="modal is-hidden"><div class="modal-content">
   <span class="close close-modal" data-modal="modalDetalles">&times;</span>
   <div class="form-card modal-form-card form-section">
     <h3>Ver Detalles</h3>

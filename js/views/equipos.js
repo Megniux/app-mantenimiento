@@ -1,13 +1,16 @@
-import { collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-export async function initEquiposView() {
+let _clienteId = "";
+
+export async function initEquiposView({ clienteId } = {}) {
+  _clienteId = clienteId || "";
   await cargarEquipos();
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
 }
 
 async function cargarEquipos() {
-  const snapshot = await getDocs(collection(db, "equipos"));
+  const snapshot = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
   const tbody = document.querySelector("#tablaEquipos tbody");
   tbody.innerHTML = "";
   const equipos = [];
@@ -42,7 +45,7 @@ async function agregarEquipo() {
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
   try {
-    await addDoc(collection(db, "equipos"), { nombre });
+    await addDoc(collection(db, "equipos"), { nombre, clienteId: _clienteId });
     input.value = "";
     await cargarEquipos();
   } catch (error) {
