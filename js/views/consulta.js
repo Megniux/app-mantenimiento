@@ -275,6 +275,14 @@ async function cargar() {
       if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
       cerrarMenusDesplegables();
       menu.classList.add("show");
+      
+      // Detectar si el menú se sale del viewport y abrirlo hacia arriba
+      const menuRect = menu.getBoundingClientRect();
+      if (menuRect.bottom > window.innerHeight) {
+        menu.classList.add("open-up");
+      } else {
+        menu.classList.remove("open-up");
+      }
     });
   });
 }
@@ -433,7 +441,7 @@ async function guardarEdicion() {
     tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
     comentarioMantenimiento,
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
-  }, ["tiempoReal", "informeCierre"]);
+  }, nuevoEstado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"]);
 
   if (!cambiosDetectados.length && !estadoCambio) {
     return alert("No hay cambios para guardar.");
