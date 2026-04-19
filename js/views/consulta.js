@@ -252,31 +252,15 @@ async function cargar() {
       <td class="wrap-col">${orden.equipo || ""}</td>
       <td class="wrap-col">${orden.descripcion || ""}</td>
       <td class="nowrap-col">${formatearFechaCorta(orden.fechaProgramada)}</td>
-      <td class="actions-menu">${
-        userRole !== "usuario" && userRole !== "supervisor"
-          ? `<button type="button" class="menu-trigger" data-id="${orden.id}" aria-label="Acciones"><i class="fas fa-ellipsis-v"></i></button>`
-          : ""
-      }</td>`;
+      <td class="actions-menu"><button type="button" class="menu-trigger" data-id="${orden.id}" aria-label="Acciones"><i class="fas fa-ellipsis-v"></i></button><div class="dropdown-menu" data-id="${orden.id}"></div></td>`;
     tabla.appendChild(fila);
   });
 
-  // Click en fila → Ver detalles (todos los roles)
-document.querySelectorAll("#tabla tr").forEach((fila) => {
-  fila.style.cursor = "pointer";
-  fila.addEventListener("click", (e) => {
-    // Ignorar si el click fue en el menu-trigger o en el floatingDropdown
-    if (e.target.closest(".actions-menu")) return;
-    const trigger = fila.querySelector(".menu-trigger");
-    if (!trigger) return;
-    verDetalles(trigger.dataset.id);
-  });
-});
-
-// Click en menu-trigger → Editar / Eliminar (tecnico, admin, superadmin)
-document.querySelectorAll(".menu-trigger").forEach((trigger) => {
+  document.querySelectorAll(".menu-trigger").forEach((trigger) => {
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
 
+    // Si ya hay un menú abierto para este trigger, cerrarlo
     const existing = document.getElementById("floatingDropdown");
     if (existing) {
       const existingId = existing.dataset.triggerId;
@@ -286,6 +270,8 @@ document.querySelectorAll(".menu-trigger").forEach((trigger) => {
 
     const id = trigger.dataset.id;
     const orden = todasOrdenes.find((o) => o.id === id);
+
+    // Crear menú flotante en el body
     const menu = document.createElement("div");
     menu.id = "floatingDropdown";
     menu.className = "dropdown-menu show";
@@ -298,20 +284,26 @@ document.querySelectorAll(".menu-trigger").forEach((trigger) => {
       menu.appendChild(btn);
     };
 
-    if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
-      addOption("Editar", () => abrirModal(id));
+    addOption("Ver detalles", () => verDetalles(id));
+    if (userRole !== "usuario" && userRole !== "supervisor") {
+      if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
+        addOption("Editar", () => abrirModal(id));
+      }
     }
     if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
 
     document.body.appendChild(menu);
 
+    // Posicionar el menú junto al trigger
     const triggerRect = trigger.getBoundingClientRect();
     const menuHeight = menu.offsetHeight;
     const spaceBelow = window.innerHeight - triggerRect.bottom;
 
     if (spaceBelow < menuHeight) {
+      // Abrir hacia arriba
       menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
     } else {
+      // Abrir hacia abajo
       menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
     }
     menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
