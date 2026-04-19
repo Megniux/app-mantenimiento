@@ -113,22 +113,14 @@ function inicializarToolbarMovil() {
 }
 
 async function cargarTecnicos() {
-  // Técnicos del cliente actual
-  const tecnicosSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId), where("rol", "==", "tecnico")));
-  
-  // Superadmins (clienteId vacío)
-  const superadminsSnap = await getDocs(query(collection(db, "users"), where("rol", "==", "superadmin")));
-
+  const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId)));
   listaTecnicos = [];
-  tecnicosSnap.forEach((docSnap) => {
+  usersSnap.forEach((docSnap) => {
     const data = docSnap.data();
-    listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
+    if (data.rol === "tecnico" || data.rol === "admin") {
+      listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
+    }
   });
-  superadminsSnap.forEach((docSnap) => {
-    const data = docSnap.data();
-    listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
-  });
-
   listaTecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
