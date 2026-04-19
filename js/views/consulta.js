@@ -90,13 +90,17 @@ function inicializarToolbarMovil() {
     toggleBtn.setAttribute("aria-expanded", "false");
   };
 
-  const toggleToolbar = () => {
+  const toggleToolbar = (e) => {
+    e.stopPropagation();
     if (window.innerWidth >= MOBILE_BREAKPOINT) return;
     const abierto = toolbar.classList.toggle("mobile-open");
     toggleBtn.setAttribute("aria-expanded", String(abierto));
   };
 
-  toggleBtn.addEventListener("click", toggleToolbar);
+  // Clonar el botón para eliminar listeners previos antes de agregar uno nuevo
+  const nuevoBtn = toggleBtn.cloneNode(true);
+  toggleBtn.parentNode.replaceChild(nuevoBtn, toggleBtn);
+  nuevoBtn.addEventListener("click", toggleToolbar);
 
   const cierrePorAccionIds = ["limpiarFiltrosBtn", "aplicarOrdenBtn"];
   cierrePorAccionIds.forEach((id) => {
@@ -108,9 +112,17 @@ function inicializarToolbarMovil() {
     });
   });
 
+  // Usar AbortController para limpiar el listener de resize al recargar la vista
+  const controller = new AbortController();
   window.addEventListener("resize", () => {
     if (window.innerWidth >= MOBILE_BREAKPOINT) closeToolbar();
-  });
+  }, { signal: controller.signal });
+
+  // Guardar referencia para abortar en la próxima carga
+  if (window._toolbarResizeController) {
+    window._toolbarResizeController.abort();
+  }
+  window._toolbarResizeController = controller;
 }
 
 async function cargarTecnicos() {
