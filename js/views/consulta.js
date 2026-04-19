@@ -118,7 +118,7 @@ async function cargarTecnicos() {
   listaTecnicos = [];
   usersSnap.forEach((docSnap) => {
     const data = docSnap.data();
-    if (data.rol === "tecnico" || data.rol === "admin") {
+    if (data.rol === "tecnico") {
       listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
     }
   });
@@ -249,60 +249,70 @@ async function cargar() {
   });
 
   document.querySelectorAll(".menu-trigger").forEach((trigger) => {
-  trigger.addEventListener("click", (e) => {
-    e.stopPropagation();
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
 
-    // Si ya hay un menú abierto para este trigger, cerrarlo
-    const existing = document.getElementById("floatingDropdown");
-    if (existing) {
-      const existingId = existing.dataset.triggerId;
-      existing.remove();
-      if (existingId === trigger.dataset.id) return;
-    }
-
-    const id = trigger.dataset.id;
-    const orden = todasOrdenes.find((o) => o.id === id);
-
-    // Crear menú flotante en el body
-    const menu = document.createElement("div");
-    menu.id = "floatingDropdown";
-    menu.className = "dropdown-menu show";
-    menu.dataset.triggerId = id;
-
-    const addOption = (text, onClick) => {
-      const btn = document.createElement("button");
-      btn.textContent = text;
-      btn.onclick = (ev) => { ev.stopPropagation(); onClick(); cerrarMenusDesplegables(); };
-      menu.appendChild(btn);
-    };
-
-    addOption("Ver detalles", () => verDetalles(id));
-    if (userRole !== "usuario" && userRole !== "supervisor") {
-      if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
-        addOption("Editar", () => abrirModal(id));
+      // Si ya hay un menú abierto para este trigger, cerrarlo
+      const existing = document.getElementById("floatingDropdown");
+      if (existing) {
+        const existingId = existing.dataset.triggerId;
+        existing.remove();
+        if (existingId === trigger.dataset.id) return;
       }
-    }
-    if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
 
-    document.body.appendChild(menu);
+      const id = trigger.dataset.id;
+      const orden = todasOrdenes.find((o) => o.id === id);
 
-    // Posicionar el menú junto al trigger
-    const triggerRect = trigger.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight;
-    const spaceBelow = window.innerHeight - triggerRect.bottom;
+      // Crear menú flotante en el body
+      const menu = document.createElement("div");
+      menu.id = "floatingDropdown";
+      menu.className = "dropdown-menu show";
+      menu.dataset.triggerId = id;
 
-    if (spaceBelow < menuHeight) {
-      // Abrir hacia arriba
-      menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
-    } else {
-      // Abrir hacia abajo
-      menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
-    }
-    menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
-    menu.style.position = "absolute";
-    menu.style.zIndex = "9999";
+      const addOption = (text, onClick) => {
+        const btn = document.createElement("button");
+        btn.textContent = text;
+        btn.onclick = (ev) => { ev.stopPropagation(); onClick(); cerrarMenusDesplegables(); };
+        menu.appendChild(btn);
+      };
+
+      addOption("Ver detalles", () => verDetalles(id));
+      if (userRole !== "usuario" && userRole !== "supervisor") {
+        if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
+          addOption("Editar", () => abrirModal(id));
+        }
+      }
+      if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
+
+      document.body.appendChild(menu);
+
+      // Posicionar el menú junto al trigger
+      const triggerRect = trigger.getBoundingClientRect();
+      const menuHeight = menu.offsetHeight;
+      const spaceBelow = window.innerHeight - triggerRect.bottom;
+
+      if (spaceBelow < menuHeight) {
+        // Abrir hacia arriba
+        menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
+      } else {
+        // Abrir hacia abajo
+        menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
+      }
+      menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
+      menu.style.position = "absolute";
+      menu.style.zIndex = "9999";
+    });
   });
-});
+
+  document.querySelectorAll("#tabla tr").forEach((fila) => {
+    fila.style.cursor = "pointer";
+    fila.addEventListener("click", (e) => {
+      if (e.target.closest(".actions-menu")) return;
+      const trigger = fila.querySelector(".menu-trigger");
+      if (!trigger) return;
+      verDetalles(trigger.dataset.id);
+    });
+  });
 }
 
 function obtenerValorOrden(orden, campoOrden) {
