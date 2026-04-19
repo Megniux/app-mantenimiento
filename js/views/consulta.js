@@ -44,9 +44,9 @@ const CAMPOS_DETALLE_ORDEN = [
 export async function initConsultaView({ role, clienteId }) {
   userRole = role;
   _clienteId = clienteId || "";
-  try { await cargarListasFiltros(); } catch (e) { console.error("cargarListasFiltros:", e); }
-  try { await cargarTecnicos(); } catch (e) { console.error("cargarTecnicos:", e); }
-  try { await cargarTodasOrdenes(); } catch (e) { console.error("cargarTodasOrdenes:", e); }
+  await cargarListasFiltros();
+  await cargarTecnicos();
+  await cargarTodasOrdenes();
   configurarOrdenPredeterminado();
   await cargar();
   inicializarToolbarMovil();
@@ -114,28 +114,21 @@ function inicializarToolbarMovil() {
 }
 
 async function cargarTecnicos() {
-  listaTecnicos = [];
-  try {
-    const tecnicosSnap = await getDocs(
-      query(collection(db, "users"),
-        where("clienteId", "==", _clienteId),
-        where("rol", "==", "tecnico"))
-    );
-    tecnicosSnap.forEach((docSnap) => {
-      const data = docSnap.data();
-      listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
-    });
-  } catch (e) { console.error("Error cargando técnicos:", e); }
+  // Técnicos del cliente actual
+  const tecnicosSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId), where("rol", "==", "tecnico")));
+  
+  // Superadmins (clienteId vacío)
+  const superadminsSnap = await getDocs(query(collection(db, "users"), where("rol", "==", "superadmin")));
 
-  try {
-    const superadminsSnap = await getDocs(
-      query(collection(db, "users"), where("rol", "==", "superadmin"))
-    );
-    superadminsSnap.forEach((docSnap) => {
-      const data = docSnap.data();
-      listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
-    });
-  } catch (e) { console.error("Error cargando superadmins:", e); }
+  listaTecnicos = [];
+  tecnicosSnap.forEach((docSnap) => {
+    const data = docSnap.data();
+    listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
+  });
+  superadminsSnap.forEach((docSnap) => {
+    const data = docSnap.data();
+    listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
+  });
 
   listaTecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
