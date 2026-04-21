@@ -8,7 +8,6 @@ let currentOrderId = null;
 let listaTecnicos = [];
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
-const EXCEL_CSV_SEPARATOR = ";";
 let listenerCierreMenuRegistrado = false;
 const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
@@ -54,7 +53,7 @@ export async function initConsultaView({ role, clienteId }) {
 
   document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
-  document.getElementById("exportBtn").addEventListener("click", exportarExcel);
+  document.getElementById("exportBtn").addEventListener("click", exportarCSV);
   document.getElementById("busqueda").addEventListener("input", cargar);
   document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
 
@@ -345,39 +344,31 @@ async function eliminarOrden(id) {
   await cargar();
 }
 
-function serializarValorExportacion(valor) {
-  if (valor == null) return "";
-  if (typeof valor === "object") return JSON.stringify(valor);
-  return String(valor);
-}
-
-function escaparCampoCSV(valor) {
-  return `"${serializarValorExportacion(valor).replace(/"/g, '""')}"`;
-}
-
-function exportarExcel() {
+function exportarCSV() {
   if (!todasOrdenes.length) {
     alert("No hay órdenes para exportar.");
     return;
   }
 
   const headers = CAMPOS_DETALLE_ORDEN.map((campo) => campo.label);
-  const rows = todasOrdenes.map((orden) => CAMPOS_DETALLE_ORDEN.map((campo) => campo.getValue(orden)));
-  const csv = [
-    `sep=${EXCEL_CSV_SEPARATOR}`,
-    headers.map(escaparCampoCSV).join(EXCEL_CSV_SEPARATOR),
-    ...rows.map((row) => row.map(escaparCampoCSV).join(EXCEL_CSV_SEPARATOR))
-  ].join("\r\n");
+  const serializarValor = (valor) => {
+    if (valor == null) return "";
+    if (typeof valor === "object") return JSON.stringify(valor);
+    return String(valor);
+  };
+
+  const rows = todasOrdenes.map((orden) => CAMPOS_DETALLE_ORDEN.map((campo) => serializarValor(campo.getValue(orden))));
+  const csv = [headers, ...rows]
+    .map((row) => row.map((col) => `"${col.replace(/"/g, '""')}"`).join(";"))
+    .join("\n");
 
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
-  const objectUrl = URL.createObjectURL(blob);
-  link.href = objectUrl;
+  link.href = URL.createObjectURL(blob);
   link.setAttribute("download", "ordenes_mantenimiento.csv");
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(objectUrl);
 }
 
 async function verDetalles(id) {
