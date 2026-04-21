@@ -209,7 +209,7 @@ export async function cargarContenido(routeKey, push = true) {
       forgotPasswordLink?.classList.add("is-hidden");
       resetActions?.classList.remove("is-hidden");
       if (loginMessage) {
-        loginMessage.textContent = "Ingresa tu correo y luego haz clic en reestablecer contraseña.";
+        loginMessage.textContent = "Ingresa el correo con el que estás registrado en la aplicación y luego haz clic en reestablecer contraseña.";
       }
     };
 
