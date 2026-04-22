@@ -6,6 +6,7 @@ let _clienteId = "";
 let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
+let consultaLoadToken = 0;
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
@@ -43,10 +44,16 @@ const CAMPOS_DETALLE_ORDEN = [
 
 export async function initConsultaView({ role, clienteId }) {
   userRole = role;
-  _clienteId = clienteId || "";
-  await cargarListasFiltros();
-  await cargarTecnicos();
-  await cargarTodasOrdenes();
+  const clienteIdActual = clienteId || "";
+  const loadToken = ++consultaLoadToken;
+  _clienteId = clienteIdActual;
+  listaTecnicos = [];
+  todasOrdenes = [];
+
+  const tecnicos = await cargarTecnicos(clienteIdActual, loadToken);
+  await cargarListasFiltros(clienteIdActual, tecnicos, loadToken);
+  await cargarTodasOrdenes(clienteIdActual, loadToken);
+  if (!esCargaConsultaActual(clienteIdActual, loadToken)) return;
   configurarOrdenPredeterminado();
   await cargar();
   inicializarToolbarMovil();
@@ -78,6 +85,10 @@ export async function initConsultaView({ role, clienteId }) {
     });
     listenerCierreMenuRegistrado = true;
   }
+}
+
+function esCargaConsultaActual(clienteId, loadToken) {
+  return _clienteId === clienteId && consultaLoadToken === loadToken;
 }
 
 function cerrarMenusDesplegables() {
@@ -127,21 +138,27 @@ function inicializarToolbarMovil() {
   window._toolbarResizeController = controller;
 }
 
-async function cargarTecnicos() {
-  const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId)));
-  listaTecnicos = [];
+async function cargarTecnicos(clienteId = _clienteId, loadToken = consultaLoadToken) {
+  const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", clienteId)));
+  if (!esCargaConsultaActual(clienteId, loadToken)) return [];
+
+  const tecnicos = [];
   usersSnap.forEach((docSnap) => {
     const data = docSnap.data();
     if (data.rol === "tecnico") {
-      listaTecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
+      tecnicos.push({ uid: docSnap.id, nombre: data.nombreCompleto || data.email });
     }
   });
-  listaTecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  tecnicos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  listaTecnicos = tecnicos;
+  return tecnicos;
 }
 
-async function cargarListasFiltros() {
+async function cargarListasFiltros(clienteId = _clienteId, tecnicos = listaTecnicos, loadToken = consultaLoadToken) {
   // Solicitantes
-  const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId)));
+  const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", clienteId)));
+  if (!esCargaConsultaActual(clienteId, loadToken)) return;
+
   const selectUsuario = document.getElementById("filtroUsuario");
   selectUsuario.innerHTML = '<option value="">Todos</option>';
   const usuarios = [];
@@ -161,7 +178,7 @@ async function cargarListasFiltros() {
   // Técnicos asignados
   const selectTecnico = document.getElementById("filtroTecnico");
   selectTecnico.innerHTML = '<option value="">Todos</option>';
-  const tecnicosFiltro = [...listaTecnicos].sort((a, b) =>
+  const tecnicosFiltro = [...tecnicos].sort((a, b) =>
     a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
   );
   tecnicosFiltro.forEach(({ nombre }) => {
@@ -172,10 +189,13 @@ async function cargarListasFiltros() {
   });
 }
 
-async function cargarTodasOrdenes() {
-  const querySnapshot = await getDocs(query(collection(db, "ordenes"), where("clienteId", "==", _clienteId)));
-  todasOrdenes = [];
-  querySnapshot.forEach((docSnap) => todasOrdenes.push({ id: docSnap.id, ...docSnap.data() }));
+async function cargarTodasOrdenes(clienteId = _clienteId, loadToken = consultaLoadToken) {
+  const querySnapshot = await getDocs(query(collection(db, "ordenes"), where("clienteId", "==", clienteId)));
+  if (!esCargaConsultaActual(clienteId, loadToken)) return;
+
+  const ordenes = [];
+  querySnapshot.forEach((docSnap) => ordenes.push({ id: docSnap.id, ...docSnap.data() }));
+  todasOrdenes = ordenes;
 }
 
 function configurarOrdenPredeterminado() {
