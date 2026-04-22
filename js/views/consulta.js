@@ -54,9 +54,13 @@ export async function initConsultaView({ role, clienteId }) {
   document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
   document.getElementById("exportBtn").addEventListener("click", exportarCSV);
-  document.getElementById("busqueda").addEventListener("input", cargar);
   document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
+  document.getElementById("busqueda").addEventListener("input", cargar);
+  document.getElementById("filtroTipo").addEventListener("change", cargar);
+  document.getElementById("filtroEstado").addEventListener("change", cargar);
+  document.getElementById("filtroUsuario").addEventListener("change", cargar);
   document.getElementById("filtroTecnico").addEventListener("change", cargar);
+
 
   document.getElementById("mainContent").addEventListener("click", (e) => {
     if (e.target.matches(".close-modal")) {
