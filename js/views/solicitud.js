@@ -36,11 +36,15 @@ async function cargarOpciones() {
     ubicacionSelect.appendChild(opt);
   });
 
-  // Equipos: cargar todos y cachear
+  // Equipos: cargar todos y cachear (soporta campo legacy "ubicacion" y nuevo "ubicaciones")
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
   _todosEquipos = [];
   equiposSnap.forEach((d) => {
-    _todosEquipos.push({ nombre: d.data().nombre, ubicacion: d.data().ubicacion || "" });
+    const data = d.data();
+    const ubicaciones = Array.isArray(data.ubicaciones)
+      ? data.ubicaciones
+      : (data.ubicacion ? [data.ubicacion] : []);
+    _todosEquipos.push({ nombre: data.nombre, ubicaciones });
   });
   _todosEquipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
 
@@ -66,7 +70,7 @@ function filtrarEquiposPorUbicacion() {
     renderEquipos(_todosEquipos);
   } else {
     const filtrados = _todosEquipos.filter(
-      (e) => e.ubicacion === ubicacionSeleccionada
+      (e) => e.ubicaciones.includes(ubicacionSeleccionada)
     );
     renderEquipos(filtrados);
   }

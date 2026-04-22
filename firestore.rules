@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userRole() {
+      return getUserData().rol;
+    }
+
+    function isSuperadmin() {
+      return userRole() == "superadmin";
+    }
+
+    function belongsToCliente(clienteId) {
+      return getUserData().clienteId == clienteId;
+    }
+
+    function hasAccessToCliente(clienteId) {
+      return isSuperadmin() || belongsToCliente(clienteId);
+    }
+
+    function isAtLeast(rol) {
+      // Jerarquía: usuario < tecnico < supervisor < admin < superadmin
+      let roles = ["usuario", "tecnico", "supervisor", "admin", "superadmin"];
+      return userRole() in roles[roles.indexOf(rol):];
+    }
+
+    // ── Clientes ─────────────────────────────────────────────────────────────
+    // Solo superadmin puede crear/eliminar clientes.
+    // Cualquier usuario del cliente puede leer y actualizar sus propios datos
+    // (necesario para leer/incrementar contadores de órdenes).
+
+    match /clientes/{clienteId} {
+      allow read, update: if request.auth != null
+                           && (isSuperadmin() || belongsToCliente(clienteId));
+      allow create, delete: if request.auth != null && isSuperadmin();
+    }
+
+    // ── Órdenes ──────────────────────────────────────────────────────────────
+    // Lectura: cualquier usuario autenticado del cliente.
+    // Creación: cualquier usuario autenticado del cliente (usuarios crean solicitudes).
+    // Edición / eliminación: técnico, supervisor, admin o superadmin.
+
+    match /ordenes/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId);
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId);
+      allow update: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow delete: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["admin", "superadmin"];
+    }
+
+    // ── Equipos ──────────────────────────────────────────────────────────────
+    // Lectura: cualquier usuario autenticado del cliente
+    //          (necesario para poblar selectores en solicitud y consulta).
+    // Escritura: supervisor, admin o superadmin.
+
+    match /equipos/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId);
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow update, delete: if request.auth != null
+                              && hasAccessToCliente(resource.data.clienteId)
+                              && userRole() in ["supervisor", "admin", "superadmin"];
+    }
+
+    // ── Ubicaciones ──────────────────────────────────────────────────────────
+    // Misma lógica que equipos.
+
+    match /ubicaciones/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId);
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow update, delete: if request.auth != null
+                              && hasAccessToCliente(resource.data.clienteId)
+                              && userRole() in ["supervisor", "admin", "superadmin"];
+    }
+
+    // ── Usuarios ─────────────────────────────────────────────────────────────
+    // Lectura: el propio usuario, cualquier usuario del mismo cliente, o superadmin.
+    // Creación: admin del cliente o superadmin (via secondary Auth instance).
+    // Edición / eliminación: admin del cliente o superadmin.
+
+    match /users/{uid} {
+      allow read: if request.auth != null
+                   && (
+                     request.auth.uid == uid ||
+                     isSuperadmin() ||
+                     belongsToCliente(resource.data.clienteId)
+                   );
+      allow create: if request.auth != null
+                     && (
+                       isSuperadmin() ||
+                       (belongsToCliente(request.resource.data.clienteId)
+                        && userRole() in ["admin", "superadmin"])
+                     );
+      allow update, delete: if request.auth != null
+                              && (
+                                isSuperadmin() ||
+                                (belongsToCliente(resource.data.clienteId)
+                                 && userRole() in ["admin", "superadmin"])
+                              );
+    }
+  }
+}

@@ -89,7 +89,7 @@ function renderSelectEquiposFiltro(ubicacionSeleccionada) {
   selectEquipo.innerHTML = '<option value="">Todos</option>';
 
   const equiposFiltrados = ubicacionSeleccionada
-    ? _todosEquiposFiltro.filter((e) => e.ubicacion === ubicacionSeleccionada)
+    ? _todosEquiposFiltro.filter((e) => e.ubicaciones.includes(ubicacionSeleccionada))
     : _todosEquiposFiltro;
 
   equiposFiltrados.forEach(({ nombre }) => {
@@ -198,12 +198,15 @@ async function cargarListasFiltros() {
     selectUbicacion.appendChild(opt);
   });
 
-  // Equipos: cachear con su ubicación y renderizar todos
+  // Equipos: cachear con sus ubicaciones (soporta campo legacy "ubicacion" y nuevo "ubicaciones")
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
   _todosEquiposFiltro = [];
   equiposSnap.forEach((docSnap) => {
     const data = docSnap.data();
-    _todosEquiposFiltro.push({ nombre: data.nombre, ubicacion: data.ubicacion || "" });
+    const ubicaciones = Array.isArray(data.ubicaciones)
+      ? data.ubicaciones
+      : (data.ubicacion ? [data.ubicacion] : []);
+    _todosEquiposFiltro.push({ nombre: data.nombre, ubicaciones });
   });
   _todosEquiposFiltro.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
   renderSelectEquiposFiltro("");
