@@ -6,6 +6,7 @@ let _clienteId = "";
 let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
+let _todosEquiposFiltro = []; // cache para el filtro de equipos en consulta
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
@@ -57,6 +58,13 @@ export async function initConsultaView({ role, clienteId }) {
   document.getElementById("busqueda").addEventListener("input", cargar);
   document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
 
+  // Filtrar equipos al cambiar la ubicación en los filtros
+  document.getElementById("filtroUbicacion").addEventListener("change", () => {
+    const ubicacionSeleccionada = document.getElementById("filtroUbicacion").value;
+    renderSelectEquiposFiltro(ubicacionSeleccionada);
+    cargar();
+  });
+
   document.getElementById("mainContent").addEventListener("click", (e) => {
     if (e.target.matches(".close-modal")) {
       toggleModal(e.target.dataset.modal, false);
@@ -73,6 +81,27 @@ export async function initConsultaView({ role, clienteId }) {
     });
     listenerCierreMenuRegistrado = true;
   }
+}
+
+function renderSelectEquiposFiltro(ubicacionSeleccionada) {
+  const selectEquipo = document.getElementById("filtroEquipo");
+  const valorActual = selectEquipo.value;
+  selectEquipo.innerHTML = '<option value="">Todos</option>';
+
+  const equiposFiltrados = ubicacionSeleccionada
+    ? _todosEquiposFiltro.filter((e) => e.ubicacion === ubicacionSeleccionada)
+    : _todosEquiposFiltro;
+
+  equiposFiltrados.forEach(({ nombre }) => {
+    const opt = document.createElement("option");
+    opt.value = nombre;
+    opt.textContent = nombre;
+    selectEquipo.appendChild(opt);
+  });
+
+  // Restaurar selección previa si sigue siendo válida
+  const sigueValido = equiposFiltrados.some((e) => e.nombre === valorActual);
+  selectEquipo.value = sigueValido ? valorActual : "";
 }
 
 function cerrarMenusDesplegables() {
@@ -97,7 +126,6 @@ function inicializarToolbarMovil() {
     toggleBtn.setAttribute("aria-expanded", String(abierto));
   };
 
-  // Clonar el botón para eliminar listeners previos antes de agregar uno nuevo
   const nuevoBtn = toggleBtn.cloneNode(true);
   toggleBtn.parentNode.replaceChild(nuevoBtn, toggleBtn);
   nuevoBtn.addEventListener("click", toggleToolbar);
@@ -112,13 +140,11 @@ function inicializarToolbarMovil() {
     });
   });
 
-  // Usar AbortController para limpiar el listener de resize al recargar la vista
   const controller = new AbortController();
   window.addEventListener("resize", () => {
     if (window.innerWidth >= MOBILE_BREAKPOINT) closeToolbar();
   }, { signal: controller.signal });
 
-  // Guardar referencia para abortar en la próxima carga
   if (window._toolbarResizeController) {
     window._toolbarResizeController.abort();
   }
@@ -138,6 +164,7 @@ async function cargarTecnicos() {
 }
 
 async function cargarListasFiltros() {
+  // Usuarios
   const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId)));
   const selectUsuario = document.getElementById("filtroUsuario");
   selectUsuario.innerHTML = '<option value="">Todos</option>';
@@ -155,6 +182,7 @@ async function cargarListasFiltros() {
     selectUsuario.appendChild(opt);
   });
 
+  // Ubicaciones
   const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
   const selectUbicacion = document.getElementById("filtroUbicacion");
   selectUbicacion.innerHTML = '<option value="">Todas</option>';
@@ -170,20 +198,15 @@ async function cargarListasFiltros() {
     selectUbicacion.appendChild(opt);
   });
 
+  // Equipos: cachear con su ubicación y renderizar todos
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
-  const selectEquipo = document.getElementById("filtroEquipo");
-  selectEquipo.innerHTML = '<option value="">Todos</option>';
-  const equipos = [];
+  _todosEquiposFiltro = [];
   equiposSnap.forEach((docSnap) => {
-    equipos.push(docSnap.data().nombre);
+    const data = docSnap.data();
+    _todosEquiposFiltro.push({ nombre: data.nombre, ubicacion: data.ubicacion || "" });
   });
-  equipos.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  equipos.forEach((nombre) => {
-    const opt = document.createElement("option");
-    opt.value = nombre;
-    opt.textContent = nombre;
-    selectEquipo.appendChild(opt);
-  });
+  _todosEquiposFiltro.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  renderSelectEquiposFiltro("");
 }
 
 async function cargarTodasOrdenes() {
@@ -264,7 +287,6 @@ async function cargar() {
     trigger.addEventListener("click", (e) => {
       e.stopPropagation();
 
-      // Si ya hay un menú abierto para este trigger, cerrarlo
       const existing = document.getElementById("floatingDropdown");
       if (existing) {
         const existingId = existing.dataset.triggerId;
@@ -275,7 +297,6 @@ async function cargar() {
       const id = trigger.dataset.id;
       const orden = todasOrdenes.find((o) => o.id === id);
 
-      // Crear menú flotante en el body
       const menu = document.createElement("div");
       menu.id = "floatingDropdown";
       menu.className = "dropdown-menu show";
@@ -298,16 +319,13 @@ async function cargar() {
 
       document.body.appendChild(menu);
 
-      // Posicionar el menú junto al trigger
       const triggerRect = trigger.getBoundingClientRect();
       const menuHeight = menu.offsetHeight;
       const spaceBelow = window.innerHeight - triggerRect.bottom;
 
       if (spaceBelow < menuHeight) {
-        // Abrir hacia arriba
         menu.style.top = `${triggerRect.top + window.scrollY - menuHeight}px`;
       } else {
-        // Abrir hacia abajo
         menu.style.top = `${triggerRect.bottom + window.scrollY}px`;
       }
       menu.style.left = `${triggerRect.right + window.scrollX - menu.offsetWidth}px`;
@@ -565,7 +583,6 @@ function normalizarValorVisual(campo, valor) {
 }
 
 async function generarPreventivaRecurrente(original) {
-  // El contador está en clientes/{clienteId}
   const refCont = doc(db, "clientes", _clienteId);
   const snapCont = await getDoc(refCont);
   const cont = snapCont.data() || {};
@@ -666,6 +683,8 @@ async function limpiarFiltros() {
   document.getElementById("filtroEstado").value = "";
   document.getElementById("filtroUsuario").value = "";
   document.getElementById("filtroUbicacion").value = "";
+  // Restaurar todos los equipos en el select
+  renderSelectEquiposFiltro("");
   document.getElementById("filtroEquipo").value = "";
   document.getElementById("ordenCampo").value = "numero";
   document.getElementById("ordenDireccion").value = "desc";

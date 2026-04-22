@@ -2,6 +2,7 @@ import { collection, addDoc, doc, getDoc, getDocs, updateDoc, query, where } fro
 import { db } from "../firebase-config.js";
 
 let _clienteId = "";
+let _todosEquipos = []; // cache de todos los equipos del cliente
 
 export async function initSolicitudView({ role, userName, clienteId }) {
   _clienteId = clienteId || "";
@@ -14,10 +15,12 @@ export async function initSolicitudView({ role, userName, clienteId }) {
   await cargarOpciones();
 
   document.getElementById("tipo").addEventListener("change", mostrarFrecuencia);
+  document.getElementById("ubicacion").addEventListener("change", filtrarEquiposPorUbicacion);
   document.getElementById("guardarSolicitudBtn").addEventListener("click", guardar);
 }
 
 async function cargarOpciones() {
+  // Ubicaciones
   const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
   const ubicacionSelect = document.getElementById("ubicacion");
   ubicacionSelect.innerHTML = '<option value="">Seleccionar ubicación</option>';
@@ -33,20 +36,42 @@ async function cargarOpciones() {
     ubicacionSelect.appendChild(opt);
   });
 
+  // Equipos: cargar todos y cachear
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
+  _todosEquipos = [];
+  equiposSnap.forEach((d) => {
+    _todosEquipos.push({ nombre: d.data().nombre, ubicacion: d.data().ubicacion || "" });
+  });
+  _todosEquipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+
+  // Mostrar todos los equipos inicialmente
+  renderEquipos(_todosEquipos);
+}
+
+function renderEquipos(equipos) {
   const equipoSelect = document.getElementById("equipo");
   equipoSelect.innerHTML = '<option value="">Seleccionar equipo</option>';
-  const equipos = [];
-  equiposSnap.forEach((d) => {
-    equipos.push(d.data().nombre);
-  });
-  equipos.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  equipos.forEach((nombre) => {
+  equipos.forEach(({ nombre }) => {
     const opt = document.createElement("option");
     opt.value = nombre;
     opt.textContent = nombre;
     equipoSelect.appendChild(opt);
   });
+}
+
+function filtrarEquiposPorUbicacion() {
+  const ubicacionSeleccionada = document.getElementById("ubicacion").value;
+  if (!ubicacionSeleccionada) {
+    // Sin filtro: mostrar todos
+    renderEquipos(_todosEquipos);
+  } else {
+    const filtrados = _todosEquipos.filter(
+      (e) => e.ubicacion === ubicacionSeleccionada
+    );
+    renderEquipos(filtrados);
+  }
+  // Limpiar selección de equipo al cambiar ubicación
+  document.getElementById("equipo").value = "";
 }
 
 function mostrarFrecuencia() {
@@ -56,7 +81,6 @@ function mostrarFrecuencia() {
 }
 
 async function generarNumero(tipo) {
-  // El contador está en clientes/{clienteId}
   const ref = doc(db, "clientes", _clienteId);
   const snap = await getDoc(ref);
   const data = snap.data() || {};
@@ -109,6 +133,8 @@ async function guardar() {
     alert(`Orden creada: ${numeroOrden}`);
     document.getElementById("solicitudForm").reset();
     document.getElementById("solicitante").value = solicitante;
+    // Restaurar lista completa de equipos tras el reset
+    renderEquipos(_todosEquipos);
     mostrarFrecuencia();
   } catch (error) {
     console.error(error);
