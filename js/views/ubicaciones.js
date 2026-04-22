@@ -1,7 +1,8 @@
-import { collection, getDocs, addDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, collection, deleteDoc, doc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
 let _clienteId = "";
+let _ubicaciones = [];
 
 export async function initUbicacionesView({ clienteId } = {}) {
   _clienteId = clienteId || "";
@@ -13,12 +14,14 @@ async function cargarUbicaciones() {
   const snapshot = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
   const tbody = document.querySelector("#tablaUbicaciones tbody");
   tbody.innerHTML = "";
-  const ubicaciones = [];
+
+  _ubicaciones = [];
   snapshot.forEach((docSnap) => {
-    ubicaciones.push({ id: docSnap.id, nombre: docSnap.data().nombre });
+    _ubicaciones.push({ id: docSnap.id, nombre: docSnap.data().nombre || "" });
   });
-  ubicaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
-  ubicaciones.forEach((ubicacion) => {
+  _ubicaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+
+  _ubicaciones.forEach((ubicacion) => {
     const row = tbody.insertRow();
     row.insertCell(0).textContent = ubicacion.nombre;
     const actions = row.insertCell(1);
@@ -58,7 +61,39 @@ async function agregarUbicacion() {
 }
 
 async function eliminarUbicacion(id) {
-  if (!confirm("¿Eliminar ubicación? Se eliminará de todas las órdenes asociadas.")) return;
+  const ubicacion = _ubicaciones.find((item) => item.id === id);
+  if (!ubicacion) return;
+
+  const equiposVinculados = await obtenerEquiposVinculados(ubicacion);
+  if (equiposVinculados.length) {
+    const nombres = equiposVinculados.slice(0, 5).map((equipo) => equipo.nombre).join(", ");
+    const sufijo = equiposVinculados.length > 5 ? "..." : "";
+    return alert(`No se puede eliminar la ubicación porque hay equipos con ubicación actual allí: ${nombres}${sufijo}`);
+  }
+
+  if (!confirm("¿Eliminar ubicación?")) return;
   await deleteDoc(doc(db, "ubicaciones", id));
   await cargarUbicaciones();
+}
+
+async function obtenerEquiposVinculados(ubicacion) {
+  const snapshot = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
+  const equipos = [];
+
+  snapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    const legacyUbicaciones = Array.isArray(data.ubicaciones)
+      ? data.ubicaciones.filter(Boolean)
+      : (data.ubicacion ? [data.ubicacion] : []);
+
+    const coincide = data.ubicacionActualId === ubicacion.id
+      || data.ubicacionActualNombre === ubicacion.nombre
+      || legacyUbicaciones.includes(ubicacion.nombre);
+
+    if (coincide) {
+      equipos.push({ id: docSnap.id, nombre: data.nombre || "Equipo sin nombre" });
+    }
+  });
+
+  return equipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
 }

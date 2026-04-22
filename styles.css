@@ -393,12 +393,36 @@ button {
   justify-content: center;
 }
 
+.btn-row-action {
+  min-height: auto;
+  min-width: auto;
+  padding: 0.35rem 0.65rem;
+  background: #eef2f8;
+  color: var(--color-primary);
+}
+
 .btn-delete-icon:hover,
+.btn-row-action:hover,
 .btn-outline:hover,
 .logout-btn-sidebar:hover,
 .menu-trigger:hover {
   background: #e2e8f0;
   color: var(--color-primary);
+}
+
+.table-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.form-help {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .consulta-header-actions,

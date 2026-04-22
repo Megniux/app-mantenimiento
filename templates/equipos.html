@@ -10,7 +10,7 @@
       <thead>
         <tr>
           <th>Equipo</th>
-          <th>Ubicaciones</th>
+          <th>Ubicación actual</th>
           <th></th>
         </tr>
       </thead>
@@ -26,9 +26,31 @@
       </div>
     </div>
     <div class="form-group">
-      <label>Ubicaciones</label>
-      <div id="checkboxUbicaciones" class="checkbox-ubicaciones"></div>
+      <label>Ubicación actual</label>
+      <div class="input-with-icon">
+        <i class="fa-solid fa-location-dot"></i>
+        <select id="ubicacionEquipo">
+          <option value="">Seleccionar ubicación</option>
+        </select>
+      </div>
     </div>
   </div>
   <button id="agregarEquipoBtn" type="button" class="btn-primary"><i class="fa-solid fa-paper-plane"></i>Agregar</button>
 </div>
+
+<div id="modalMoverEquipo" class="modal is-hidden"><div class="modal-content">
+  <span class="close close-modal" data-modal="modalMoverEquipo">&times;</span>
+  <div class="form-card modal-form-card form-section">
+    <h3>Cambiar Ubicación</h3>
+    <div id="equipoMoverResumen" class="detalle-linea"></div>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-location-dot"></i>
+        <select id="moverEquipoUbicacion">
+          <option value="">Seleccionar ubicación</option>
+        </select>
+      </div>
+    </div>
+    <button id="guardarCambioUbicacionBtn" type="button" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i>Guardar cambio</button>
+  </div>
+</div></div>

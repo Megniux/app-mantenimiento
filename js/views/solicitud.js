@@ -1,8 +1,9 @@
-import { collection, addDoc, doc, getDoc, getDocs, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
 let _clienteId = "";
-let _todosEquipos = []; // cache de todos los equipos del cliente
+let _todosEquipos = [];
+let _ubicaciones = [];
 
 export async function initSolicitudView({ role, userName, clienteId }) {
   _clienteId = clienteId || "";
@@ -15,67 +16,103 @@ export async function initSolicitudView({ role, userName, clienteId }) {
   await cargarOpciones();
 
   document.getElementById("tipo").addEventListener("change", mostrarFrecuencia);
-  document.getElementById("ubicacion").addEventListener("change", filtrarEquiposPorUbicacion);
+  document.getElementById("ubicacion").addEventListener("change", actualizarEquiposDisponibles);
+  document.getElementById("buscarEquipo").addEventListener("input", actualizarEquiposDisponibles);
+  document.getElementById("equipo").addEventListener("change", sincronizarUbicacionConEquipo);
   document.getElementById("guardarSolicitudBtn").addEventListener("click", guardar);
 }
 
 async function cargarOpciones() {
-  // Ubicaciones
   const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
   const ubicacionSelect = document.getElementById("ubicacion");
   ubicacionSelect.innerHTML = '<option value="">Seleccionar ubicación</option>';
-  const ubicaciones = [];
-  ubicacionesSnap.forEach((d) => {
-    ubicaciones.push(d.data().nombre);
+
+  _ubicaciones = [];
+  ubicacionesSnap.forEach((docSnap) => {
+    _ubicaciones.push({ id: docSnap.id, nombre: docSnap.data().nombre || "" });
   });
-  ubicaciones.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  ubicaciones.forEach((nombre) => {
+  _ubicaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+
+  _ubicaciones.forEach((ubicacion) => {
     const opt = document.createElement("option");
-    opt.value = nombre;
-    opt.textContent = nombre;
+    opt.value = ubicacion.id;
+    opt.textContent = ubicacion.nombre;
     ubicacionSelect.appendChild(opt);
   });
 
-  // Equipos: cargar todos y cachear (soporta campo legacy "ubicacion" y nuevo "ubicaciones")
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
   _todosEquipos = [];
-  equiposSnap.forEach((d) => {
-    const data = d.data();
-    const ubicaciones = Array.isArray(data.ubicaciones)
-      ? data.ubicaciones
-      : (data.ubicacion ? [data.ubicacion] : []);
-    _todosEquipos.push({ nombre: data.nombre, ubicaciones });
-  });
+  equiposSnap.forEach((docSnap) => _todosEquipos.push(normalizarEquipo(docSnap)));
   _todosEquipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
 
-  // Mostrar todos los equipos inicialmente
-  renderEquipos(_todosEquipos);
+  actualizarEquiposDisponibles();
 }
 
-function renderEquipos(equipos) {
+function normalizarEquipo(docSnap) {
+  const data = docSnap.data();
+  const legacyUbicaciones = Array.isArray(data.ubicaciones)
+    ? data.ubicaciones.filter(Boolean)
+    : (data.ubicacion ? [data.ubicacion] : []);
+
+  const ubicacionMatch = _ubicaciones.find((ubicacion) =>
+    ubicacion.id === data.ubicacionActualId
+    || (!data.ubicacionActualId && (ubicacion.nombre === data.ubicacionActualNombre || ubicacion.nombre === legacyUbicaciones[0]))
+  );
+
+  return {
+    id: docSnap.id,
+    nombre: data.nombre || "",
+    ubicacionActualId: ubicacionMatch?.id || data.ubicacionActualId || "",
+    ubicacionActualNombre: ubicacionMatch?.nombre || data.ubicacionActualNombre || legacyUbicaciones[0] || ""
+  };
+}
+
+function actualizarEquiposDisponibles() {
+  const ubicacionSeleccionada = document.getElementById("ubicacion").value;
+  const busqueda = document.getElementById("buscarEquipo").value.trim().toLowerCase();
+  const equipoActual = document.getElementById("equipo").value;
+
+  let equipos = _todosEquipos;
+  if (busqueda) {
+    equipos = equipos.filter((equipo) => equipo.nombre.toLowerCase().includes(busqueda));
+  } else if (ubicacionSeleccionada) {
+    equipos = equipos.filter((equipo) => equipo.ubicacionActualId === ubicacionSeleccionada);
+  }
+
+  renderEquipos(equipos, { busqueda, equipoSeleccionado: equipoActual, ubicacionSeleccionada });
+}
+
+function renderEquipos(equipos, { busqueda = "", equipoSeleccionado = "", ubicacionSeleccionada = "" } = {}) {
   const equipoSelect = document.getElementById("equipo");
   equipoSelect.innerHTML = '<option value="">Seleccionar equipo</option>';
-  equipos.forEach(({ nombre }) => {
+
+  equipos.forEach((equipo) => {
     const opt = document.createElement("option");
-    opt.value = nombre;
-    opt.textContent = nombre;
+    opt.value = equipo.id;
+    opt.textContent = busqueda || !ubicacionSeleccionada
+      ? `${equipo.nombre}${equipo.ubicacionActualNombre ? ` (${equipo.ubicacionActualNombre})` : ""}`
+      : equipo.nombre;
+    opt.selected = equipo.id === equipoSeleccionado;
     equipoSelect.appendChild(opt);
   });
+
+  if (equipoSeleccionado && !equipos.some((equipo) => equipo.id === equipoSeleccionado)) {
+    equipoSelect.value = "";
+  }
 }
 
-function filtrarEquiposPorUbicacion() {
-  const ubicacionSeleccionada = document.getElementById("ubicacion").value;
-  if (!ubicacionSeleccionada) {
-    // Sin filtro: mostrar todos
-    renderEquipos(_todosEquipos);
-  } else {
-    const filtrados = _todosEquipos.filter(
-      (e) => e.ubicaciones.includes(ubicacionSeleccionada)
-    );
-    renderEquipos(filtrados);
+function sincronizarUbicacionConEquipo() {
+  const equipo = obtenerEquipoSeleccionado();
+  if (!equipo) return;
+
+  if (equipo.ubicacionActualId) {
+    document.getElementById("ubicacion").value = equipo.ubicacionActualId;
   }
-  // Limpiar selección de equipo al cambiar ubicación
-  document.getElementById("equipo").value = "";
+}
+
+function obtenerEquipoSeleccionado() {
+  const equipoId = document.getElementById("equipo").value;
+  return _todosEquipos.find((equipo) => equipo.id === equipoId) || null;
 }
 
 function mostrarFrecuencia() {
@@ -107,14 +144,15 @@ async function guardar() {
 
   const solicitante = document.getElementById("solicitante").value;
   const tipo = document.getElementById("tipo").value;
-  const ubicacion = document.getElementById("ubicacion").value;
-  const equipo = document.getElementById("equipo").value;
+  const equipoSeleccionado = obtenerEquipoSeleccionado();
   const descripcion = document.getElementById("descripcion").value;
   const prioridad = document.getElementById("prioridad").value;
   const frecuencia = document.getElementById("frecuencia").value;
   const uid = sessionStorage.getItem("userUid");
 
-  if (!ubicacion || !equipo || !descripcion) return alert("Complete todos los campos.");
+  if (!equipoSeleccionado || !equipoSeleccionado.ubicacionActualNombre || !descripcion) {
+    return alert("Complete todos los campos.");
+  }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
@@ -124,21 +162,35 @@ async function guardar() {
     const numeroOrden = await generarNumero(tipo);
     await addDoc(collection(db, "ordenes"), {
       clienteId: _clienteId,
-      numeroOrden, tipo, estado: "Nuevo", fechaCreacion: new Date(),
-      fechaProgramada: null, fechaCierre: null, solicitante, solicitanteUid: uid,
-      ubicacion, equipo, descripcion, prioridad,
+      numeroOrden,
+      tipo,
+      estado: "Nuevo",
+      fechaCreacion: new Date(),
+      fechaProgramada: null,
+      fechaCierre: null,
+      solicitante,
+      solicitanteUid: uid,
+      ubicacion: equipoSeleccionado.ubicacionActualNombre,
+      ubicacionId: equipoSeleccionado.ubicacionActualId || "",
+      equipo: equipoSeleccionado.nombre,
+      equipoId: equipoSeleccionado.id,
+      descripcion,
+      prioridad,
       frecuencia: tipo === "Preventivo" ? frecuencia : "",
-      tecnicoAsignado: "", tiempoEstimado: null, tiempoReal: null,
-      comentarioMantenimiento: "", informeCierre: "",
-      fechaInicioEspera: null, tiempoTotalEspera: 0,
+      tecnicoAsignado: "",
+      tiempoEstimado: null,
+      tiempoReal: null,
+      comentarioMantenimiento: "",
+      informeCierre: "",
+      fechaInicioEspera: null,
+      tiempoTotalEspera: 0,
       historial: [{ estado: "Nuevo", fecha: new Date(), usuario: solicitante }]
     });
 
     alert(`Orden creada: ${numeroOrden}`);
     document.getElementById("solicitudForm").reset();
     document.getElementById("solicitante").value = solicitante;
-    // Restaurar lista completa de equipos tras el reset
-    renderEquipos(_todosEquipos);
+    actualizarEquiposDisponibles();
     mostrarFrecuencia();
   } catch (error) {
     console.error(error);
