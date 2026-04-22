@@ -6,7 +6,6 @@ let _clienteId = "";
 let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
-let _todosEquiposFiltro = []; // cache para el filtro de equipos en consulta
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
@@ -57,13 +56,7 @@ export async function initConsultaView({ role, clienteId }) {
   document.getElementById("exportBtn").addEventListener("click", exportarCSV);
   document.getElementById("busqueda").addEventListener("input", cargar);
   document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
-
-  // Filtrar equipos al cambiar la ubicación en los filtros
-  document.getElementById("filtroUbicacion").addEventListener("change", () => {
-    const ubicacionSeleccionada = document.getElementById("filtroUbicacion").value;
-    renderSelectEquiposFiltro(ubicacionSeleccionada);
-    cargar();
-  });
+  document.getElementById("filtroTecnico").addEventListener("change", cargar);
 
   document.getElementById("mainContent").addEventListener("click", (e) => {
     if (e.target.matches(".close-modal")) {
@@ -81,27 +74,6 @@ export async function initConsultaView({ role, clienteId }) {
     });
     listenerCierreMenuRegistrado = true;
   }
-}
-
-function renderSelectEquiposFiltro(ubicacionSeleccionada) {
-  const selectEquipo = document.getElementById("filtroEquipo");
-  const valorActual = selectEquipo.value;
-  selectEquipo.innerHTML = '<option value="">Todos</option>';
-
-  const equiposFiltrados = ubicacionSeleccionada
-    ? _todosEquiposFiltro.filter((e) => e.ubicaciones.includes(ubicacionSeleccionada))
-    : _todosEquiposFiltro;
-
-  equiposFiltrados.forEach(({ nombre }) => {
-    const opt = document.createElement("option");
-    opt.value = nombre;
-    opt.textContent = nombre;
-    selectEquipo.appendChild(opt);
-  });
-
-  // Restaurar selección previa si sigue siendo válida
-  const sigueValido = equiposFiltrados.some((e) => e.nombre === valorActual);
-  selectEquipo.value = sigueValido ? valorActual : "";
 }
 
 function cerrarMenusDesplegables() {
@@ -164,7 +136,7 @@ async function cargarTecnicos() {
 }
 
 async function cargarListasFiltros() {
-  // Usuarios
+  // Solicitantes
   const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", _clienteId)));
   const selectUsuario = document.getElementById("filtroUsuario");
   selectUsuario.innerHTML = '<option value="">Todos</option>';
@@ -182,34 +154,18 @@ async function cargarListasFiltros() {
     selectUsuario.appendChild(opt);
   });
 
-  // Ubicaciones
-  const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
-  const selectUbicacion = document.getElementById("filtroUbicacion");
-  selectUbicacion.innerHTML = '<option value="">Todas</option>';
-  const ubicaciones = [];
-  ubicacionesSnap.forEach((docSnap) => {
-    ubicaciones.push(docSnap.data().nombre);
-  });
-  ubicaciones.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  ubicaciones.forEach((nombre) => {
+  // Técnicos asignados
+  const selectTecnico = document.getElementById("filtroTecnico");
+  selectTecnico.innerHTML = '<option value="">Todos</option>';
+  const tecnicosFiltro = [...listaTecnicos].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })
+  );
+  tecnicosFiltro.forEach(({ nombre }) => {
     const opt = document.createElement("option");
     opt.value = nombre;
     opt.textContent = nombre;
-    selectUbicacion.appendChild(opt);
+    selectTecnico.appendChild(opt);
   });
-
-  // Equipos: cachear con sus ubicaciones (soporta campo legacy "ubicacion" y nuevo "ubicaciones")
-  const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
-  _todosEquiposFiltro = [];
-  equiposSnap.forEach((docSnap) => {
-    const data = docSnap.data();
-    const ubicaciones = Array.isArray(data.ubicaciones)
-      ? data.ubicaciones
-      : (data.ubicacion ? [data.ubicacion] : []);
-    _todosEquiposFiltro.push({ nombre: data.nombre, ubicaciones });
-  });
-  _todosEquiposFiltro.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
-  renderSelectEquiposFiltro("");
 }
 
 async function cargarTodasOrdenes() {
@@ -239,8 +195,7 @@ async function cargar() {
   const tipo = document.getElementById("filtroTipo").value;
   const estado = document.getElementById("filtroEstado").value;
   const usuario = document.getElementById("filtroUsuario").value;
-  const ubicacion = document.getElementById("filtroUbicacion").value;
-  const equipo = document.getElementById("filtroEquipo").value;
+  const tecnico = document.getElementById("filtroTecnico").value;
   const ordenCampo = document.getElementById("ordenCampo").value;
   const ordenDireccion = document.getElementById("ordenDireccion").value;
 
@@ -256,8 +211,7 @@ async function cargar() {
     if (estado === "noCerrado" && orden.estado === "Cerrado") return false;
     if (estado && estado !== "noCerrado" && orden.estado !== estado) return false;
     if (usuario && orden.solicitante !== usuario) return false;
-    if (ubicacion && orden.ubicacion !== ubicacion) return false;
-    if (equipo && orden.equipo !== equipo) return false;
+    if (tecnico && orden.tecnicoAsignado !== tecnico) return false;
     return true;
   });
 
@@ -685,10 +639,7 @@ async function limpiarFiltros() {
   document.getElementById("filtroTipo").value = "";
   document.getElementById("filtroEstado").value = "";
   document.getElementById("filtroUsuario").value = "";
-  document.getElementById("filtroUbicacion").value = "";
-  // Restaurar todos los equipos en el select
-  renderSelectEquiposFiltro("");
-  document.getElementById("filtroEquipo").value = "";
+  document.getElementById("filtroTecnico").value = "";
   document.getElementById("ordenCampo").value = "numero";
   document.getElementById("ordenDireccion").value = "desc";
   await cargar();
