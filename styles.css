@@ -418,8 +418,12 @@ button {
 .table-action-group {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.45rem;
+}
+
+.actions-cell {
+  white-space: nowrap;
 }
 
 .form-help {
@@ -577,6 +581,9 @@ th {
   min-width: 12rem;
 }
 .col-acciones { width: 1.6rem; }
+#tablaEquipos .col-acciones {
+  width: 4.75rem;
+}
 
 .consulta-table td.wrap-col,
 .consulta-table td.nowrap-col {

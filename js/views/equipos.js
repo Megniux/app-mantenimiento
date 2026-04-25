@@ -103,7 +103,10 @@ function renderEquiposFiltrados() {
     row.insertCell(1).textContent = equipo.ubicacionActualNombre || "-";
 
     const actions = row.insertCell(2);
-    actions.className = "table-action-group";
+    actions.className = "actions-cell";
+
+    const actionGroup = document.createElement("div");
+    actionGroup.className = "table-action-group";
 
     const moveBtn = document.createElement("button");
     moveBtn.type = "button";
@@ -112,7 +115,7 @@ function renderEquiposFiltrados() {
     moveBtn.setAttribute("title", `Mover ${equipo.nombre}`);
     moveBtn.innerHTML = '<i class="fas fa-location-dot"></i>';
     moveBtn.addEventListener("click", () => abrirModalMover(equipo.id));
-    actions.appendChild(moveBtn);
+    actionGroup.appendChild(moveBtn);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
@@ -120,7 +123,8 @@ function renderEquiposFiltrados() {
     deleteBtn.setAttribute("aria-label", `Eliminar ${equipo.nombre}`);
     deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     deleteBtn.addEventListener("click", () => eliminarEquipo(equipo.id));
-    actions.appendChild(deleteBtn);
+    actionGroup.appendChild(deleteBtn);
+    actions.appendChild(actionGroup);
   });
 }
 
