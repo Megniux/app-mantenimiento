@@ -393,12 +393,41 @@ button {
   justify-content: center;
 }
 
+.btn-row-action {
+  min-height: auto;
+  min-width: auto;
+  padding: 0.35rem 0.65rem;
+  background: #eef2f8;
+  color: var(--color-primary);
+}
+
+.btn-row-action-location {
+  background: transparent;
+  color: #5a6e8a;
+}
+
 .btn-delete-icon:hover,
+.btn-row-action:hover,
 .btn-outline:hover,
 .logout-btn-sidebar:hover,
 .menu-trigger:hover {
   background: #e2e8f0;
   color: var(--color-primary);
+}
+
+.table-action-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.form-help {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .consulta-header-actions,
@@ -440,6 +469,7 @@ button {
   border: 1px solid var(--color-border);
   padding-inline: 0.75rem;
   width: 100%;
+  margin-bottom: 0.75rem;
 }
 
 .search-wrapper input {
@@ -447,6 +477,10 @@ button {
   background: transparent;
   width: 100%;
   padding: 0.45rem;
+}
+
+.consulta-header-actions .search-wrapper {
+    margin-bottom: 0;
 }
 
 .filter-group {
@@ -528,7 +562,8 @@ th {
   overflow-wrap: anywhere;
 }
 
-#tablaUsuarios td {
+#tablaUsuarios td,
+#tablaEquipos td {
   text-align: center;
 }
 
@@ -663,8 +698,12 @@ th {
   margin-bottom: 0.5rem;
 }
 
+.detalle-linea-item + .detalle-linea-item {
+  margin-top: 0.5rem;
+}
+
 .detalle-label {
-  font-weight: 700;
+  font-weight: 600;
   display: inline-block;
   min-width: 8.5rem;
 }
@@ -732,8 +771,30 @@ th {
   display: grid;
 }
 
-#loginForm {
-  margin-top: 0.8rem;
+/* ── Checkboxes de ubicaciones en equipos ── */
+
+.checkbox-ubicaciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  padding: 0.4rem 0;
+}
+
+.checkbox-ubicacion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.checkbox-ubicacion-item input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 /* ── Cliente selector (solo visible para superadmin) ── */
@@ -766,6 +827,10 @@ th {
 .cliente-select:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+}
+
+#loginForm {
+  margin-top: 0.8rem;
 }
 
 @media (min-width: 640px) {
