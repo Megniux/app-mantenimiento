@@ -8,20 +8,30 @@ export async function initUbicacionesView({ clienteId } = {}) {
   _clienteId = clienteId || "";
   await cargarUbicaciones();
   document.getElementById("agregarUbicacionBtn").addEventListener("click", agregarUbicacion);
+  document.getElementById("busquedaUbicaciones").addEventListener("input", renderUbicacionesFiltradas);
 }
 
 async function cargarUbicaciones() {
   const snapshot = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
-  const tbody = document.querySelector("#tablaUbicaciones tbody");
-  tbody.innerHTML = "";
-
   _ubicaciones = [];
   snapshot.forEach((docSnap) => {
     _ubicaciones.push({ id: docSnap.id, nombre: docSnap.data().nombre || "" });
   });
   _ubicaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  renderUbicacionesFiltradas();
+}
 
-  _ubicaciones.forEach((ubicacion) => {
+function renderUbicacionesFiltradas() {
+  const tbody = document.querySelector("#tablaUbicaciones tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const termino = (document.getElementById("busquedaUbicaciones")?.value || "").trim().toLowerCase();
+  const ubicacionesFiltradas = termino
+    ? _ubicaciones.filter((ubicacion) => ubicacion.nombre.toLowerCase().includes(termino))
+    : _ubicaciones;
+
+  ubicacionesFiltradas.forEach((ubicacion) => {
     const row = tbody.insertRow();
     row.insertCell(0).textContent = ubicacion.nombre;
     const actions = row.insertCell(1);

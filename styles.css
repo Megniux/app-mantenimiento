@@ -401,6 +401,11 @@ button {
   color: var(--color-primary);
 }
 
+.btn-row-action-location {
+  background: transparent;
+  color: #5a6e8a;
+}
+
 .btn-delete-icon:hover,
 .btn-row-action:hover,
 .btn-outline:hover,
@@ -685,6 +690,10 @@ th {
 
 .detalle-linea {
   margin-bottom: 0.5rem;
+}
+
+.detalle-linea-item + .detalle-linea-item {
+  margin-top: 0.75rem;
 }
 
 .detalle-label {

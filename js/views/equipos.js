@@ -14,6 +14,7 @@ export async function initEquiposView({ clienteId } = {}) {
 
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
   document.getElementById("guardarCambioUbicacionBtn").addEventListener("click", guardarCambioUbicacion);
+  document.getElementById("busquedaEquipos").addEventListener("input", renderEquiposFiltrados);
   if (!listenerModalEquiposRegistrado) {
     document.getElementById("mainContent").addEventListener("click", (e) => {
       if (e.target.matches(".close-modal")) {
@@ -80,14 +81,23 @@ function normalizarEquipo(docSnap) {
 
 async function cargarEquipos() {
   const snapshot = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
-  const tbody = document.querySelector("#tablaEquipos tbody");
-  tbody.innerHTML = "";
-
   _equipos = [];
   snapshot.forEach((docSnap) => _equipos.push(normalizarEquipo(docSnap)));
   _equipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  renderEquiposFiltrados();
+}
 
-  _equipos.forEach((equipo) => {
+function renderEquiposFiltrados() {
+  const tbody = document.querySelector("#tablaEquipos tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const termino = (document.getElementById("busquedaEquipos")?.value || "").trim().toLowerCase();
+  const equiposFiltrados = termino
+    ? _equipos.filter((equipo) => `${equipo.nombre} ${equipo.ubicacionActualNombre || ""}`.toLowerCase().includes(termino))
+    : _equipos;
+
+  equiposFiltrados.forEach((equipo) => {
     const row = tbody.insertRow();
     row.insertCell(0).textContent = equipo.nombre;
     row.insertCell(1).textContent = equipo.ubicacionActualNombre || "-";
@@ -97,7 +107,7 @@ async function cargarEquipos() {
 
     const moveBtn = document.createElement("button");
     moveBtn.type = "button";
-    moveBtn.className = "btn-row-action";
+    moveBtn.className = "btn-row-action btn-row-action-location";
     moveBtn.setAttribute("aria-label", `Mover ${equipo.nombre}`);
     moveBtn.setAttribute("title", `Mover ${equipo.nombre}`);
     moveBtn.innerHTML = '<i class="fas fa-location-dot"></i>';
@@ -161,7 +171,7 @@ function abrirModalMover(equipoId) {
   if (!equipo) return;
 
   currentMoveEquipoId = equipoId;
-  document.getElementById("equipoMoverResumen").innerHTML = `<span class="detalle-label">Equipo:</span> ${escapeHtml(equipo.nombre)}<br><span class="detalle-label">Ubicación actual:</span> ${escapeHtml(equipo.ubicacionActualNombre || "-")}`;
+  document.getElementById("equipoMoverResumen").innerHTML = `<div class="detalle-linea-item"><span class="detalle-label">Equipo:</span> ${escapeHtml(equipo.nombre)}</div><div class="detalle-linea-item"><span class="detalle-label">Ubicación actual:</span> ${escapeHtml(equipo.ubicacionActualNombre || "-")}</div>`;
   document.getElementById("moverEquipoUbicacion").value = equipo.ubicacionActualId || "";
   toggleModal("modalMoverEquipo", true);
 }

@@ -17,7 +17,6 @@ export async function initSolicitudView({ role, userName, clienteId }) {
 
   document.getElementById("tipo").addEventListener("change", mostrarFrecuencia);
   document.getElementById("ubicacion").addEventListener("change", actualizarEquiposDisponibles);
-  document.getElementById("buscarEquipo").addEventListener("input", actualizarEquiposDisponibles);
   document.getElementById("equipo").addEventListener("change", sincronizarUbicacionConEquipo);
   document.getElementById("guardarSolicitudBtn").addEventListener("click", guardar);
 }
@@ -69,27 +68,23 @@ function normalizarEquipo(docSnap) {
 
 function actualizarEquiposDisponibles() {
   const ubicacionSeleccionada = document.getElementById("ubicacion").value;
-  const busqueda = document.getElementById("buscarEquipo").value.trim().toLowerCase();
   const equipoActual = document.getElementById("equipo").value;
 
-  let equipos = _todosEquipos;
-  if (busqueda) {
-    equipos = equipos.filter((equipo) => equipo.nombre.toLowerCase().includes(busqueda));
-  } else if (ubicacionSeleccionada) {
-    equipos = equipos.filter((equipo) => equipo.ubicacionActualId === ubicacionSeleccionada);
-  }
+  const equipos = ubicacionSeleccionada
+    ? _todosEquipos.filter((equipo) => equipo.ubicacionActualId === ubicacionSeleccionada)
+    : _todosEquipos;
 
-  renderEquipos(equipos, { busqueda, equipoSeleccionado: equipoActual, ubicacionSeleccionada });
+  renderEquipos(equipos, { equipoSeleccionado: equipoActual, ubicacionSeleccionada });
 }
 
-function renderEquipos(equipos, { busqueda = "", equipoSeleccionado = "", ubicacionSeleccionada = "" } = {}) {
+function renderEquipos(equipos, { equipoSeleccionado = "", ubicacionSeleccionada = "" } = {}) {
   const equipoSelect = document.getElementById("equipo");
   equipoSelect.innerHTML = '<option value="">Seleccionar equipo</option>';
 
   equipos.forEach((equipo) => {
     const opt = document.createElement("option");
     opt.value = equipo.id;
-    opt.textContent = busqueda || !ubicacionSeleccionada
+    opt.textContent = !ubicacionSeleccionada
       ? `${equipo.nombre}${equipo.ubicacionActualNombre ? ` (${equipo.ubicacionActualNombre})` : ""}`
       : equipo.nombre;
     opt.selected = equipo.id === equipoSeleccionado;

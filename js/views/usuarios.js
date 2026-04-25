@@ -5,6 +5,7 @@ import { auth, db, firebaseConfig } from "../firebase-config.js";
 
 let _clienteId = "";
 let _currentRole = "";
+let _usuarios = [];
 
 export async function initUsuariosView({ clienteId, role } = {}) {
   _clienteId = clienteId || "";
@@ -12,6 +13,7 @@ export async function initUsuariosView({ clienteId, role } = {}) {
   await cargarUsuarios();
   configurarSelectorRol();
   document.getElementById("crearUsuarioBtn").addEventListener("click", crearUsuario);
+  document.getElementById("busquedaUsuarios").addEventListener("input", renderUsuariosFiltrados);
 }
 
 // El select de rol solo muestra "superadmin" si quien crea es superadmin
@@ -41,18 +43,29 @@ async function cargarUsuarios() {
     snapshot = await getDocs(collection(db, "users"));
   }
 
-  const tbody = document.querySelector("#tablaUsuarios tbody");
-  tbody.innerHTML = "";
-  const usuarios = [];
+  _usuarios = [];
   snapshot.forEach((docSnap) => {
-    usuarios.push({ id: docSnap.id, ...docSnap.data() });
+    _usuarios.push({ id: docSnap.id, ...docSnap.data() });
   });
-  usuarios.sort((a, b) => {
+  _usuarios.sort((a, b) => {
     const nombreA = a.nombreCompleto || a.email || "";
     const nombreB = b.nombreCompleto || b.email || "";
     return nombreA.localeCompare(nombreB, "es", { sensitivity: "base" });
   });
-  usuarios.forEach((data) => {
+  renderUsuariosFiltrados();
+}
+
+function renderUsuariosFiltrados() {
+  const tbody = document.querySelector("#tablaUsuarios tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const termino = (document.getElementById("busquedaUsuarios")?.value || "").trim().toLowerCase();
+  const usuariosFiltrados = termino
+    ? _usuarios.filter((data) => `${data.email || ""} ${data.nombreCompleto || ""} ${data.rol || ""}`.toLowerCase().includes(termino))
+    : _usuarios;
+
+  usuariosFiltrados.forEach((data) => {
     const row = tbody.insertRow();
     row.insertCell(0).textContent = data.email;
     row.insertCell(1).textContent = data.nombreCompleto;

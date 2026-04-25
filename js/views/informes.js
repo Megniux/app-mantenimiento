@@ -13,7 +13,6 @@ export async function initInformesView({ clienteId } = {}) {
 function renderCorrectivos(correctivos) {
   const total = correctivos.length;
   const cerradas = correctivos.filter((o) => o.estado === "Cerrado");
-  const abiertas = total - cerradas.length;
 
   const tiempoRespuestaHoras = promedio(correctivos
     .map((o) => minutosEntre(o.fechaCreacion, primeraFechaHistorial(o.historial)) / 60)
@@ -29,13 +28,12 @@ function renderCorrectivos(correctivos) {
 
   const cerradasEnTiempo = cerradas.filter((o) => cumpleFechaProgramada(o)).length;
   const tasaCerradas = porcentaje(cerradas.length, total);
-  const tasaAbiertas = porcentaje(abiertas, total);
   const tasaEnTiempo = porcentaje(cerradasEnTiempo, cerradas.length);
 
   document.getElementById("kpiCorrectivos").innerHTML = `
-    ${kpiItem("Tiempo medio de respuesta", `${formatoNumero(tiempoRespuestaHoras)} hs`)}
-    ${kpiItem("Tiempo medio de finalización", `${formatoNumero(tiempoFinalizacionHoras)} hs`)}
-    ${kpiItem("Tasa de finalización", `Abiertas: ${abiertas} (${tasaAbiertas}%) | Cerradas: ${cerradas.length} (${tasaCerradas}%)`)}
+    ${kpiItem("Tiempo medio de respuesta", formatoDuracionHoras(tiempoRespuestaHoras))}
+    ${kpiItem("Tiempo medio de finalización", formatoDuracionHoras(tiempoFinalizacionHoras))}
+    ${kpiItem("Tasa de finalización", `Cerradas: ${cerradas.length} de ${total} (${tasaCerradas}%)`)}
     ${kpiItem("Tasa de finalización en tiempo", `${cerradasEnTiempo} de ${cerradas.length} (${tasaEnTiempo}%)`)}
   `;
 }
@@ -51,7 +49,7 @@ function renderPreventivos(preventivos, todas) {
 
   document.getElementById("kpiPreventivos").innerHTML = `
     ${kpiItem("Tasa de finalización en tiempo", `${cerradasEnTiempo} de ${cerradas.length} (${tasaEnTiempo}%)`)}
-    ${kpiItem("% mantenimiento planificado", `${formatoNumero(horasPreventivas)} hs preventivas de ${formatoNumero(horasTotales)} hs totales (${planificado}%)`)}
+    ${kpiItem("% mantenimiento planificado", `${formatoHorasMinutos(horasPreventivas)} preventivas de ${formatoHorasMinutos(horasTotales)} totales (${planificado}%)`)}
   `;
 }
 
@@ -93,6 +91,21 @@ function formatoNumero(value) {
   return Number(value || 0).toFixed(2);
 }
 
+
+function formatoDuracionHoras(value) {
+  const totalMinutos = Math.max(0, Math.round((Number(value) || 0) * 60));
+  const dias = Math.floor(totalMinutos / (24 * 60));
+  const horas = Math.floor((totalMinutos % (24 * 60)) / 60);
+  const minutos = totalMinutos % 60;
+  return `${dias} días, ${String(horas).padStart(2, "0")}:${String(minutos).padStart(2, "0")} hs`;
+}
+
+function formatoHorasMinutos(value) {
+  const totalMinutos = Math.max(0, Math.round((Number(value) || 0) * 60));
+  const horas = Math.floor(totalMinutos / 60);
+  const minutos = totalMinutos % 60;
+  return `${String(horas).padStart(2, "0")}:${String(minutos).padStart(2, "0")} hs`;
+}
 function cumpleFechaProgramada(orden) {
   const prog = toDate(orden.fechaProgramada);
   const cierre = toDate(orden.fechaCierre);
