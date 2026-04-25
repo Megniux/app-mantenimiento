@@ -98,7 +98,9 @@ async function cargarEquipos() {
     const moveBtn = document.createElement("button");
     moveBtn.type = "button";
     moveBtn.className = "btn-row-action";
-    moveBtn.textContent = "Mover";
+    moveBtn.setAttribute("aria-label", `Mover ${equipo.nombre}`);
+    moveBtn.setAttribute("title", `Mover ${equipo.nombre}`);
+    moveBtn.innerHTML = '<i class="fas fa-location-dot"></i>';
     moveBtn.addEventListener("click", () => abrirModalMover(equipo.id));
     actions.appendChild(moveBtn);
 
