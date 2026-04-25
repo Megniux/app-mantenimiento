@@ -91,7 +91,14 @@ function renderEquipos(equipos, { equipoSeleccionado = "", ubicacionSeleccionada
     equipoSelect.appendChild(opt);
   });
 
-  if (equipoSeleccionado && !equipos.some((equipo) => equipo.id === equipoSeleccionado)) {
+  // Opción virtual "Otro": no existe en Firestore, se inserta siempre al final
+  const optOtro = document.createElement("option");
+  optOtro.value = "__otro__";
+  optOtro.textContent = "Otro";
+  optOtro.selected = equipoSeleccionado === "__otro__";
+  equipoSelect.appendChild(optOtro);
+
+  if (equipoSeleccionado && equipoSeleccionado !== "__otro__" && !equipos.some((equipo) => equipo.id === equipoSeleccionado)) {
     equipoSelect.value = "";
   }
 }
@@ -107,6 +114,17 @@ function sincronizarUbicacionConEquipo() {
 
 function obtenerEquipoSeleccionado() {
   const equipoId = document.getElementById("equipo").value;
+  if (equipoId === "__otro__") {
+    // Objeto virtual: no existe en Firestore, usa la ubicación seleccionada
+    const ubicacionId = document.getElementById("ubicacion").value;
+    const ubicacion = _ubicaciones.find((u) => u.id === ubicacionId);
+    return {
+      id: "",
+      nombre: "Otro",
+      ubicacionActualId: ubicacion?.id || "",
+      ubicacionActualNombre: ubicacion?.nombre || ""
+    };
+  }
   return _todosEquipos.find((equipo) => equipo.id === equipoId) || null;
 }
 
@@ -145,7 +163,13 @@ async function guardar() {
   const frecuencia = document.getElementById("frecuencia").value;
   const uid = sessionStorage.getItem("userUid");
 
-  if (!equipoSeleccionado || !equipoSeleccionado.ubicacionActualNombre || !descripcion) {
+  if (!equipoSeleccionado) {
+    return alert("Seleccione un equipo.");
+  }
+  if (!equipoSeleccionado.ubicacionActualNombre) {
+    return alert("Seleccione una ubicación antes de elegir 'Otro'.");
+  }
+  if (!descripcion) {
     return alert("Complete todos los campos.");
   }
 
