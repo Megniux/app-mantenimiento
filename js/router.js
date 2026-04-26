@@ -5,6 +5,7 @@ import { initEquiposView } from "./views/equipos.js";
 import { initUbicacionesView } from "./views/ubicaciones.js";
 import { initUsuariosView } from "./views/usuarios.js";
 import { initInformesView } from "./views/informes.js";
+import { initClientesView } from "./views/clientes.js";
 import { collection, getDocs, query, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";import { db } from "./firebase-config.js";
 
 const routes = {
@@ -14,7 +15,8 @@ const routes = {
   informes: { template: "templates/informes.html", title: "KPIs (Indicadores Clave)", init: initInformesView, roles: ["tecnico", "supervisor", "admin", "superadmin"] },
   equipos: { template: "templates/equipos.html", title: "Gestionar Equipos", init: initEquiposView, roles: ["supervisor", "admin", "superadmin"] },
   ubicaciones: { template: "templates/ubicaciones.html", title: "Gestionar Ubicaciones", init: initUbicacionesView, roles: ["supervisor", "admin", "superadmin"] },
-  usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin", "superadmin"] }
+  usuarios: { template: "templates/usuarios.html", title: "Gestionar Usuarios", init: initUsuariosView, roles: ["admin", "superadmin"] },
+  clientes: { template: "templates/clientes.html", title: "Gestionar Clientes", init: initClientesView, roles: ["superadmin"] }
 };
 
 const menuByRole = {
@@ -23,7 +25,7 @@ const menuByRole = {
   tecnico: ["solicitud", "consulta", "informes"],
   supervisor: ["solicitud", "consulta", "informes"],
   admin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"],
-  superadmin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"]
+  superadmin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios", "clientes"]
 };
 
 const menuMeta = {
@@ -32,7 +34,8 @@ const menuMeta = {
   informes: { icon: "fa-chart-line", label: "Informes" },
   equipos: { icon: "fa-gears", label: "Gestionar Equipos" },
   ubicaciones: { icon: "fa-location-dot", label: "Gestionar Ubicaciones" },
-  usuarios: { icon: "fa-users", label: "Gestionar Usuarios" }
+  usuarios: { icon: "fa-users", label: "Gestionar Usuarios" },
+  clientes: { icon: "fa-building", label: "Gestionar Clientes" }
 };
 
 const mainContent = document.getElementById("mainContent");
