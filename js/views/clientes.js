@@ -276,6 +276,8 @@ function abrirModalCrear() {
     .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
   const zipInput = document.getElementById("importarZipInput");
   if (zipInput) zipInput.value = "";
+  const nombreImportar = document.getElementById("importarNombreCliente");
+  if (nombreImportar) nombreImportar.value = "";
   document.getElementById("importarPreview").classList.add("is-hidden");
 
   // Botones de navegación interna
@@ -452,6 +454,22 @@ async function previsualizarZip() {
     const archivos = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
     preview.textContent = `Archivos detectados: ${archivos.join(", ")}`;
     preview.classList.remove("is-hidden");
+
+    // Pre-completar nombre con el del cliente.csv si el campo está vacío
+    const clienteFile = zip.file("cliente.csv");
+    if (clienteFile) {
+      const csvText = await clienteFile.async("string");
+      const lineas = csvText.replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
+      if (lineas.length >= 2) {
+        const headers = lineas[0].split(";").map((h) => h.replace(/^"|"$/g, ""));
+        const vals = lineas[1].split(";").map((v) => v.replace(/^"|"$/g, ""));
+        const nombreIdx = headers.indexOf("nombre");
+        const nombreInput = document.getElementById("importarNombreCliente");
+        if (nombreIdx !== -1 && nombreInput && !nombreInput.value.trim()) {
+          nombreInput.value = vals[nombreIdx] || "";
+        }
+      }
+    }
   } catch {
     preview.textContent = "No se pudo leer el ZIP.";
     preview.classList.remove("is-hidden");
@@ -481,7 +499,9 @@ async function importarClienteDesdeZip() {
     if (!clienteRows.length) throw new Error("cliente.csv está vacío");
     const clienteRow = clienteRows[0];
 
-    if (!clienteRow.nombre) throw new Error("cliente.csv no tiene campo 'nombre'");
+    const nombreOverride = document.getElementById("importarNombreCliente")?.value.trim();
+    if (!nombreOverride) throw new Error("Ingresá un nombre para el cliente.");
+    clienteRow.nombre = nombreOverride;
 
     // Parsear telefonos
     let telefonos = [];
