@@ -27,10 +27,6 @@ export async function initClientesView() {
   await cargarClientes();
 
   document.getElementById("busquedaClientes").addEventListener("input", renderClientesFiltrados);
-  document.getElementById("exportarTodosBtn").addEventListener("click", () => {
-    // Exportar TODOS los clientes uno a uno no escala; exportamos el seleccionado o pedimos elegir
-    alert("Usá el menú ⋮ de cada cliente para exportar sus datos.");
-  });
   document.getElementById("agregarClienteBtn").addEventListener("click", () => abrirModalCrear());
 
   if (!_listenerMenuRegistrado) {
