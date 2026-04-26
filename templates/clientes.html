@@ -1,0 +1,259 @@
+<div class="form-card">
+  <div class="form-section" style="overflow-x:auto;">
+    <h3>Lista de Clientes</h3>
+    <div class="consulta-header-actions" style="margin-bottom:0.75rem;">
+      <div class="search-wrapper" style="margin-bottom:0;">
+        <i class="fas fa-search"></i>
+        <input type="text" id="busquedaClientes" placeholder="Buscar...">
+      </div>
+      <button class="btn-outline" id="exportarTodosBtn" type="button">Exportar CSV</button>
+    </div>
+    <table id="tablaClientes" class="management-table">
+      <colgroup>
+        <col class="col-nombre">
+        <col class="col-nombre">
+        <col class="col-acciones">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Email contacto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="form-section">
+    <h3>Agregar nuevo cliente</h3>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-building"></i>
+        <input type="text" id="nuevoClienteNombre" placeholder="Nombre del cliente">
+      </div>
+    </div>
+  </div>
+  <button id="agregarClienteBtn" type="button" class="btn-primary">
+    <i class="fa-solid fa-paper-plane"></i>Agregar cliente
+  </button>
+</div>
+
+<!-- ── Modal: Ver detalles ── -->
+<div id="modalClienteDetalles" class="modal is-hidden">
+  <div class="modal-content">
+    <span class="close close-modal" data-modal="modalClienteDetalles">&times;</span>
+    <div class="form-card modal-form-card form-section">
+      <h3>Detalles del Cliente</h3>
+      <div id="clienteDetallesContenido"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Editar cliente ── -->
+<div id="modalClienteEditar" class="modal is-hidden">
+  <div class="modal-content">
+    <span class="close close-modal" data-modal="modalClienteEditar">&times;</span>
+    <div class="form-card modal-form-card form-section">
+      <h3>Editar Cliente</h3>
+
+      <div class="form-section">
+        <h3>Información general</h3>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-building"></i>
+            <input type="text" id="editClienteNombre" placeholder="Nombre">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-id-card"></i>
+            <input type="text" id="editClienteCuit" placeholder="CUIT">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-location-dot"></i>
+            <input type="text" id="editClienteDireccion" placeholder="Dirección">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Contacto principal</h3>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="editContactoNombre" placeholder="Nombre del contacto">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-envelope"></i>
+            <input type="email" id="editContactoEmail" placeholder="Email del contacto">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-phone"></i>
+            <input type="text" id="editContactoTelefono" placeholder="Teléfono del contacto">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Teléfonos del sidebar</h3>
+        <div id="editTelefonosContainer"></div>
+        <button type="button" id="agregarTelefonoBtn" class="btn-outline" style="margin-top:0.5rem;width:auto;">
+          <i class="fa-solid fa-plus"></i> Agregar teléfono
+        </button>
+      </div>
+
+      <div class="form-section">
+        <h3>Contadores de órdenes</h3>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-wrench"></i>
+            <input type="number" id="editContadorOMC" placeholder="Contador OMC" min="1">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="input-with-icon">
+            <i class="fa-solid fa-calendar-check"></i>
+            <input type="number" id="editContadorOMP" placeholder="Contador OMP" min="1">
+          </div>
+        </div>
+      </div>
+
+      <button id="guardarClienteBtn" type="button" class="btn-primary">
+        <i class="fa-solid fa-floppy-disk"></i>Guardar cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Crear cliente (vacío o importar) ── -->
+<div id="modalClienteCrear" class="modal is-hidden">
+  <div class="modal-content">
+    <span class="close close-modal" data-modal="modalClienteCrear">&times;</span>
+    <div class="form-card modal-form-card form-section">
+      <h3>Nuevo Cliente</h3>
+
+      <div id="crearClienteOpciones">
+        <p style="margin-bottom:1rem;color:var(--color-muted);font-size:0.9rem;">
+          ¿Cómo querés crear el cliente?
+        </p>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <button type="button" id="crearClienteVacioBtn" class="btn-primary" style="width:100%;">
+            <i class="fa-solid fa-plus"></i> Crear cliente vacío
+          </button>
+          <button type="button" id="crearClienteImportarBtn" class="btn-primary" style="width:100%;background:#5a6e8a;">
+            <i class="fa-solid fa-file-import"></i> Importar desde backup ZIP
+          </button>
+        </div>
+      </div>
+
+      <div id="crearClienteFormVacio" class="is-hidden">
+        <div class="form-section" style="margin-top:1rem;">
+          <h3>Información general</h3>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-building"></i>
+              <input type="text" id="nuevoNombre" placeholder="Nombre del cliente">
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-id-card"></i>
+              <input type="text" id="nuevoCuit" placeholder="CUIT (opcional)">
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-location-dot"></i>
+              <input type="text" id="nuevaDireccion" placeholder="Dirección (opcional)">
+            </div>
+          </div>
+        </div>
+        <div class="form-section">
+          <h3>Contacto principal (opcional)</h3>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-user"></i>
+              <input type="text" id="nuevoContactoNombre" placeholder="Nombre">
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-envelope"></i>
+              <input type="email" id="nuevoContactoEmail" placeholder="Email">
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-phone"></i>
+              <input type="text" id="nuevoContactoTelefono" placeholder="Teléfono">
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="button" id="confirmarCrearVacioBtn" class="btn-primary" style="flex:1;">
+            <i class="fa-solid fa-paper-plane"></i> Crear
+          </button>
+          <button type="button" id="cancelarCrearVacioBtn" class="btn-outline" style="flex:1;margin-top:0.8rem;">
+            Volver
+          </button>
+        </div>
+      </div>
+
+      <div id="crearClienteFormImportar" class="is-hidden">
+        <div class="form-section" style="margin-top:1rem;">
+          <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.75rem;">
+            Seleccioná el archivo ZIP generado por la exportación de un cliente.
+            Se importarán: datos del cliente, órdenes, usuarios, equipos y ubicaciones.
+          </p>
+          <div class="form-group">
+            <div class="input-with-icon">
+              <i class="fa-solid fa-file-zipper"></i>
+              <input type="file" id="importarZipInput" accept=".zip">
+            </div>
+          </div>
+          <div id="importarPreview" class="is-hidden" style="margin-top:0.5rem;font-size:0.85rem;color:var(--color-muted);"></div>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="button" id="confirmarImportarBtn" class="btn-primary" style="flex:1;">
+            <i class="fa-solid fa-file-import"></i> Importar
+          </button>
+          <button type="button" id="cancelarImportarBtn" class="btn-outline" style="flex:1;margin-top:0.8rem;">
+            Volver
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Eliminar cliente ── -->
+<div id="modalClienteEliminar" class="modal is-hidden">
+  <div class="modal-content">
+    <span class="close close-modal" data-modal="modalClienteEliminar">&times;</span>
+    <div class="form-card modal-form-card form-section">
+      <h3>Eliminar Cliente</h3>
+      <p id="eliminarClienteNombreTexto" style="margin-bottom:1rem;font-weight:600;"></p>
+      <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:1.25rem;">
+        ¿Qué querés hacer con los datos del cliente (órdenes, usuarios, equipos, ubicaciones)?
+      </p>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <button type="button" id="eliminarConDatosBtn" class="btn-primary" style="width:100%;background:#c0392b;">
+          <i class="fa-solid fa-trash-can"></i> Eliminar cliente y todos sus datos
+        </button>
+        <button type="button" id="eliminarSoloDatosBtn" class="btn-primary" style="width:100%;background:#e67e22;">
+          <i class="fa-solid fa-database"></i> Eliminar solo el registro del cliente (conservar datos)
+        </button>
+        <button type="button" id="cancelarEliminarBtn" class="btn-outline" style="width:100%;margin-top:0;">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
