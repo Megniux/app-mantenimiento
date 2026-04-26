@@ -563,6 +563,9 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       row.clienteId = nuevoClienteId;
     }
 
+    // Campos de fecha de nivel raíz que deben ser Timestamp
+    const CAMPOS_FECHA = ["fechaCreacion", "fechaProgramada", "fechaCierre", "fechaInicioEspera"];
+
     // Deserializar campos JSON (historial, historialUbicaciones, etc.)
     for (const [key, val] of Object.entries(row)) {
       if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
@@ -577,6 +580,33 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       if (val === "" && ["tiempoEstimado", "tiempoReal"].includes(key)) {
         row[key] = null;
       }
+    }
+
+    // Convertir fechas raíz: ISO string → Date (Firestore lo convierte a Timestamp)
+    for (const campo of CAMPOS_FECHA) {
+      const val = row[campo];
+      if (typeof val === "string" && val !== "") {
+        const d = new Date(val);
+        if (!Number.isNaN(d.getTime())) row[campo] = d;
+      } else if (val === "" || val == null) {
+        row[campo] = null;
+      }
+    }
+
+    // Convertir fechas dentro de arrays (historial, historialUbicaciones)
+    // que quedaron como {seconds, nanoseconds} → Date
+    const CAMPOS_ARRAY_CON_FECHA = ["historial", "historialUbicaciones"];
+    for (const campo of CAMPOS_ARRAY_CON_FECHA) {
+      if (!Array.isArray(row[campo])) continue;
+      row[campo] = row[campo].map((item) => {
+        if (item && typeof item === "object" && "seconds" in item.fecha && "nanoseconds" in item.fecha) {
+          return {
+            ...item,
+            fecha: new Date(item.fecha.seconds * 1000 + Math.round(item.fecha.nanoseconds / 1e6))
+          };
+        }
+        return item;
+      });
     }
 
     const newRef = await addDoc(collection(db, coleccion), row);
