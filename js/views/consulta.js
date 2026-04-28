@@ -1,5 +1,7 @@
 import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
+import { isModuloPanolActivo } from "../router.js";
 
 let userRole = null;
 let _clienteId = "";
@@ -10,6 +12,10 @@ let consultaLoadToken = 0;
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let listenerCierreMenuRegistrado = false;
+let _panolActivo = false;
+let _repuestosDisponibles = [];   // lista cacheada para el modal
+let _repuestosEnOrden = [];       // repuestos cargados en la orden actual
+
 const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
@@ -49,6 +55,8 @@ export async function initConsultaView({ role, clienteId }) {
   _clienteId = clienteIdActual;
   listaTecnicos = [];
   todasOrdenes = [];
+  _panolActivo = isModuloPanolActivo();
+  if (_panolActivo) await prepararRepuestosOrden(clienteIdActual);
 
   const tecnicos = await cargarTecnicos(clienteIdActual, loadToken);
   await cargarListasFiltros(clienteIdActual, tecnicos, loadToken);
@@ -430,6 +438,7 @@ async function abrirModal(id) {
   actualizarCamposEstadoCierre();
 
   document.getElementById("guardarEdicionBtn").onclick = guardarEdicion;
+  await inicializarSeccionRepuestos(data);
   toggleModal("modalEditar", true);
 }
 
@@ -510,6 +519,8 @@ async function guardarEdicion() {
         }
       }
     }
+
+    await procesarRepuestosOrden(currentOrderId, data.numeroOrden);
 
     await updateDoc(docRef, updateData);
     toggleModal("modalEditar", false);
@@ -665,4 +676,138 @@ async function limpiarFiltros() {
   document.getElementById("filtroUsuario").value = "";
   document.getElementById("filtroTecnico").value = "";
   await cargar();
+}
+
+async function prepararRepuestosOrden(clienteId) {
+  // Carga y cachea la lista de repuestos disponibles para el selector del modal
+  try {
+    _repuestosDisponibles = await cargarRepuestosParaOrden(clienteId);
+  } catch (_) {
+    _repuestosDisponibles = [];
+  }
+}
+
+async function inicializarSeccionRepuestos(ordenData) {
+  const grupo = document.getElementById("editRepuestosGrupo");
+  const btn = document.getElementById("editAgregarRepuestoOrdenBtn");
+  if (!grupo) return;
+
+  if (!_panolActivo) {
+    grupo.classList.add("is-hidden");
+    return;
+  }
+
+  grupo.classList.remove("is-hidden");
+  _repuestosEnOrden = [];
+  renderRepuestosEnOrden();
+
+  // Remover listener previo y agregar nuevo
+  const nuevoBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(nuevoBtn, btn);
+  nuevoBtn.addEventListener("click", agregarFilaRepuestoEnOrden);
+}
+
+function agregarFilaRepuestoEnOrden() {
+  const lista = document.getElementById("editRepuestosLista");
+  if (!lista) return;
+
+  const idx = _repuestosEnOrden.length;
+  _repuestosEnOrden.push({ repuestoId: "", cantidad: 1 });
+
+  const div = document.createElement("div");
+  div.className = "panol-repuesto-fila";
+  div.dataset.idx = idx;
+
+  const selectOpts = _repuestosDisponibles.map((r) =>
+    `<option value="${r.id}" data-nombre="${escapeHtmlInline(r.nombre)}"
+       data-stock="${r.stockActual ?? 0}" data-unidad="${escapeHtmlInline(r.unidad || "unidad")}"
+       data-aprobacion="${r.requiereAprobacion ? "si" : "no"}">
+       ${escapeHtmlInline(r.nombre)}${r.codigoInterno ? ` (${r.codigoInterno})` : ""}
+       — Stock: ${r.stockActual ?? 0} ${r.unidad || ""}
+     </option>`
+  ).join("");
+
+  div.innerHTML = `
+    <div class="input-with-icon" style="flex:1">
+      <i class="fas fa-wrench"></i>
+      <select class="panol-repuesto-select">
+        <option value="">Seleccionar repuesto…</option>
+        ${selectOpts}
+      </select>
+    </div>
+    <div class="input-with-icon panol-cantidad-wrapper">
+      <i class="fas fa-hashtag"></i>
+      <input type="number" min="1" step="1" value="1" class="panol-cantidad-input" placeholder="Cant.">
+    </div>
+    <span class="panol-stock-info"></span>
+    <button type="button" class="btn-delete-icon panol-remove-repuesto" title="Quitar"><i class="fas fa-xmark"></i></button>`;
+
+  const select = div.querySelector(".panol-repuesto-select");
+  const cantInput = div.querySelector(".panol-cantidad-input");
+  const stockInfo = div.querySelector(".panol-stock-info");
+
+  select.addEventListener("change", () => {
+    const opt = select.options[select.selectedIndex];
+    _repuestosEnOrden[idx].repuestoId = opt.value;
+    const stock = opt.dataset.stock;
+    const aprobacion = opt.dataset.aprobacion;
+    stockInfo.textContent = opt.value
+      ? `Stock: ${stock} ${opt.dataset.unidad}${aprobacion === "si" ? " — requiere aprobación" : ""}`
+      : "";
+    stockInfo.className = `panol-stock-info${aprobacion === "si" ? " panol-aprobacion-warn" : ""}`;
+  });
+
+  cantInput.addEventListener("change", () => {
+    _repuestosEnOrden[idx].cantidad = parseFloat(cantInput.value) || 1;
+  });
+
+  div.querySelector(".panol-remove-repuesto").addEventListener("click", () => {
+    _repuestosEnOrden.splice(idx, 1);
+    div.remove();
+    // Re-indexar
+    document.querySelectorAll(".panol-repuesto-fila").forEach((el, i) => { el.dataset.idx = i; });
+  });
+
+  lista.appendChild(div);
+}
+
+function renderRepuestosEnOrden() {
+  const lista = document.getElementById("editRepuestosLista");
+  if (lista) lista.innerHTML = "";
+  _repuestosEnOrden = [];
+}
+
+async function procesarRepuestosOrden(ordenId, ordenNumero) {
+  if (!_panolActivo || !_repuestosEnOrden.length) return;
+
+  const solicitante = sessionStorage.getItem("userName") || "";
+  const mensajes = [];
+
+  for (const item of _repuestosEnOrden) {
+    if (!item.repuestoId || !item.cantidad) continue;
+    try {
+      const resultado = await registrarEgresoDesdeOrden({
+        clienteId: _clienteId,
+        repuestoId: item.repuestoId,
+        cantidad: item.cantidad,
+        ordenId,
+        ordenNumero,
+        solicitante
+      });
+      if (resultado.aprobacionPendiente) {
+        mensajes.push(`"${resultado.nombre}": solicitud de egreso enviada para aprobación.`);
+      }
+    } catch (err) {
+      console.warn(`Error al registrar repuesto ${item.repuestoId}:`, err.message);
+    }
+  }
+
+  if (mensajes.length) {
+    alert(`Repuestos procesados con observaciones:\n${mensajes.join("\n")}`);
+  }
+}
+
+// Helper local para escapar HTML dentro de template literals
+function escapeHtmlInline(v) {
+  return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }

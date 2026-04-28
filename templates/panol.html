@@ -1,0 +1,263 @@
+<div class="form-card">
+
+  <!-- ── Inventario ──────────────────────────────────────────── -->
+  <div class="form-section">
+    <h3>Inventario de Repuestos</h3>
+    <div class="panol-toolbar">
+      <div class="search-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="busquedaRepuestos" placeholder="Buscar por nombre, código o equipo…">
+      </div>
+      <div class="panol-toolbar-right">
+        <label class="panol-check-label">
+          <input type="checkbox" id="filtroCriticos"> Solo stock crítico
+        </label>
+        <button type="button" id="exportRepuestosBtn" class="btn-outline">Exportar CSV</button>
+      </div>
+    </div>
+
+    <div id="panol-pendientes-banner" class="panol-pendientes-banner is-hidden">
+      <i class="fas fa-bell"></i>
+      <span id="panol-pendientes-texto"></span>
+      <a href="#" id="panol-pendientes-link">Ver solicitudes pendientes →</a>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table id="tablaRepuestos" class="management-table">
+        <colgroup>
+          <col class="col-codigo-panol">
+          <col class="col-nombre-repuesto">
+          <col class="col-stock-panol">
+          <col class="col-stock-panol">
+          <col class="col-stock-panol">
+          <col class="col-ubicacion-panol">
+          <col class="col-acciones-panol">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Repuesto</th>
+            <th>Stock</th>
+            <th>Mín.</th>
+            <th>Máx.</th>
+            <th>Ubicación pañol</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRepuestos"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Agregar nuevo repuesto ─────────────────────────────── -->
+  <div class="form-section" id="seccionAgregarRepuesto">
+    <h3>Agregar nuevo repuesto</h3>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-barcode"></i>
+          <input type="text" id="repCodigo" placeholder="Código interno (ej: REP-001)">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-wrench"></i>
+          <input type="text" id="repNombre" placeholder="Nombre del repuesto *">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <input type="text" id="repUnidad" placeholder="Unidad (unidad, metro, litro…)">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-location-crosshairs"></i>
+          <input type="text" id="repUbicacion" placeholder="Ubicación en pañol (ej: A3-C2)">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-hashtag"></i>
+          <input type="number" min="0" step="1" id="repStockInicial" placeholder="Stock inicial *">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-arrow-down-to-line"></i>
+          <input type="number" min="0" step="1" id="repStockMinimo" placeholder="Stock mínimo *">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-arrow-up-to-line"></i>
+          <input type="number" min="0" step="1" id="repStockMaximo" placeholder="Stock máximo">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-tag"></i>
+          <input type="number" min="0" step="0.01" id="repPrecio" placeholder="Precio de referencia">
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-align-left"></i>
+        <textarea id="repDescripcion" rows="2" placeholder="Descripción adicional (opcional)"></textarea>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="panol-section-label"><i class="fas fa-gears"></i> Equipos que lo utilizan</label>
+      <div id="repEquiposCheck" class="checkbox-ubicaciones"></div>
+    </div>
+    <div class="form-group">
+      <label class="panol-section-label"><i class="fas fa-circle-check"></i> ¿Requiere aprobación para egreso?</label>
+      <div class="panol-radio-group">
+        <label class="checkbox-ubicacion-item">
+          <input type="radio" name="repAprobacion" value="no" checked> No requiere
+        </label>
+        <label class="checkbox-ubicacion-item">
+          <input type="radio" name="repAprobacion" value="si"> Requiere aprobación
+        </label>
+      </div>
+    </div>
+    <button id="agregarRepuestoBtn" type="button" class="btn-primary">
+      <i class="fa-solid fa-paper-plane"></i>Agregar repuesto
+    </button>
+  </div>
+</div>
+
+<!-- ── Modal: Editar repuesto ─────────────────────────────── -->
+<div id="modalEditarRepuesto" class="modal is-hidden"><div class="modal-content">
+  <span class="close close-modal" data-modal="modalEditarRepuesto">&times;</span>
+  <div class="form-card modal-form-card form-section">
+    <h3>Editar Repuesto</h3>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-barcode"></i>
+          <input type="text" id="editRepCodigo" placeholder="Código interno">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-wrench"></i>
+          <input type="text" id="editRepNombre" placeholder="Nombre *">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <input type="text" id="editRepUnidad" placeholder="Unidad">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-location-crosshairs"></i>
+          <input type="text" id="editRepUbicacion" placeholder="Ubicación en pañol">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-arrow-down-to-line"></i>
+          <input type="number" min="0" step="1" id="editRepStockMinimo" placeholder="Stock mínimo *">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-arrow-up-to-line"></i>
+          <input type="number" min="0" step="1" id="editRepStockMaximo" placeholder="Stock máximo">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon">
+          <i class="fa-solid fa-tag"></i>
+          <input type="number" min="0" step="0.01" id="editRepPrecio" placeholder="Precio de referencia">
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-align-left"></i>
+        <textarea id="editRepDescripcion" rows="2" placeholder="Descripción adicional"></textarea>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="panol-section-label"><i class="fas fa-gears"></i> Equipos que lo utilizan</label>
+      <div id="editRepEquiposCheck" class="checkbox-ubicaciones"></div>
+    </div>
+    <div class="form-group">
+      <label class="panol-section-label"><i class="fas fa-circle-check"></i> ¿Requiere aprobación para egreso?</label>
+      <div class="panol-radio-group">
+        <label class="checkbox-ubicacion-item">
+          <input type="radio" name="editRepAprobacion" value="no"> No requiere
+        </label>
+        <label class="checkbox-ubicacion-item">
+          <input type="radio" name="editRepAprobacion" value="si"> Requiere aprobación
+        </label>
+      </div>
+    </div>
+    <button id="guardarEditRepuestoBtn" type="button" class="btn-primary">
+      <i class="fa-solid fa-floppy-disk"></i>Guardar cambios
+    </button>
+  </div>
+</div></div>
+
+<!-- ── Modal: Ajuste de stock ─────────────────────────────── -->
+<div id="modalAjusteStock" class="modal is-hidden"><div class="modal-content">
+  <span class="close close-modal" data-modal="modalAjusteStock">&times;</span>
+  <div class="form-card modal-form-card form-section">
+    <h3>Ajuste de Stock</h3>
+    <div id="ajusteRepuestoInfo" class="detalle-linea" style="margin-bottom:1rem;"></div>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-right-left"></i>
+        <select id="ajusteTipo">
+          <option value="ingreso">Ingreso</option>
+          <option value="egreso">Egreso</option>
+          <option value="ajuste">Ajuste de inventario</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-hashtag"></i>
+        <input type="number" min="1" step="1" id="ajusteCantidad" placeholder="Cantidad *">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="input-with-icon">
+        <i class="fa-solid fa-comment"></i>
+        <textarea id="ajusteObservaciones" rows="3" placeholder="Motivo del ajuste *"></textarea>
+      </div>
+    </div>
+    <button id="guardarAjusteBtn" type="button" class="btn-primary">
+      <i class="fa-solid fa-floppy-disk"></i>Confirmar ajuste
+    </button>
+  </div>
+</div></div>
+
+<!-- ── Modal: Solicitudes pendientes ─────────────────────── -->
+<div id="modalSolicitudesPanol" class="modal is-hidden"><div class="modal-content">
+  <span class="close close-modal" data-modal="modalSolicitudesPanol">&times;</span>
+  <div class="form-card modal-form-card form-section">
+    <h3>Solicitudes Pendientes de Aprobación</h3>
+    <div style="overflow-x:auto;">
+      <table class="management-table" id="tablaSolicitudesPanol">
+        <thead>
+          <tr>
+            <th>Repuesto</th>
+            <th>Cantidad</th>
+            <th>Solicitante</th>
+            <th>Orden</th>
+            <th>Fecha</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbodySolicitudesPanol"></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>

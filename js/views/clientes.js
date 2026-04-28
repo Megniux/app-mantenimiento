@@ -29,6 +29,9 @@ export async function initClientesView() {
   document.getElementById("busquedaClientes").addEventListener("input", renderClientesFiltrados);
   document.getElementById("agregarClienteBtn").addEventListener("click", () => abrirModalCrear());
 
+  // Mostrar/ocultar sección de aprobación al cambiar checkbox de pañol
+  document.getElementById("editClientePanol")?.addEventListener("change", toggleAprobacionGrupo);
+
   if (!_listenerMenuRegistrado) {
     document.getElementById("mainContent").addEventListener("click", (e) => {
       if (e.target.matches(".close-modal")) toggleModal(e.target.dataset.modal, false);
@@ -66,14 +69,12 @@ function renderClientesFiltrados() {
     const row = tbody.insertRow();
     row.style.cursor = "pointer";
 
-    const tdNombre = row.insertCell(0);
-    tdNombre.textContent = cliente.nombre || "-";
+    row.insertCell(0).textContent = cliente.nombre || "-";
+    row.insertCell(1).textContent = cliente.contactoPrincipal?.email || "-";
+    // ── NUEVO: columna módulo pañol ──
+    row.insertCell(2).textContent = cliente.moduloPanol ? "✅ Activo" : "—";
 
-    const tdEmail = row.insertCell(1);
-    tdEmail.textContent = cliente.contactoPrincipal?.email || "-";
-
-    // Acciones
-    const tdActions = row.insertCell(2);
+    const tdActions = row.insertCell(3);
     tdActions.className = "actions-menu";
 
     const trigger = document.createElement("button");
@@ -95,7 +96,6 @@ function renderClientesFiltrados() {
       mostrarMenuCliente(cliente.id, trigger);
     });
 
-    // Click en fila → ver detalles
     row.addEventListener("click", (e) => {
       if (e.target.closest(".actions-menu")) return;
       verDetallesCliente(cliente.id);
@@ -155,6 +155,9 @@ function verDetallesCliente(clienteId) {
     ["Contador OMC (próxima)", c.contadorOMC ?? 1],
     ["Contador OMP (próxima)", c.contadorOMP ?? 1],
     ["Teléfonos sidebar", tel],
+    // ── NUEVO ──
+    ["Módulo Pañol", c.moduloPanol ? "Activo" : "Inactivo"],
+    ["Aprobación de egresos", c.moduloPanol ? (c.panolAprobacionDefault === "si" ? "Requiere aprobación" : "No requiere") : "-"],
   ];
 
   document.getElementById("clienteDetallesContenido").innerHTML = campos
@@ -180,6 +183,16 @@ function abrirModalEditar(clienteId) {
   document.getElementById("editContactoTelefono").value = c.contactoPrincipal?.telefono || "";
   document.getElementById("editContadorOMC").value = c.contadorOMC ?? 1;
   document.getElementById("editContadorOMP").value = c.contadorOMP ?? 1;
+
+  // ── NUEVO: campos pañol ──
+  const chkPanol = document.getElementById("editClientePanol");
+  if (chkPanol) chkPanol.checked = !!c.moduloPanol;
+
+  const aprobVal = c.panolAprobacionDefault || "no";
+  const radioAprobacion = document.querySelector(`input[name="editClienteAprobacion"][value="${aprobVal}"]`);
+  if (radioAprobacion) radioAprobacion.checked = true;
+
+  toggleAprobacionGrupo();
 
   renderEditorTelefonos(c.telefonos || []);
 
@@ -230,6 +243,10 @@ async function guardarEdicionCliente() {
   const nombre = document.getElementById("editClienteNombre").value.trim();
   if (!nombre) return alert("El nombre es obligatorio.");
 
+  // ── NUEVO: leer campos pañol ──
+  const moduloPanol = document.getElementById("editClientePanol")?.checked || false;
+  const panolAprobacionDefault = document.querySelector("input[name='editClienteAprobacion']:checked")?.value || "no";
+
   const data = {
     nombre,
     cuit: document.getElementById("editClienteCuit").value.trim(),
@@ -241,7 +258,10 @@ async function guardarEdicionCliente() {
     },
     contadorOMC: parseInt(document.getElementById("editContadorOMC").value, 10) || 1,
     contadorOMP: parseInt(document.getElementById("editContadorOMP").value, 10) || 1,
-    telefonos: leerTelefonos()
+    telefonos: leerTelefonos(),
+    // ── NUEVO ──
+    moduloPanol,
+    panolAprobacionDefault: moduloPanol ? panolAprobacionDefault : "no"
   };
 
   const orig = btn.innerHTML;
@@ -260,14 +280,18 @@ async function guardarEdicionCliente() {
   }
 }
 
+// ─── NUEVO: toggle visibilidad grupo aprobación ───────────────────────────────
+function toggleAprobacionGrupo() {
+  const activo = document.getElementById("editClientePanol")?.checked;
+  document.getElementById("editClienteAprobacionGrupo")?.classList.toggle("is-hidden", !activo);
+}
+
 // ─── Crear cliente ───────────────────────────────────────────────────────────
 function abrirModalCrear() {
-  // Resetear estado del modal
   document.getElementById("crearClienteOpciones").classList.remove("is-hidden");
   document.getElementById("crearClienteFormVacio").classList.add("is-hidden");
   document.getElementById("crearClienteFormImportar").classList.add("is-hidden");
 
-  // Limpiar campos
   ["nuevoNombre", "nuevoCuit", "nuevaDireccion", "nuevoContactoNombre", "nuevoContactoEmail", "nuevoContactoTelefono"]
     .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
   const zipInput = document.getElementById("importarZipInput");
@@ -276,7 +300,6 @@ function abrirModalCrear() {
   if (nombreImportar) nombreImportar.value = "";
   document.getElementById("importarPreview").classList.add("is-hidden");
 
-  // Botones de navegación interna
   document.getElementById("crearClienteVacioBtn").onclick = () => {
     document.getElementById("crearClienteOpciones").classList.add("is-hidden");
     document.getElementById("crearClienteFormVacio").classList.remove("is-hidden");
@@ -319,7 +342,10 @@ async function crearClienteVacio() {
     },
     contadorOMC: 1,
     contadorOMP: 1,
-    telefonos: []
+    telefonos: [],
+    // ── NUEVO: valores por defecto ──
+    moduloPanol: false,
+    panolAprobacionDefault: "no"
   };
 
   const orig = btn.innerHTML;
@@ -366,10 +392,11 @@ async function eliminarCliente(clienteId, conDatos) {
 
   try {
     if (conDatos) {
-      const colecciones = ["ordenes", "usuarios", "equipos", "ubicaciones"];
+      // ── NUEVO: incluir colecciones del módulo pañol ──
+      const colecciones = ["ordenes", "usuarios", "equipos", "ubicaciones", "repuestos", "movimientosRepuestos", "solicitudesPanol"];
       for (const col of colecciones) {
-        const snaps = await getDocs(query(collection(db, col === "usuarios" ? "users" : col), where("clienteId", "==", clienteId)));
-        // Firestore batch máximo 500 ops
+        const colName = col === "usuarios" ? "users" : col;
+        const snaps = await getDocs(query(collection(db, colName), where("clienteId", "==", clienteId)));
         const batch = writeBatch(db);
         let count = 0;
         for (const d of snaps.docs) {
@@ -404,32 +431,37 @@ async function exportarCliente(clienteId) {
     const zip = new JSZip();
 
     // 1. cliente.csv
-    const clienteData = { id: c.id, nombre: c.nombre, cuit: c.cuit || "", direccion: c.direccion || "",
+    const clienteData = {
+      id: c.id, nombre: c.nombre, cuit: c.cuit || "", direccion: c.direccion || "",
       contactoNombre: c.contactoPrincipal?.nombre || "", contactoEmail: c.contactoPrincipal?.email || "",
       contactoTelefono: c.contactoPrincipal?.telefono || "",
       contadorOMC: c.contadorOMC ?? 1, contadorOMP: c.contadorOMP ?? 1,
-      telefonos: JSON.stringify(c.telefonos || []) };
+      telefonos: JSON.stringify(c.telefonos || []),
+      // ── NUEVO ──
+      moduloPanol: c.moduloPanol ? "true" : "false",
+      panolAprobacionDefault: c.panolAprobacionDefault || "no"
+    };
     zip.file("cliente.csv", objetosACSV([clienteData]));
 
     // 2. ordenes.csv
     const ordenesSnap = await getDocs(query(collection(db, "ordenes"), where("clienteId", "==", clienteId)));
-    const ordenes = ordenesSnap.docs.map((d) => serializarDocumento(d));
-    zip.file("ordenes.csv", objetosACSV(ordenes));
+    zip.file("ordenes.csv", objetosACSV(ordenesSnap.docs.map(serializarDocumento)));
 
     // 3. usuarios.csv
     const usersSnap = await getDocs(query(collection(db, "users"), where("clienteId", "==", clienteId)));
-    const usuarios = usersSnap.docs.map((d) => serializarDocumento(d));
-    zip.file("usuarios.csv", objetosACSV(usuarios));
+    zip.file("usuarios.csv", objetosACSV(usersSnap.docs.map(serializarDocumento)));
 
     // 4. equipos.csv
     const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", clienteId)));
-    const equipos = equiposSnap.docs.map((d) => serializarDocumento(d));
-    zip.file("equipos.csv", objetosACSV(equipos));
+    zip.file("equipos.csv", objetosACSV(equiposSnap.docs.map(serializarDocumento)));
 
     // 5. ubicaciones.csv
     const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", clienteId)));
-    const ubicaciones = ubicacionesSnap.docs.map((d) => serializarDocumento(d));
-    zip.file("ubicaciones.csv", objetosACSV(ubicaciones));
+    zip.file("ubicaciones.csv", objetosACSV(ubicacionesSnap.docs.map(serializarDocumento)));
+
+    // ── NUEVO: 6. repuestos.csv ──
+    const repuestosSnap = await getDocs(query(collection(db, "repuestos"), where("clienteId", "==", clienteId)));
+    zip.file("repuestos.csv", objetosACSV(repuestosSnap.docs.map(serializarDocumento)));
 
     const blob = await zip.generateAsync({ type: "blob" });
     descargarBlob(blob, `backup_${slugify(c.nombre)}_${fechaHoy()}.zip`);
@@ -451,7 +483,6 @@ async function previsualizarZip() {
     preview.textContent = `Archivos detectados: ${archivos.join(", ")}`;
     preview.classList.remove("is-hidden");
 
-    // Pre-completar nombre con el del cliente.csv si el campo está vacío
     const clienteFile = zip.file("cliente.csv");
     if (clienteFile) {
       const csvText = await clienteFile.async("string");
@@ -487,7 +518,6 @@ async function importarClienteDesdeZip() {
     const JSZip = await getJSZip();
     const zip = await JSZip.loadAsync(file);
 
-    // 1. Leer cliente.csv → crear nuevo doc en /clientes
     const clienteCSV = await leerArchivoZip(zip, "cliente.csv");
     if (!clienteCSV) throw new Error("El ZIP no contiene cliente.csv");
 
@@ -499,7 +529,6 @@ async function importarClienteDesdeZip() {
     if (!nombreOverride) throw new Error("Ingresá un nombre para el cliente.");
     clienteRow.nombre = nombreOverride;
 
-    // Parsear telefonos
     let telefonos = [];
     try { telefonos = JSON.parse(clienteRow.telefonos || "[]"); } catch { telefonos = []; }
 
@@ -514,18 +543,22 @@ async function importarClienteDesdeZip() {
       },
       contadorOMC: parseInt(clienteRow.contadorOMC, 10) || 1,
       contadorOMP: parseInt(clienteRow.contadorOMP, 10) || 1,
-      telefonos
+      telefonos,
+      // ── NUEVO ──
+      moduloPanol: clienteRow.moduloPanol === "true",
+      panolAprobacionDefault: clienteRow.panolAprobacionDefault || "no"
     };
 
     const nuevoClienteRef = await addDoc(collection(db, "clientes"), nuevoClienteData);
     const nuevoClienteId = nuevoClienteRef.id;
     const oldClienteId = clienteRow.id || null;
 
-    // 2. Importar colecciones relacionadas
     await importarColeccion(zip, "ubicaciones.csv", "ubicaciones", nuevoClienteId, oldClienteId);
     await importarColeccion(zip, "equipos.csv", "equipos", nuevoClienteId, oldClienteId);
     await importarColeccion(zip, "usuarios.csv", "users", nuevoClienteId, oldClienteId);
     await importarColeccion(zip, "ordenes.csv", "ordenes", nuevoClienteId, oldClienteId);
+    // ── NUEVO ──
+    await importarColeccion(zip, "repuestos.csv", "repuestos", nuevoClienteId, oldClienteId);
 
     toggleModal("modalClienteCrear", false);
     await cargarClientes();
@@ -540,45 +573,35 @@ async function importarClienteDesdeZip() {
 
 async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, oldClienteId) {
   const csv = await leerArchivoZip(zip, archivoCSV);
-  if (!csv) return; // Archivo opcional
+  if (!csv) return;
 
   const rows = parsearCSV(csv);
   if (!rows.length) return;
 
-  // Mapa oldId → newId para referencias cruzadas (ej: equipoId en órdenes)
   const idMap = {};
 
   for (const row of rows) {
     const oldId = row.id;
-    delete row.id; // No usar el id original como doc id
+    delete row.id;
 
-    // Reemplazar clienteId
-    if (oldClienteId && row.clienteId === oldClienteId) {
-      row.clienteId = nuevoClienteId;
-    } else {
-      row.clienteId = nuevoClienteId;
-    }
+    row.clienteId = nuevoClienteId;
 
-    // Campos de fecha de nivel raíz que deben ser Timestamp
     const CAMPOS_FECHA = ["fechaCreacion", "fechaProgramada", "fechaCierre", "fechaInicioEspera"];
 
-    // Deserializar campos JSON (historial, historialUbicaciones, etc.)
     for (const [key, val] of Object.entries(row)) {
       if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
         try { row[key] = JSON.parse(val); } catch { /* mantener como string */ }
       }
-      // Convertir números
       if (typeof val === "string" && val !== "" && !Number.isNaN(Number(val)) &&
-          ["contadorOMC", "contadorOMP", "tiempoEstimado", "tiempoReal", "tiempoTotalEspera"].includes(key)) {
+          ["contadorOMC", "contadorOMP", "tiempoEstimado", "tiempoReal", "tiempoTotalEspera",
+           "stockActual", "stockMinimo", "stockMaximo", "precioReferencia"].includes(key)) {
         row[key] = Number(val);
       }
-      // Limpiar strings vacíos en campos numéricos
-      if (val === "" && ["tiempoEstimado", "tiempoReal"].includes(key)) {
+      if (val === "" && ["tiempoEstimado", "tiempoReal", "stockMaximo", "precioReferencia"].includes(key)) {
         row[key] = null;
       }
     }
 
-    // Convertir fechas raíz: ISO string → Date (Firestore lo convierte a Timestamp)
     for (const campo of CAMPOS_FECHA) {
       const val = row[campo];
       if (typeof val === "string" && val !== "") {
@@ -589,13 +612,12 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       }
     }
 
-    // Convertir fechas dentro de arrays (historial, historialUbicaciones)
-    // que quedaron como {seconds, nanoseconds} → Date
     const CAMPOS_ARRAY_CON_FECHA = ["historial", "historialUbicaciones"];
     for (const campo of CAMPOS_ARRAY_CON_FECHA) {
       if (!Array.isArray(row[campo])) continue;
       row[campo] = row[campo].map((item) => {
-        if (item && typeof item === "object" && "seconds" in item.fecha && "nanoseconds" in item.fecha) {
+        if (item && typeof item === "object" && item.fecha &&
+            "seconds" in item.fecha && "nanoseconds" in item.fecha) {
           return {
             ...item,
             fecha: new Date(item.fecha.seconds * 1000 + Math.round(item.fecha.nanoseconds / 1e6))
@@ -677,6 +699,7 @@ function parsearCSV(texto) {
 // ─── Utilidades ──────────────────────────────────────────────────────────────
 function toggleModal(id, visible) {
   document.getElementById(id)?.classList.toggle("is-hidden", !visible);
+  if (!visible) _currentClienteId = null;
 }
 
 function descargarBlob(blob, nombre) {

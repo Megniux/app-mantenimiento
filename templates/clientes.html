@@ -11,12 +11,14 @@
       <colgroup>
         <col class="col-nombre">
         <col class="col-nombre">
+        <col style="width:10rem">
         <col class="col-acciones">
       </colgroup>
       <thead>
         <tr>
           <th>Nombre</th>
           <th>Email contacto</th>
+          <th>Módulo Pañol</th>
           <th></th>
         </tr>
       </thead>
@@ -124,6 +126,31 @@
         </div>
       </div>
 
+      <!-- ── NUEVO: Módulo Pañol ── -->
+      <div class="form-section">
+        <h3>Módulos activos</h3>
+        <div class="form-group">
+          <label class="checkbox-ubicacion-item" style="font-weight:600;">
+            <input type="checkbox" id="editClientePanol">
+            Módulo Pañol (gestión de repuestos)
+          </label>
+        </div>
+        <div class="form-group is-hidden" id="editClienteAprobacionGrupo">
+          <label class="panol-section-label" style="margin-bottom:0.5rem;">
+            <i class="fas fa-circle-check"></i> Aprobación de egresos por defecto
+          </label>
+          <div class="panol-radio-group">
+            <label class="checkbox-ubicacion-item">
+              <input type="radio" name="editClienteAprobacion" value="no" checked> No requiere
+            </label>
+            <label class="checkbox-ubicacion-item">
+              <input type="radio" name="editClienteAprobacion" value="si"> Requiere aprobación
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- ── FIN NUEVO ── -->
+
       <button id="guardarClienteBtn" type="button" class="btn-primary">
         <i class="fa-solid fa-floppy-disk"></i>Guardar cambios
       </button>
@@ -209,7 +236,7 @@
         <div class="form-section" style="margin-top:1rem;">
           <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.75rem;">
             Seleccioná el archivo ZIP generado por la exportación de un cliente.
-            Se importarán: datos del cliente, órdenes, usuarios, equipos y ubicaciones.
+            Se importarán: datos del cliente, órdenes, usuarios, equipos, ubicaciones y repuestos.
           </p>
           <div class="form-group">
             <div class="input-with-icon">
@@ -246,7 +273,7 @@
       <h3>Eliminar Cliente</h3>
       <p id="eliminarClienteNombreTexto" style="margin-bottom:1rem;font-weight:600;"></p>
       <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:1.25rem;">
-        ¿Qué querés hacer con los datos del cliente (órdenes, usuarios, equipos, ubicaciones)?
+        ¿Qué querés hacer con los datos del cliente (órdenes, usuarios, equipos, ubicaciones, repuestos)?
       </p>
       <div style="display:flex;flex-direction:column;gap:0.75rem;">
         <button type="button" id="eliminarConDatosBtn" class="btn-primary" style="width:100%;background:#c0392b;">

@@ -25,15 +25,11 @@ service cloud.firestore {
     }
 
     function isAtLeast(rol) {
-      // Jerarquía: usuario < tecnico < supervisor < admin < superadmin
       let roles = ["usuario", "tecnico", "supervisor", "admin", "superadmin"];
       return userRole() in roles[roles.indexOf(rol):];
     }
 
     // ── Clientes ─────────────────────────────────────────────────────────────
-    // Solo superadmin puede crear/eliminar clientes.
-    // Cualquier usuario del cliente puede leer y actualizar sus propios datos
-    // (necesario para leer/incrementar contadores de órdenes).
 
     match /clientes/{clienteId} {
       allow read, update: if request.auth != null
@@ -42,9 +38,6 @@ service cloud.firestore {
     }
 
     // ── Órdenes ──────────────────────────────────────────────────────────────
-    // Lectura: cualquier usuario autenticado del cliente.
-    // Creación: cualquier usuario autenticado del cliente (usuarios crean solicitudes).
-    // Edición / eliminación: técnico, supervisor, admin o superadmin.
 
     match /ordenes/{doc} {
       allow read: if request.auth != null
@@ -60,9 +53,6 @@ service cloud.firestore {
     }
 
     // ── Equipos ──────────────────────────────────────────────────────────────
-    // Lectura: cualquier usuario autenticado del cliente
-    //          (necesario para poblar selectores en solicitud y consulta).
-    // Escritura: supervisor, admin o superadmin.
 
     match /equipos/{doc} {
       allow read: if request.auth != null
@@ -76,7 +66,6 @@ service cloud.firestore {
     }
 
     // ── Ubicaciones ──────────────────────────────────────────────────────────
-    // Misma lógica que equipos.
 
     match /ubicaciones/{doc} {
       allow read: if request.auth != null
@@ -90,9 +79,6 @@ service cloud.firestore {
     }
 
     // ── Usuarios ─────────────────────────────────────────────────────────────
-    // Lectura: el propio usuario, cualquier usuario del mismo cliente, o superadmin.
-    // Creación: admin del cliente o superadmin (via secondary Auth instance).
-    // Edición / eliminación: admin del cliente o superadmin.
 
     match /users/{uid} {
       allow read: if request.auth != null
@@ -113,6 +99,58 @@ service cloud.firestore {
                                 (belongsToCliente(resource.data.clienteId)
                                  && userRole() in ["admin", "superadmin"])
                               );
+    }
+
+    // ── Repuestos ─────────────────────────────────────────────────────────────
+    // Lectura: supervisor, admin, superadmin del cliente.
+    // Escritura: supervisor, admin, superadmin.
+    // Los técnicos y usuarios NO tienen acceso directo.
+
+    match /repuestos/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId)
+                   && userRole() in ["supervisor", "admin", "superadmin"];
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow update: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow delete: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["admin", "superadmin"];
+    }
+
+    // ── Movimientos de repuestos ──────────────────────────────────────────────
+    // Los movimientos son de solo lectura para todos (excepto sistema).
+    // Escritura: supervisor, admin, superadmin.
+    // Los técnicos no crean movimientos directamente; lo hacen a través de solicitudes.
+
+    match /movimientosRepuestos/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId)
+                   && userRole() in ["supervisor", "admin", "superadmin"];
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow update, delete: if false; // Los movimientos son inmutables
+    }
+
+    // ── Solicitudes de pañol ──────────────────────────────────────────────────
+    // Creación: técnico, supervisor, admin, superadmin (al registrar consumo en OT).
+    // Lectura y aprobación: supervisor, admin, superadmin.
+
+    match /solicitudesPanol/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId)
+                   && userRole() in ["supervisor", "admin", "superadmin"];
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow update: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow delete: if false;
     }
   }
 }
