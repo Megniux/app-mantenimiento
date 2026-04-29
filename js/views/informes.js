@@ -87,11 +87,6 @@ function porcentaje(parte, total) {
   return ((parte / total) * 100).toFixed(2);
 }
 
-function formatoNumero(value) {
-  return Number(value || 0).toFixed(2);
-}
-
-
 function formatoDuracionHoras(value) {
   const totalMinutos = Math.max(0, Math.round((Number(value) || 0) * 60));
   const dias = Math.floor(totalMinutos / (24 * 60));

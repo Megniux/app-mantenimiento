@@ -8,11 +8,11 @@ import { initInformesView } from "./views/informes.js";
 import { initPanolView } from "./views/panol.js";
 import { initPanolMovimientosView } from "./views/panol-movimientos.js";
 import { initClientesView } from "./views/clientes.js";
-import { collection, getDocs, query, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "./firebase-config.js";
 
 const routes = {
-  login:             { template: "templates/login.html",             title: "Iniciar Sesión",             init: null,                      roles: ["guest", "usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  login:             { template: "templates/login.html",             title: "Iniciar Sesión",             init: null,                      roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
   consulta:          { template: "templates/consulta.html",          title: "Consulta de Órdenes",        init: initConsultaView,           roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
   solicitud:         { template: "templates/solicitud.html",         title: "Nueva Solicitud",            init: initSolicitudView,          roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
   informes:          { template: "templates/informes.html",          title: "KPIs (Indicadores Clave)",   init: initInformesView,           roles: ["tecnico", "supervisor", "admin", "superadmin"] },
@@ -28,7 +28,6 @@ const routes = {
 
 // menuByRole define el menú base SIN el pañol (se agrega dinámicamente si está activo)
 const menuByRole = {
-  guest:      ["solicitud", "consulta"],
   usuario:    ["solicitud", "consulta"],
   tecnico:    ["solicitud", "consulta", "informes"],
   supervisor: ["solicitud", "consulta", "informes"],
@@ -78,9 +77,12 @@ function currentRoute() {
 function canAccess(routeKey, role) {
   const route = routes[routeKey];
   if (!route) return false;
+  // Login siempre accesible (incluye usuarios sin rol asignado todavía)
+  if (routeKey === "login") return true;
   // Rutas de pañol requieren además que el módulo esté activo
   if ((routeKey === "panol" || routeKey === "panol-movimientos") && !moduloPanolActivo) return false;
-  return route.roles.includes(role || "guest");
+  if (!role) return false;
+  return route.roles.includes(role);
 }
 
 function updateUserPanel() {
@@ -93,7 +95,7 @@ function updateUserPanel() {
 }
 
 function renderSidebar(activeRoute) {
-  const role = authState.profile?.rol || "guest";
+  const role = authState.profile?.rol || "";
   nav.innerHTML = "";
 
   // Construir lista de ítems: base + pañol si activo
@@ -141,9 +143,11 @@ function renderSidebar(activeRoute) {
 
 async function actualizarBadgePanol() {
   try {
-    const { getDocs: _getDocs, query: _query, collection: _col, where: _where } =
-      await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    const snap = await _getDocs(_query(_col(db, "solicitudesPanol"), _where("clienteId", "==", activeClienteId), _where("estado", "==", "pendiente")));
+    const snap = await getDocs(query(
+      collection(db, "solicitudesPanol"),
+      where("clienteId", "==", activeClienteId),
+      where("estado", "==", "pendiente")
+    ));
     const total = snap.size;
     const badge = document.getElementById("panol-nav-badge-count");
     if (!badge) return;
@@ -227,7 +231,7 @@ async function renderClienteSelector(selectedId = "") {
 // ── Carga de contenido ─────────────────────────────────────────────────────
 
 export async function cargarContenido(routeKey, push = true) {
-  const role = authState.profile?.rol || "guest";
+  const role = authState.profile?.rol || "";
 
   if (role === "superadmin") {
     await renderClienteSelector(activeClienteId);

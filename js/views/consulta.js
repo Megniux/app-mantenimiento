@@ -552,6 +552,22 @@ async function guardarEdicion() {
         // Reapertura: limpiar fechaCierre para que la orden no quede con fecha de cierre obsoleta
         updateData.fechaCierre = null;
       }
+
+      // ── Tracking de tiempo en espera de proveedor ──
+      if (nuevoEstado === "Esperando proveedor" && data.estado !== "Esperando proveedor") {
+        // Entra en espera: marcar inicio
+        updateData.fechaInicioEspera = new Date();
+      } else if (data.estado === "Esperando proveedor" && nuevoEstado !== "Esperando proveedor") {
+        // Sale de espera: acumular minutos transcurridos y limpiar inicio
+        const inicio = data.fechaInicioEspera?.toDate
+          ? data.fechaInicioEspera.toDate()
+          : (data.fechaInicioEspera ? new Date(data.fechaInicioEspera) : null);
+        const minutosEspera = inicio && !Number.isNaN(inicio.getTime())
+          ? Math.max(0, (Date.now() - inicio.getTime()) / (1000 * 60))
+          : 0;
+        updateData.tiempoTotalEspera = Number(data.tiempoTotalEspera || 0) + minutosEspera;
+        updateData.fechaInicioEspera = null;
+      }
     }
 
     const nuevosRepuestos = await procesarRepuestosOrden(currentOrderId, data.numeroOrden);
@@ -811,12 +827,6 @@ function agregarFilaRepuestoEnOrden() {
   });
 
   lista.appendChild(div);
-}
-
-function renderRepuestosEnOrden() {
-  const lista = document.getElementById("editRepuestosLista");
-  if (lista) lista.innerHTML = "";
-  _repuestosEnOrden = [];
 }
 
 function renderRepuestosExistentes(lista) {

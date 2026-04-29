@@ -1,6 +1,6 @@
 import {
   addDoc, collection, deleteDoc, doc, getDoc,
-  getDocs, query, runTransaction, updateDoc, where, orderBy, serverTimestamp
+  getDocs, query, runTransaction, updateDoc, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
@@ -10,15 +10,10 @@ let _equipos = [];
 let _repuestos = [];
 let _currentEditId = null;
 let _currentAjusteId = null;
-let _panolAprobacionDefault = "no"; // valor del cliente
 
 export async function initPanolView({ clienteId, role } = {}) {
   _clienteId = clienteId || "";
   _role = role || "";
-
-  // Leer config del cliente (aprobación default)
-  const clienteSnap = await getDoc(doc(db, "clientes", _clienteId));
-  _panolAprobacionDefault = clienteSnap.data()?.panolAprobacionDefault || "no";
 
   _equipos = await cargarEquipos();
   await cargarRepuestos();
