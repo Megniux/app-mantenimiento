@@ -669,6 +669,14 @@ th {
   border-radius: var(--radius-lg);
 }
 
+#modalEditarRepuesto .modal-content,
+#modalEditar .modal-content,
+#modalDetalles .modal-content,
+#modalClienteDetalles .modal-content,
+#modalClienteEditar .modal-content {
+  max-width: min(95vw, 58rem);
+}
+
 .modal-form-card {
   box-shadow: none;
   border: none;
@@ -1043,6 +1051,120 @@ th {
   }
 }
 
+/* ── Selector de equipos (tags + búsqueda) ────────────────────────── */
+
+.equipos-selector-wrap {
+  position: relative;
+}
+
+.equipos-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 1.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.equipo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.4rem 0.2rem 0.65rem;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.equipo-tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  padding: 0 0.1rem;
+  font-size: 1.05rem;
+  line-height: 1;
+  transition: color 0.12s;
+  min-height: 1.75rem;
+  min-width: 1.75rem;
+}
+
+.equipo-tag-remove:hover { color: #fff; }
+
+.equipos-search-input {
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  font-size: 0.875rem;
+  background: #fff;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.equipos-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(31, 58, 95, 0.12);
+}
+
+.equipos-search-input:disabled {
+  background: #f8fafc;
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+.equipos-dropdown {
+  position: absolute;
+  z-index: 200;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  margin-top: 0.25rem;
+  box-sizing: border-box;
+}
+
+.equipos-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #0f172a;
+  transition: background 0.1s;
+}
+
+.equipos-dropdown-item:hover { background: #f1f5f9; }
+
+.equipos-dropdown-item.selected {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.equipos-check-icon {
+  width: 1rem;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.equipos-dropdown-empty {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
 /* ── Columnas tabla pañol ─────────────────────────────────────────── */
 
 .col-codigo-panol      { width: 9%; }
@@ -1197,8 +1319,12 @@ th {
   flex-wrap: wrap;
 }
 
+.panol-repuesto-select {
+  padding: 0.65rem 1.1rem 0.65rem 0 !important; 
+}
+
 .panol-cantidad-wrapper {
-  width: 6.5rem;
+  width: 5rem;
   flex-shrink: 0;
 }
 

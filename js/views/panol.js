@@ -40,7 +40,7 @@ export async function initPanolView({ clienteId, role } = {}) {
     if (e.target.matches(".modal")) toggleModal(e.target.id, false);
   });
 
-  renderEquiposCheckboxes("repEquiposCheck", []);
+  renderEquiposSelector("repEquiposCheck", []);
 
   // Solo supervisor puede agregar repuestos; admin también
   if (_role === "tecnico") {
@@ -134,27 +134,108 @@ function labelNivel(nivel) {
   return { critico: "Stock crítico", bajo: "Stock bajo", ok: "Stock OK" }[nivel] || "";
 }
 
-// ── Checkboxes equipos ─────────────────────────────────────────────────────
+// ── Selector de equipos (tags + búsqueda) ─────────────────────────────────
 
-function renderEquiposCheckboxes(containerId, seleccionados = []) {
+function renderEquiposSelector(containerId, seleccionados = []) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  container.innerHTML = _equipos.length
-    ? _equipos.map((e) => `
-        <label class="checkbox-ubicacion-item">
-          <input type="checkbox" name="equipo-check" value="${e.id}" data-nombre="${escHtml(e.nombre)}"
-            ${seleccionados.includes(e.id) ? "checked" : ""}>
+
+  const selectedMap = new Map();
+  seleccionados.forEach((id) => {
+    const eq = _equipos.find((e) => e.id === id);
+    if (eq) selectedMap.set(id, eq.nombre);
+  });
+
+  container.innerHTML = `
+    <div class="equipos-selector-wrap">
+      <div class="equipos-tags-row" id="${containerId}-tags"></div>
+      <input type="text" class="equipos-search-input" id="${containerId}-input"
+             placeholder="${_equipos.length ? "Buscar y agregar equipo…" : "No hay equipos cargados"}"
+             ${_equipos.length ? "" : "disabled"}>
+      <div class="equipos-dropdown is-hidden" id="${containerId}-dropdown"></div>
+    </div>`;
+
+  renderTags();
+  setupSelectorEvents();
+
+  function renderTags() {
+    const row = document.getElementById(`${containerId}-tags`);
+    if (!row) return;
+    row.innerHTML = [...selectedMap.entries()].map(([id, nombre]) =>
+      `<span class="equipo-tag" data-id="${id}" data-nombre="${escHtml(nombre)}">
+        ${escHtml(nombre)}
+        <button type="button" class="equipo-tag-remove" data-id="${id}" aria-label="Quitar">×</button>
+      </span>`
+    ).join("");
+    row.querySelectorAll(".equipo-tag-remove").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectedMap.delete(btn.dataset.id);
+        renderTags();
+        actualizarDropdown();
+      });
+    });
+  }
+
+  function actualizarDropdown() {
+    const input = document.getElementById(`${containerId}-input`);
+    const dropdown = document.getElementById(`${containerId}-dropdown`);
+    if (!dropdown || dropdown.classList.contains("is-hidden")) return;
+    renderDropdown(input?.value || "");
+  }
+
+  function renderDropdown(filtro) {
+    const dropdown = document.getElementById(`${containerId}-dropdown`);
+    if (!dropdown) return;
+    const term = filtro.toLowerCase().trim();
+    const visibles = _equipos.filter((e) => !term || e.nombre.toLowerCase().includes(term));
+
+    if (!visibles.length) {
+      dropdown.innerHTML = `<div class="equipos-dropdown-empty">${term ? "Sin resultados" : "No hay equipos"}</div>`;
+    } else {
+      dropdown.innerHTML = visibles.map((e) => {
+        const sel = selectedMap.has(e.id);
+        return `<div class="equipos-dropdown-item${sel ? " selected" : ""}" data-id="${e.id}" data-nombre="${escHtml(e.nombre)}">
+          <span class="equipos-check-icon">${sel ? "✓" : ""}</span>
           ${escHtml(e.nombre)}
-        </label>`).join("")
-    : "<small>No hay equipos cargados.</small>";
+        </div>`;
+      }).join("");
+      dropdown.querySelectorAll(".equipos-dropdown-item").forEach((item) => {
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          const { id, nombre } = item.dataset;
+          if (selectedMap.has(id)) selectedMap.delete(id);
+          else selectedMap.set(id, nombre);
+          renderTags();
+          renderDropdown(document.getElementById(`${containerId}-input`)?.value || "");
+        });
+      });
+    }
+    dropdown.classList.remove("is-hidden");
+  }
+
+  function setupSelectorEvents() {
+    const input = document.getElementById(`${containerId}-input`);
+    const dropdown = document.getElementById(`${containerId}-dropdown`);
+    if (!input || !dropdown) return;
+
+    input.addEventListener("focus", () => renderDropdown(input.value));
+    input.addEventListener("input", () => renderDropdown(input.value));
+    input.addEventListener("blur", () => {
+      setTimeout(() => {
+        dropdown.classList.add("is-hidden");
+        input.value = "";
+      }, 150);
+    });
+  }
 }
 
 function leerEquiposSeleccionados(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return [];
-  return [...container.querySelectorAll("input[name='equipo-check']:checked")].map((cb) => ({
-    equipoId: cb.value,
-    equipoNombre: cb.dataset.nombre
+  const row = document.getElementById(`${containerId}-tags`);
+  if (!row) return [];
+  return [...row.querySelectorAll(".equipo-tag")].map((tag) => ({
+    equipoId: tag.dataset.id,
+    equipoNombre: tag.dataset.nombre
   }));
 }
 
@@ -225,7 +306,7 @@ function limpiarFormularioNuevo() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
-  renderEquiposCheckboxes("repEquiposCheck", []);
+  renderEquiposSelector("repEquiposCheck", []);
   const radio = document.querySelector("input[name='repAprobacion'][value='no']");
   if (radio) radio.checked = true;
 }
@@ -247,7 +328,7 @@ function abrirEdicion(id) {
   document.getElementById("editRepPrecio").value = r.precioReferencia ?? "";
 
   const selIds = (r.equiposAsociados || []).map((e) => e.equipoId);
-  renderEquiposCheckboxes("editRepEquiposCheck", selIds);
+  renderEquiposSelector("editRepEquiposCheck", selIds);
 
   const aprobVal = r.requiereAprobacion ? "si" : "no";
   const radioEdit = document.querySelector(`input[name='editRepAprobacion'][value='${aprobVal}']`);

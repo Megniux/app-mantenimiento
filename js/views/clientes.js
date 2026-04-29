@@ -578,31 +578,30 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
   const rows = parsearCSV(csv);
   if (!rows.length) return;
 
-  const idMap = {};
+  const CAMPOS_FECHA = ["fechaCreacion", "fechaProgramada", "fechaCierre", "fechaInicioEspera"];
+  const CAMPOS_NUMERICOS = ["contadorOMC", "contadorOMP", "tiempoEstimado", "tiempoReal",
+    "tiempoTotalEspera", "stockActual", "stockMinimo", "stockMaximo", "precioReferencia"];
+  const CAMPOS_NULOS_SI_VACIO = ["tiempoEstimado", "tiempoReal", "stockMaximo", "precioReferencia"];
+  const CAMPOS_ARRAY_CON_FECHA = ["historial", "historialUbicaciones"];
 
-  for (const row of rows) {
-    const oldId = row.id;
+  const docsParaGuardar = rows.map((row) => {
     delete row.id;
-
     row.clienteId = nuevoClienteId;
-
-    const CAMPOS_FECHA = ["fechaCreacion", "fechaProgramada", "fechaCierre", "fechaInicioEspera"];
 
     for (const [key, val] of Object.entries(row)) {
       if (typeof val === "string" && (val.startsWith("[") || val.startsWith("{"))) {
         try { row[key] = JSON.parse(val); } catch { /* mantener como string */ }
       }
-      if (typeof val === "string" && val !== "" && !Number.isNaN(Number(val)) &&
-          ["contadorOMC", "contadorOMP", "tiempoEstimado", "tiempoReal", "tiempoTotalEspera",
-           "stockActual", "stockMinimo", "stockMaximo", "precioReferencia"].includes(key)) {
+      if (typeof val === "string" && val !== "" && !Number.isNaN(Number(val)) && CAMPOS_NUMERICOS.includes(key)) {
         row[key] = Number(val);
       }
-      if (val === "" && ["tiempoEstimado", "tiempoReal", "stockMaximo", "precioReferencia"].includes(key)) {
+      if (val === "" && CAMPOS_NULOS_SI_VACIO.includes(key)) {
         row[key] = null;
       }
     }
 
     for (const campo of CAMPOS_FECHA) {
+      if (!(campo in row)) continue;
       const val = row[campo];
       if (typeof val === "string" && val !== "") {
         const d = new Date(val);
@@ -612,24 +611,34 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       }
     }
 
-    const CAMPOS_ARRAY_CON_FECHA = ["historial", "historialUbicaciones"];
     for (const campo of CAMPOS_ARRAY_CON_FECHA) {
       if (!Array.isArray(row[campo])) continue;
       row[campo] = row[campo].map((item) => {
         if (item && typeof item === "object" && item.fecha &&
             "seconds" in item.fecha && "nanoseconds" in item.fecha) {
-          return {
-            ...item,
-            fecha: new Date(item.fecha.seconds * 1000 + Math.round(item.fecha.nanoseconds / 1e6))
-          };
+          return { ...item, fecha: new Date(item.fecha.seconds * 1000 + Math.round(item.fecha.nanoseconds / 1e6)) };
         }
         return item;
       });
     }
 
-    const newRef = await addDoc(collection(db, coleccion), row);
-    if (oldId) idMap[oldId] = newRef.id;
+    return row;
+  });
+
+  const BATCH_SIZE = 400;
+  let batch = writeBatch(db);
+  let count = 0;
+
+  for (const data of docsParaGuardar) {
+    batch.set(doc(collection(db, coleccion)), data);
+    count++;
+    if (count === BATCH_SIZE) {
+      await batch.commit();
+      batch = writeBatch(db);
+      count = 0;
+    }
   }
+  if (count > 0) await batch.commit();
 }
 
 async function leerArchivoZip(zip, nombre) {
@@ -667,36 +676,43 @@ function serializarDocumento(docSnap) {
 }
 
 function parsearCSV(texto) {
-  const lineas = texto.replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
-  if (lineas.length < 2) return [];
+  texto = texto.replace(/^﻿/, "");
 
-  const separarCampos = (linea) => {
-    const campos = [];
-    let actual = "";
-    let dentroComillas = false;
-    for (let i = 0; i < linea.length; i++) {
-      const ch = linea[i];
-      if (ch === '"') {
-        if (dentroComillas && linea[i + 1] === '"') { actual += '"'; i++; }
-        else dentroComillas = !dentroComillas;
-      } else if (ch === ";" && !dentroComillas) {
-        campos.push(actual); actual = "";
-      } else {
-        actual += ch;
-      }
+  // Parseo caracter a caracter para manejar correctamente campos con saltos de linea internos
+  const filas = [];
+  let campoActual = [];
+  let filaActual = [];
+  let dentroComillas = false;
+
+  for (let i = 0; i < texto.length; i++) {
+    const ch = texto[i];
+    if (ch === '"') {
+      if (dentroComillas && texto[i + 1] === '"') { campoActual.push('"'); i++; }
+      else dentroComillas = !dentroComillas;
+    } else if (ch === ";" && !dentroComillas) {
+      filaActual.push(campoActual.join(""));
+      campoActual = [];
+    } else if ((ch === "\r" || ch === "\n") && !dentroComillas) {
+      if (ch === "\r" && texto[i + 1] === "\n") i++;
+      filaActual.push(campoActual.join(""));
+      campoActual = [];
+      if (filaActual.some((f) => f !== "")) filas.push(filaActual);
+      filaActual = [];
+    } else {
+      campoActual.push(ch);
     }
-    campos.push(actual);
-    return campos;
-  };
+  }
+  if (campoActual.length > 0 || filaActual.length > 0) {
+    filaActual.push(campoActual.join(""));
+    if (filaActual.some((f) => f !== "")) filas.push(filaActual);
+  }
 
-  const headers = separarCampos(lineas[0]);
-  return lineas.slice(1).map((l) => {
-    const vals = separarCampos(l);
-    return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
-  });
+  if (filas.length < 2) return [];
+  const headers = filas[0];
+  return filas.slice(1).map((vals) =>
+    Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]))
+  );
 }
-
-// ─── Utilidades ──────────────────────────────────────────────────────────────
 function toggleModal(id, visible) {
   document.getElementById(id)?.classList.toggle("is-hidden", !visible);
   if (!visible) _currentClienteId = null;
