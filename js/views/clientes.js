@@ -397,13 +397,14 @@ async function eliminarCliente(clienteId, conDatos) {
       for (const col of colecciones) {
         const colName = col === "usuarios" ? "users" : col;
         const snaps = await getDocs(query(collection(db, colName), where("clienteId", "==", clienteId)));
-        const batch = writeBatch(db);
+        let batch = writeBatch(db);
         let count = 0;
         for (const d of snaps.docs) {
           batch.delete(d.ref);
           count++;
           if (count === 499) {
             await batch.commit();
+            batch = writeBatch(db);
             count = 0;
           }
         }

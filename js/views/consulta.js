@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, runTransaction, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
 import { isModuloPanolActivo } from "../router.js";
@@ -616,11 +616,14 @@ function normalizarValorVisual(campo, valor) {
 
 async function generarPreventivaRecurrente(original) {
   const refCont = doc(db, "clientes", _clienteId);
-  const snapCont = await getDoc(refCont);
-  const cont = snapCont.data() || {};
-  const contadorOMP = cont.contadorOMP || 1;
+  const contadorOMP = await runTransaction(db, async (tx) => {
+    const snapCont = await tx.get(refCont);
+    const cont = snapCont.data() || {};
+    const actual = cont.contadorOMP || 1;
+    tx.update(refCont, { contadorOMP: actual + 1 });
+    return actual;
+  });
   const numeroOrden = `OMP-${String(contadorOMP).padStart(4, "0")}`;
-  await updateDoc(refCont, { contadorOMP: contadorOMP + 1 });
 
   const nueva = {
     ...original,

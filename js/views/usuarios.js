@@ -1,7 +1,7 @@
-import { createUserWithEmailAndPassword, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { connectAuthEmulator, createUserWithEmailAndPassword, deleteUser, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { auth, db, firebaseConfig } from "../firebase-config.js";
+import { getApp, getApps, initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { auth, db, firebaseConfig, isLocal } from "../firebase-config.js";
 
 let _clienteId = "";
 let _currentRole = "";
@@ -100,23 +100,41 @@ async function crearUsuario() {
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
+  // Reutilizar la instancia "secondary" si quedó huérfana de un intento previo fallido
+  let secondaryApp;
   try {
-    // Segunda instancia de Auth para no pisar la sesión activa
-    const secondaryApp = initializeApp(firebaseConfig, "secondary");
-    const secondaryAuth = getAuth(secondaryApp);
+    secondaryApp = getApps().some((a) => a.name === "secondary")
+      ? getApp("secondary")
+      : initializeApp(firebaseConfig, "secondary");
+  } catch {
+    secondaryApp = initializeApp(firebaseConfig, "secondary");
+  }
+  const secondaryAuth = getAuth(secondaryApp);
+  if (isLocal) {
+    try {
+      connectAuthEmulator(secondaryAuth, "http://localhost:9099", { disableWarnings: true });
+    } catch {
+      // ya conectado a emulador en una invocación previa: ignorar
+    }
+  }
 
+  let createdUser = null;
+  try {
     const userCred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    await setDoc(doc(db, "users", userCred.user.uid), {
-      email,
-      nombreCompleto: nombre,
-      rol,
-      clienteId: rol === "superadmin" ? "" : _clienteId
-    });
+    createdUser = userCred.user;
+    try {
+      await setDoc(doc(db, "users", createdUser.uid), {
+        email,
+        nombreCompleto: nombre,
+        rol,
+        clienteId: rol === "superadmin" ? "" : _clienteId
+      });
+    } catch (firestoreErr) {
+      // Rollback: borrar el usuario de Auth para no dejar registro huérfano
+      try { await deleteUser(createdUser); } catch (e) { console.error("No se pudo revertir el usuario en Auth:", e); }
+      throw firestoreErr;
+    }
 
-    // Cerrar la sesión de la instancia secundaria y eliminarla
-    await secondaryAuth.signOut();
-    await deleteApp(secondaryApp);
-    
     alert("Usuario creado exitosamente");
     document.getElementById("email").value = "";
     document.getElementById("nombre").value = "";
@@ -126,6 +144,8 @@ async function crearUsuario() {
     console.error(error);
     alert(`Error al crear usuario: ${error.message}`);
   } finally {
+    try { await secondaryAuth.signOut(); } catch (e) { console.error(e); }
+    try { await deleteApp(secondaryApp); } catch (e) { console.error(e); }
     btn.disabled = false;
     btn.innerHTML = originalHTML;
   }

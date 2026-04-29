@@ -1,6 +1,6 @@
 import {
   addDoc, collection, deleteDoc, doc, getDoc,
-  getDocs, query, updateDoc, where, orderBy, serverTimestamp
+  getDocs, query, runTransaction, updateDoc, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
@@ -402,27 +402,35 @@ async function confirmarAjuste() {
   if (isNaN(cantidad) || cantidad <= 0) return alert("Ingrese una cantidad válida.");
   if (!observaciones) return alert("El motivo del ajuste es obligatorio.");
 
-  const r = _repuestos.find((x) => x.id === _currentAjusteId);
-  if (!r) return;
-
-  let nuevoStock = Number(r.stockActual ?? 0);
-  if (tipo === "ingreso") nuevoStock += cantidad;
-  else if (tipo === "egreso") nuevoStock = Math.max(0, nuevoStock - cantidad);
-  else if (tipo === "ajuste") nuevoStock = cantidad; // ajuste = setear a valor exacto
-
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';
 
   try {
-    await updateDoc(doc(db, "repuestos", _currentAjusteId), { stockActual: nuevoStock });
-    await registrarMovimiento({
-      repuestoId: _currentAjusteId,
-      repuestoNombre: r.nombre,
-      tipo,
-      cantidad,
-      stockResultante: nuevoStock,
-      observaciones
+    const repuestoRef = doc(db, "repuestos", _currentAjusteId);
+    const movimientoRef = doc(collection(db, "movimientosRepuestos"));
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(repuestoRef);
+      if (!snap.exists()) throw new Error("Repuesto no encontrado.");
+      const data = snap.data();
+      let stock = Number(data.stockActual ?? 0);
+      if (tipo === "ingreso") stock += cantidad;
+      else if (tipo === "egreso") stock = Math.max(0, stock - cantidad);
+      else if (tipo === "ajuste") stock = cantidad;
+      tx.update(repuestoRef, { stockActual: stock });
+      tx.set(movimientoRef, {
+        clienteId: _clienteId || sessionStorage.getItem("userClienteId") || "",
+        repuestoId: _currentAjusteId,
+        repuestoNombre: data.nombre,
+        tipo,
+        cantidad,
+        stockResultante: stock,
+        ordenId: "",
+        ordenNumero: "",
+        usuario: sessionStorage.getItem("userName") || "",
+        fecha: new Date(),
+        observaciones
+      });
     });
     toggleModal("modalAjusteStock", false);
     await cargarRepuestos();
@@ -438,12 +446,8 @@ async function confirmarAjuste() {
 // ── Eliminar ───────────────────────────────────────────────────────────────
 
 async function eliminarRepuesto(id) {
-  if (!confirm("¿Eliminar este repuesto? Se eliminarán también sus movimientos.")) return;
+  if (!confirm("¿Eliminar este repuesto? El histórico de movimientos se conservará como registro de auditoría.")) return;
   try {
-    // Borrar movimientos asociados
-    const movSnap = await getDocs(query(collection(db, "movimientosRepuestos"), where("repuestoId", "==", id)));
-    const borrados = movSnap.docs.map((d) => deleteDoc(doc(db, "movimientosRepuestos", d.id)));
-    await Promise.all(borrados);
     await deleteDoc(doc(db, "repuestos", id));
     await cargarRepuestos();
   } catch (err) {
@@ -525,16 +529,19 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
   if (!s) return;
 
   try {
-    await updateDoc(doc(db, "solicitudesPanol", solicitudId), { estado: nuevoEstado });
-
+    const solicitudRef = doc(db, "solicitudesPanol", solicitudId);
     if (nuevoEstado === "aprobado") {
-      // Descontar stock
-      const repSnap = await getDoc(doc(db, "repuestos", s.repuestoId));
-      if (repSnap.exists()) {
+      const repuestoRef = doc(db, "repuestos", s.repuestoId);
+      const movimientoRef = doc(collection(db, "movimientosRepuestos"));
+      await runTransaction(db, async (tx) => {
+        const repSnap = await tx.get(repuestoRef);
+        tx.update(solicitudRef, { estado: nuevoEstado });
+        if (!repSnap.exists()) return;
         const stockActual = Number(repSnap.data().stockActual ?? 0);
         const nuevoStock = Math.max(0, stockActual - Number(s.cantidad));
-        await updateDoc(doc(db, "repuestos", s.repuestoId), { stockActual: nuevoStock });
-        await registrarMovimiento({
+        tx.update(repuestoRef, { stockActual: nuevoStock });
+        tx.set(movimientoRef, {
+          clienteId: _clienteId || sessionStorage.getItem("userClienteId") || "",
           repuestoId: s.repuestoId,
           repuestoNombre: s.repuestoNombre,
           tipo: "egreso",
@@ -542,9 +549,13 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
           stockResultante: nuevoStock,
           ordenId: s.ordenId || "",
           ordenNumero: s.ordenNumero || "",
+          usuario: sessionStorage.getItem("userName") || "",
+          fecha: new Date(),
           observaciones: `Aprobado por ${sessionStorage.getItem("userName") || "supervisor"}. Orden: ${s.ordenNumero || "-"}`
         });
-      }
+      });
+    } else {
+      await updateDoc(solicitudRef, { estado: nuevoEstado });
     }
 
     // Sincronizar estado del repuesto en la orden
@@ -636,23 +647,31 @@ export async function registrarEgresoDesdeOrden({ clienteId, repuestoId, cantida
     return { aprobacionPendiente: true, nombre: r.nombre, unidad: r.unidad || "unidad", solicitudId: solicitudRef.id };
   }
 
-  // Descontar directamente
-  const nuevoStock = Math.max(0, Number(r.stockActual ?? 0) - cantidad);
-  await updateDoc(doc(db, "repuestos", repuestoId), { stockActual: nuevoStock });
-  await addDoc(collection(db, "movimientosRepuestos"), {
-    clienteId,
-    repuestoId,
-    repuestoNombre: r.nombre,
-    tipo: "egreso",
-    cantidad,
-    stockResultante: nuevoStock,
-    ordenId,
-    ordenNumero,
-    usuario: solicitante,
-    fecha: new Date(),
-    observaciones: `Consumo en orden ${ordenNumero}`
+  // Descontar de forma transaccional
+  const repuestoRef = doc(db, "repuestos", repuestoId);
+  const movimientoRef = doc(collection(db, "movimientosRepuestos"));
+  const { nombre, unidad, nuevoStock } = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(repuestoRef);
+    if (!snap.exists()) throw new Error("Repuesto no encontrado.");
+    const data = snap.data();
+    const stockActual = Math.max(0, Number(data.stockActual ?? 0) - cantidad);
+    tx.update(repuestoRef, { stockActual });
+    tx.set(movimientoRef, {
+      clienteId,
+      repuestoId,
+      repuestoNombre: data.nombre,
+      tipo: "egreso",
+      cantidad,
+      stockResultante: stockActual,
+      ordenId,
+      ordenNumero,
+      usuario: solicitante,
+      fecha: new Date(),
+      observaciones: `Consumo en orden ${ordenNumero}`
+    });
+    return { nombre: data.nombre, unidad: data.unidad || "unidad", nuevoStock: stockActual };
   });
-  return { aprobacionPendiente: false, nombre: r.nombre, unidad: r.unidad || "unidad", stockResultante: nuevoStock };
+  return { aprobacionPendiente: false, nombre, unidad, stockResultante: nuevoStock };
 }
 
 export async function cargarRepuestosParaOrden(clienteId) {

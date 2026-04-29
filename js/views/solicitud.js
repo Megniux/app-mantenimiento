@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, collection, doc, getDoc, getDocs, query, runTransaction, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
 let _clienteId = "";
@@ -136,19 +136,16 @@ function mostrarFrecuencia() {
 
 async function generarNumero(tipo) {
   const ref = doc(db, "clientes", _clienteId);
-  const snap = await getDoc(ref);
-  const data = snap.data() || {};
-  let numero;
-  if (tipo === "Correctivo") {
-    const contadorOMC = data.contadorOMC || 1;
-    numero = `OMC-${String(contadorOMC).padStart(4, "0")}`;
-    await updateDoc(ref, { contadorOMC: contadorOMC + 1 });
-  } else {
-    const contadorOMP = data.contadorOMP || 1;
-    numero = `OMP-${String(contadorOMP).padStart(4, "0")}`;
-    await updateDoc(ref, { contadorOMP: contadorOMP + 1 });
-  }
-  return numero;
+  const campo = tipo === "Correctivo" ? "contadorOMC" : "contadorOMP";
+  const prefijo = tipo === "Correctivo" ? "OMC" : "OMP";
+  const valor = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data() || {};
+    const actual = data[campo] || 1;
+    tx.update(ref, { [campo]: actual + 1 });
+    return actual;
+  });
+  return `${prefijo}-${String(valor).padStart(4, "0")}`;
 }
 
 async function guardar() {
