@@ -547,6 +547,20 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
       }
     }
 
+    // Sincronizar estado del repuesto en la orden
+    if (s.ordenId) {
+      const ordenRef = doc(db, "ordenes", s.ordenId);
+      const ordenSnap = await getDoc(ordenRef);
+      if (ordenSnap.exists()) {
+        const repuestosUtilizados = (ordenSnap.data().repuestosUtilizados || []).map((r) =>
+          r.solicitudId === solicitudId
+            ? { ...r, estado: nuevoEstado === "aprobado" ? "aprobado" : "rechazado" }
+            : r
+        );
+        await updateDoc(ordenRef, { repuestosUtilizados });
+      }
+    }
+
     // Refrescar
     await verificarSolicitudesPendientes();
     await abrirModalSolicitudes();
@@ -608,8 +622,7 @@ export async function registrarEgresoDesdeOrden({ clienteId, repuestoId, cantida
   const r = repSnap.data();
 
   if (r.requiereAprobacion) {
-    // Crear solicitud pendiente en vez de descontar
-    await addDoc(collection(db, "solicitudesPanol"), {
+    const solicitudRef = await addDoc(collection(db, "solicitudesPanol"), {
       clienteId,
       repuestoId,
       repuestoNombre: r.nombre,
@@ -620,7 +633,7 @@ export async function registrarEgresoDesdeOrden({ clienteId, repuestoId, cantida
       estado: "pendiente",
       fecha: new Date()
     });
-    return { aprobacionPendiente: true, nombre: r.nombre };
+    return { aprobacionPendiente: true, nombre: r.nombre, unidad: r.unidad || "unidad", solicitudId: solicitudRef.id };
   }
 
   // Descontar directamente
@@ -639,7 +652,7 @@ export async function registrarEgresoDesdeOrden({ clienteId, repuestoId, cantida
     fecha: new Date(),
     observaciones: `Consumo en orden ${ordenNumero}`
   });
-  return { aprobacionPendiente: false, nombre: r.nombre, stockResultante: nuevoStock };
+  return { aprobacionPendiente: false, nombre: r.nombre, unidad: r.unidad || "unidad", stockResultante: nuevoStock };
 }
 
 export async function cargarRepuestosParaOrden(clienteId) {
