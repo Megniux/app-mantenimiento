@@ -164,10 +164,16 @@ async function guardar() {
     return alert("Seleccione un equipo.");
   }
   if (!equipoSeleccionado.ubicacionActualNombre) {
-    return alert("Seleccione una ubicación antes de elegir 'Otro'.");
+    if (equipoSeleccionado.id === "") {
+      return alert("Seleccione una ubicación antes de elegir 'Otro'.");
+    }
+    return alert(`El equipo "${equipoSeleccionado.nombre}" no tiene ubicación asignada. Asigne una ubicación al equipo antes de generar la solicitud.`);
   }
   if (!descripcion) {
-    return alert("Complete todos los campos.");
+    return alert("Ingrese una descripción para la solicitud.");
+  }
+  if (tipo === "Preventivo" && !frecuencia) {
+    return alert("Seleccione una frecuencia para la orden preventiva.");
   }
 
   const originalHTML = btn.innerHTML;

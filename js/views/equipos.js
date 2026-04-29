@@ -231,7 +231,7 @@ async function guardarCambioUbicacion() {
 }
 
 async function eliminarEquipo(id) {
-  if (!confirm("¿Eliminar equipo? Se eliminará de todas las órdenes asociadas.")) return;
+  if (!confirm("¿Eliminar equipo? Las órdenes existentes mantendrán la referencia al equipo, pero ya no podrá seleccionarse en nuevas solicitudes.")) return;
   await deleteDoc(doc(db, "equipos", id));
   await cargarEquipos();
 }

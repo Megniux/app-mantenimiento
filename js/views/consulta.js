@@ -516,15 +516,9 @@ async function guardarEdicion() {
     comentarioMantenimiento,
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   });
+  const camposOcultosHistorial = data.estado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"];
   const camposModificados = [
-    ...obtenerCamposModificadosAnteriores(data, {
-      tecnicoAsignado,
-      fechaProgramada: fechaProgramada || null,
-      tiempoEstimado,
-      tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
-      comentarioMantenimiento,
-      informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
-    }, data.estado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"]),
+    ...cambiosDetectados.filter((c) => !camposOcultosHistorial.includes(c.campo)).map((c) => c.texto),
     ...(hayRepuestosNuevos ? ["Repuestos agregados"] : [])
   ];
 
@@ -554,6 +548,9 @@ async function guardarEdicion() {
           const ordenCerrada = { ...data, ...updateData, estado: nuevoEstado };
           await generarPreventivaRecurrente(ordenCerrada);
         }
+      } else if (data.estado === "Cerrado") {
+        // Reapertura: limpiar fechaCierre para que la orden no quede con fecha de cierre obsoleta
+        updateData.fechaCierre = null;
       }
     }
 
@@ -575,7 +572,7 @@ async function guardarEdicion() {
   }
 }
 
-function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHistorial = []) {
+function obtenerCamposModificadosAnteriores(actual, actualizado) {
   const mapeo = {
     tecnicoAsignado: "Técnico asignado",
     fechaProgramada: "Fecha programada",
@@ -586,11 +583,10 @@ function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHi
   };
 
   return Object.keys(mapeo).flatMap((campo) => {
-    if (camposOcultosHistorial.includes(campo)) return [];
     const valorActual = normalizarValorComparacion(campo, actual[campo]);
     const valorActualizado = normalizarValorComparacion(campo, actualizado[campo]);
     if (valorActual === valorActualizado) return [];
-    return `${mapeo[campo]} anterior: "${normalizarValorVisual(campo, actual[campo])}"`;
+    return [{ campo, texto: `${mapeo[campo]} anterior: "${normalizarValorVisual(campo, actual[campo])}"` }];
   });
 }
 
