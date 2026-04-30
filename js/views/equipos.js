@@ -1,5 +1,6 @@
 import { addDoc, collection, deleteDoc, deleteField, doc, getDocs, query, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _ubicaciones = [];
@@ -133,8 +134,8 @@ async function agregarEquipo() {
   const ubicacionId = document.getElementById("ubicacionEquipo").value;
   const ubicacion = _ubicaciones.find((item) => item.id === ubicacionId);
 
-  if (!nombre) return alert("Ingrese un nombre");
-  if (!ubicacion) return alert("Seleccione una ubicación actual.");
+  if (!nombre) { await showAlert("Ingrese un nombre"); return; }
+  if (!ubicacion) { await showAlert("Seleccione una ubicación actual."); return; }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
@@ -159,7 +160,7 @@ async function agregarEquipo() {
     await cargarEquipos();
   } catch (error) {
     console.error(error);
-    alert(`Error al agregar equipo: ${error.message}`);
+    await showAlert(`Error al agregar equipo: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -183,7 +184,7 @@ async function guardarCambioUbicacion() {
   const equipo = _equipos.find((item) => item.id === currentMoveEquipoId);
   const ubicacionId = document.getElementById("moverEquipoUbicacion").value;
   const nuevaUbicacion = _ubicaciones.find((item) => item.id === ubicacionId);
-  if (!equipo || !nuevaUbicacion) return alert("Seleccione una ubicación válida.");
+  if (!equipo || !nuevaUbicacion) { await showAlert("Seleccione una ubicación válida."); return; }
 
   if (equipo.ubicacionActualId === nuevaUbicacion.id) {
     toggleModal("modalMoverEquipo", false);
@@ -219,7 +220,7 @@ async function guardarCambioUbicacion() {
     await cargarEquipos();
   } catch (error) {
     console.error(error);
-    alert(`Error al cambiar ubicación: ${error.message}`);
+    await showAlert(`Error al cambiar ubicación: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -227,7 +228,7 @@ async function guardarCambioUbicacion() {
 }
 
 async function eliminarEquipo(id) {
-  if (!confirm("¿Eliminar equipo? Las órdenes existentes mantendrán la referencia al equipo, pero ya no podrá seleccionarse en nuevas solicitudes.")) return;
+  if (!(await showConfirm("¿Eliminar equipo? Las órdenes existentes mantendrán la referencia al equipo, pero ya no podrá seleccionarse en nuevas solicitudes."))) return;
   await deleteDoc(doc(db, "equipos", id));
   await cargarEquipos();
 }

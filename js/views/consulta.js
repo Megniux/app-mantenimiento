@@ -2,6 +2,7 @@ import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, 
 import { db } from "../firebase-config.js";
 import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
 import { isModuloPanolActivo } from "../router.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let userRole = null;
 let _clienteId = "";
@@ -336,15 +337,15 @@ function obtenerValorOrden(orden, campoOrden) {
 }
 
 async function eliminarOrden(id) {
-  if (!confirm("¿Está seguro de eliminar esta orden?")) return;
+  if (!(await showConfirm("¿Está seguro de eliminar esta orden?"))) return;
   await deleteDoc(doc(db, "ordenes", id));
   await cargarTodasOrdenes();
   await cargar();
 }
 
-function exportarCSV() {
+async function exportarCSV() {
   if (!todasOrdenes.length) {
-    alert("No hay órdenes para exportar.");
+    await showAlert("No hay órdenes para exportar.");
     return;
   }
 
@@ -473,10 +474,12 @@ async function guardarEdicion() {
   const hayRepuestosNuevos = _repuestosEnOrden.some((r) => r.repuestoId);
 
   if ((nuevoEstado === "Pendiente" || nuevoEstado === "En proceso") && (!tecnicoAsignado || !fechaProgramada)) {
-    return alert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
+    await showAlert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
+    return;
   }
   if (nuevoEstado === "Cerrado" && (!tecnicoAsignado || !fechaProgramada || !tiempoEstimado || !tiempoReal || !comentarioMantenimiento || !informeCierre)) {
-    return alert("Para pasar a Cerrado debe completar todos los campos.");
+    await showAlert("Para pasar a Cerrado debe completar todos los campos.");
+    return;
   }
   if (nuevoEstado === "Cerrado" && _panolActivo) {
     const pendSnap = await getDocs(query(
@@ -485,7 +488,8 @@ async function guardarEdicion() {
       where("estado", "==", "pendiente")
     ));
     if (!pendSnap.empty) {
-      return alert("No se puede cerrar la orden: hay repuestos pendientes de aprobación de egreso.\nEspere que el supervisor apruebe o rechace las solicitudes.");
+      await showAlert("No se puede cerrar la orden: hay repuestos pendientes de aprobación de egreso.\nEspere que el supervisor apruebe o rechace las solicitudes.");
+      return;
     }
   }
 
@@ -514,7 +518,8 @@ async function guardarEdicion() {
   ];
 
   if (!cambiosDetectados.length && !estadoCambio && !hayRepuestosNuevos) {
-    return alert("No hay cambios para guardar.");
+    await showAlert("No hay cambios para guardar.");
+    return;
   }
 
   const originalHTML = btn.innerHTML;
@@ -572,7 +577,7 @@ async function guardarEdicion() {
     await cargar();
   } catch (error) {
     console.error(error);
-    alert(`Error al guardar cambios: ${error.message}`);
+    await showAlert(`Error al guardar cambios: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -883,7 +888,7 @@ async function procesarRepuestosOrden(ordenId, ordenNumero) {
   }
 
   if (mensajes.length) {
-    alert(`Repuestos procesados con observaciones:\n${mensajes.join("\n")}`);
+    await showAlert(`Repuestos procesados con observaciones:\n${mensajes.join("\n")}`);
   }
   return registrados;
 }

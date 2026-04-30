@@ -2,6 +2,7 @@ import {
   collection, getDocs, query, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _movimientos = [];
@@ -77,9 +78,9 @@ async function cargarMovimientos() {
   _movimientos = movimientos;
 }
 
-function exportarCSV() {
+async function exportarCSV() {
   const movimientos = _movimientos;
-  if (!movimientos.length) return alert("No hay movimientos para exportar.");
+  if (!movimientos.length) { await showAlert("No hay movimientos para exportar."); return; }
   const headers = ["Fecha", "Repuesto", "Tipo", "Cantidad", "Stock resultante", "Orden", "Usuario", "Observaciones"];
   const rows = movimientos.map((m) => [
     formatFecha(m.fecha), m.repuestoNombre || "", m.tipo || "",

@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, getDoc, getDocs, query, runTransaction, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _todosEquipos = [];
@@ -161,19 +162,24 @@ async function guardar() {
   const uid = sessionStorage.getItem("userUid");
 
   if (!equipoSeleccionado) {
-    return alert("Seleccione un equipo.");
+    await showAlert("Seleccione un equipo.");
+    return;
   }
   if (!equipoSeleccionado.ubicacionActualNombre) {
     if (equipoSeleccionado.id === "") {
-      return alert("Seleccione una ubicación antes de elegir 'Otro'.");
+      await showAlert("Seleccione una ubicación antes de elegir 'Otro'.");
+      return;
     }
-    return alert(`El equipo "${equipoSeleccionado.nombre}" no tiene ubicación asignada. Asigne una ubicación al equipo antes de generar la solicitud.`);
+    await showAlert(`El equipo "${equipoSeleccionado.nombre}" no tiene ubicación asignada. Asigne una ubicación al equipo antes de generar la solicitud.`);
+    return;
   }
   if (!descripcion) {
-    return alert("Ingrese una descripción para la solicitud.");
+    await showAlert("Ingrese una descripción para la solicitud.");
+    return;
   }
   if (tipo === "Preventivo" && !frecuencia) {
-    return alert("Seleccione una frecuencia para la orden preventiva.");
+    await showAlert("Seleccione una frecuencia para la orden preventiva.");
+    return;
   }
 
   const originalHTML = btn.innerHTML;
@@ -209,14 +215,14 @@ async function guardar() {
       historial: [{ estado: "Nuevo", fecha: new Date(), usuario: solicitante }]
     });
 
-    alert(`Orden creada: ${numeroOrden}`);
+    await showAlert(`Orden creada: ${numeroOrden}`);
     document.getElementById("solicitudForm").reset();
     document.getElementById("solicitante").value = solicitante;
     actualizarEquiposDisponibles();
     mostrarFrecuencia();
   } catch (error) {
     console.error(error);
-    alert(`Error al guardar: ${error.message}`);
+    await showAlert(`Error al guardar: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;

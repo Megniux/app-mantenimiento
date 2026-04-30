@@ -1,5 +1,6 @@
 import { addDoc, collection, deleteDoc, doc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _ubicaciones = [];
@@ -51,7 +52,7 @@ async function agregarUbicacion() {
 
   const input = document.getElementById("nuevaUbicacion");
   const nombre = input.value.trim();
-  if (!nombre) return alert("Ingrese un nombre");
+  if (!nombre) { await showAlert("Ingrese un nombre"); return; }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
@@ -63,7 +64,7 @@ async function agregarUbicacion() {
     await cargarUbicaciones();
   } catch (error) {
     console.error(error);
-    alert(`Error al agregar ubicación: ${error.message}`);
+    await showAlert(`Error al agregar ubicación: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -78,10 +79,11 @@ async function eliminarUbicacion(id) {
   if (equiposVinculados.length) {
     const nombres = equiposVinculados.slice(0, 5).map((equipo) => equipo.nombre).join(", ");
     const sufijo = equiposVinculados.length > 5 ? "..." : "";
-    return alert(`No se puede eliminar la ubicación porque hay equipos con ubicación actual allí: ${nombres}${sufijo}`);
+    await showAlert(`No se puede eliminar la ubicación porque hay equipos con ubicación actual allí: ${nombres}${sufijo}`);
+    return;
   }
 
-  if (!confirm("¿Eliminar ubicación?")) return;
+  if (!(await showConfirm("¿Eliminar ubicación?"))) return;
   await deleteDoc(doc(db, "ubicaciones", id));
   await cargarUbicaciones();
 }

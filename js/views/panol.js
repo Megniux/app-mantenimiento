@@ -3,6 +3,7 @@ import {
   getDocs, query, runTransaction, updateDoc, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _role = "";
@@ -244,9 +245,9 @@ async function agregarRepuesto() {
   const stockInicial = parseFloat(document.getElementById("repStockInicial").value);
   const stockMinimo = parseFloat(document.getElementById("repStockMinimo").value);
 
-  if (!nombre) return alert("El nombre es obligatorio.");
-  if (isNaN(stockInicial) || stockInicial < 0) return alert("Ingrese un stock inicial válido.");
-  if (isNaN(stockMinimo) || stockMinimo < 0) return alert("Ingrese un stock mínimo válido.");
+  if (!nombre) { await showAlert("El nombre es obligatorio."); return; }
+  if (isNaN(stockInicial) || stockInicial < 0) { await showAlert("Ingrese un stock inicial válido."); return; }
+  if (isNaN(stockMinimo) || stockMinimo < 0) { await showAlert("Ingrese un stock mínimo válido."); return; }
 
   const equiposAsociados = leerEquiposSeleccionados("repEquiposCheck");
   const aprobacion = document.querySelector("input[name='repAprobacion']:checked")?.value || "no";
@@ -288,7 +289,7 @@ async function agregarRepuesto() {
     await cargarRepuestos();
   } catch (err) {
     console.error(err);
-    alert(`Error: ${err.message}`);
+    await showAlert(`Error: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -337,7 +338,7 @@ async function guardarEdicionRepuesto() {
   if (!btn || btn.disabled || !_currentEditId) return;
 
   const nombre = document.getElementById("editRepNombre").value.trim();
-  if (!nombre) return alert("El nombre es obligatorio.");
+  if (!nombre) { await showAlert("El nombre es obligatorio."); return; }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
@@ -364,7 +365,7 @@ async function guardarEdicionRepuesto() {
     await cargarRepuestos();
   } catch (err) {
     console.error(err);
-    alert(`Error: ${err.message}`);
+    await showAlert(`Error: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -394,8 +395,8 @@ async function confirmarAjuste() {
   const tipo = document.getElementById("ajusteTipo").value;
   const observaciones = document.getElementById("ajusteObservaciones").value.trim();
 
-  if (isNaN(cantidad) || cantidad <= 0) return alert("Ingrese una cantidad válida.");
-  if (!observaciones) return alert("El motivo del ajuste es obligatorio.");
+  if (isNaN(cantidad) || cantidad <= 0) { await showAlert("Ingrese una cantidad válida."); return; }
+  if (!observaciones) { await showAlert("El motivo del ajuste es obligatorio."); return; }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
@@ -431,7 +432,7 @@ async function confirmarAjuste() {
     await cargarRepuestos();
   } catch (err) {
     console.error(err);
-    alert(`Error: ${err.message}`);
+    await showAlert(`Error: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -441,13 +442,13 @@ async function confirmarAjuste() {
 // ── Eliminar ───────────────────────────────────────────────────────────────
 
 async function eliminarRepuesto(id) {
-  if (!confirm("¿Eliminar este repuesto? El histórico de movimientos se conservará como registro de auditoría.")) return;
+  if (!(await showConfirm("¿Eliminar este repuesto? El histórico de movimientos se conservará como registro de auditoría."))) return;
   try {
     await deleteDoc(doc(db, "repuestos", id));
     await cargarRepuestos();
   } catch (err) {
     console.error(err);
-    alert(`Error: ${err.message}`);
+    await showAlert(`Error: ${err.message}`);
   }
 }
 
@@ -573,14 +574,14 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
     await cargarRepuestos();
   } catch (err) {
     console.error(err);
-    alert(`Error: ${err.message}`);
+    await showAlert(`Error: ${err.message}`);
   }
 }
 
 // ── Exportar CSV ───────────────────────────────────────────────────────────
 
-function exportarCSV() {
-  if (!_repuestos.length) return alert("No hay repuestos para exportar.");
+async function exportarCSV() {
+  if (!_repuestos.length) { await showAlert("No hay repuestos para exportar."); return; }
   const headers = ["Código", "Nombre", "Descripción", "Unidad", "Ubicación pañol", "Stock actual", "Stock mínimo", "Stock máximo", "Precio ref.", "Equipos", "Requiere aprobación"];
   const rows = _repuestos.map((r) => [
     r.codigoInterno || "", r.nombre || "", r.descripcion || "", r.unidad || "",

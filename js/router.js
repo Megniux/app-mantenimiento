@@ -1,29 +1,25 @@
 import { authState, watchAuth, login, logout, resetPassword } from "./auth.js";
-import { initConsultaView } from "./views/consulta.js";
-import { initSolicitudView } from "./views/solicitud.js";
-import { initEquiposView } from "./views/equipos.js";
-import { initUbicacionesView } from "./views/ubicaciones.js";
-import { initUsuariosView } from "./views/usuarios.js";
-import { initInformesView } from "./views/informes.js";
-import { initPanolView } from "./views/panol.js";
-import { initPanolMovimientosView } from "./views/panol-movimientos.js";
-import { initClientesView } from "./views/clientes.js";
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "./firebase-config.js";
+import { bindGlobalDialogShortcuts, showAlert } from "./ui/dialog.js";
 
+// Cada ruta usa un loader dinámico: el módulo de la vista se descarga la primera
+// vez que se navega a esa ruta y queda cacheado en memoria por el ESM module map.
+// Esto mantiene chico el bundle inicial y permite sumar módulos sin penalizar el
+// arranque.
 const routes = {
-  login:             { template: "templates/login.html",             title: "Iniciar Sesión",             init: null,                      roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
-  consulta:          { template: "templates/consulta.html",          title: "Consulta de Órdenes",        init: initConsultaView,           roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
-  solicitud:         { template: "templates/solicitud.html",         title: "Nueva Solicitud",            init: initSolicitudView,          roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
-  informes:          { template: "templates/informes.html",          title: "KPIs (Indicadores Clave)",   init: initInformesView,           roles: ["tecnico", "supervisor", "admin", "superadmin"] },
-  equipos:           { template: "templates/equipos.html",           title: "Gestionar Equipos",          init: initEquiposView,            roles: ["supervisor", "admin", "superadmin"] },
-  ubicaciones:       { template: "templates/ubicaciones.html",       title: "Gestionar Ubicaciones",      init: initUbicacionesView,        roles: ["supervisor", "admin", "superadmin"] },
-  usuarios:          { template: "templates/usuarios.html",          title: "Gestionar Usuarios",         init: initUsuariosView,           roles: ["admin", "superadmin"] },
+  login:             { template: "templates/login.html",             title: "Iniciar Sesión",             loader: null, roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  consulta:          { template: "templates/consulta.html",          title: "Consulta de Órdenes",        loader: () => import("./views/consulta.js").then((m) => m.initConsultaView),                       roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  solicitud:         { template: "templates/solicitud.html",         title: "Nueva Solicitud",            loader: () => import("./views/solicitud.js").then((m) => m.initSolicitudView),                     roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
+  informes:          { template: "templates/informes.html",          title: "KPIs (Indicadores Clave)",   loader: () => import("./views/informes.js").then((m) => m.initInformesView),                       roles: ["tecnico", "supervisor", "admin", "superadmin"] },
+  equipos:           { template: "templates/equipos.html",           title: "Gestionar Equipos",          loader: () => import("./views/equipos.js").then((m) => m.initEquiposView),                         roles: ["supervisor", "admin", "superadmin"] },
+  ubicaciones:       { template: "templates/ubicaciones.html",       title: "Gestionar Ubicaciones",      loader: () => import("./views/ubicaciones.js").then((m) => m.initUbicacionesView),                 roles: ["supervisor", "admin", "superadmin"] },
+  usuarios:          { template: "templates/usuarios.html",          title: "Gestionar Usuarios",         loader: () => import("./views/usuarios.js").then((m) => m.initUsuariosView),                       roles: ["admin", "superadmin"] },
   // ── Módulo Pañol (se muestra solo si el cliente tiene moduloPanol activo) ──
-  panol:             { template: "templates/panol.html",             title: "Pañol — Inventario",         init: initPanolView,              roles: ["supervisor", "admin", "superadmin"] },
-  "panol-movimientos": { template: "templates/panol-movimientos.html", title: "Pañol — Movimientos",      init: initPanolMovimientosView,   roles: ["supervisor", "admin", "superadmin"] },
+  panol:             { template: "templates/panol.html",             title: "Pañol — Inventario",         loader: () => import("./views/panol.js").then((m) => m.initPanolView),                             roles: ["supervisor", "admin", "superadmin"] },
+  "panol-movimientos": { template: "templates/panol-movimientos.html", title: "Pañol — Movimientos",      loader: () => import("./views/panol-movimientos.js").then((m) => m.initPanolMovimientosView),     roles: ["supervisor", "admin", "superadmin"] },
   // ── Gestión de clientes (solo superadmin) ──
-  clientes:          { template: "templates/clientes.html",          title: "Gestionar Clientes",         init: initClientesView,           roles: ["superadmin"] }
+  clientes:          { template: "templates/clientes.html",          title: "Gestionar Clientes",         loader: () => import("./views/clientes.js").then((m) => m.initClientesView),                       roles: ["superadmin"] }
 };
 
 // menuByRole define el menú base SIN el pañol (se agrega dinámicamente si está activo)
@@ -272,7 +268,8 @@ export async function cargarContenido(routeKey, push = true) {
 
   // ── Pasar clienteId activo y role a cada vista ──
   const ctx = { role, userName: authState.profile.nombre, clienteId: activeClienteId, signal: viewSignal };
-  await route.init?.(ctx);
+  const initFn = route.loader ? await route.loader() : null;
+  await initFn?.(ctx);
 }
 
 export function navigate(routeKey) {
@@ -282,6 +279,8 @@ export function navigate(routeKey) {
 // ── Init del router ────────────────────────────────────────────────────────
 
 export function initRouter() {
+  bindGlobalDialogShortcuts();
+
   if (appLayout && sidebarToggle) {
     sidebarToggle.addEventListener("click", () => {
       const expanded = appLayout.classList.toggle("sidebar-expanded");
@@ -357,7 +356,7 @@ function bindLoginEvents() {
       await login(email, password);
       navigate("consulta");
     } catch (err) {
-      alert(`Error de login: ${err.message}`);
+      await showAlert(`Error de login: ${err.message}`);
     }
   });
 

@@ -3,6 +3,7 @@ import {
   query, where, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 // ─── JSZip (cargado bajo demanda) ────────────────────────────────────────────
 async function getJSZip() {
@@ -237,7 +238,7 @@ async function guardarEdicionCliente() {
   if (!btn || btn.disabled) return;
 
   const nombre = document.getElementById("editClienteNombre").value.trim();
-  if (!nombre) return alert("El nombre es obligatorio.");
+  if (!nombre) { await showAlert("El nombre es obligatorio."); return; }
 
   // ── NUEVO: leer campos pañol ──
   const moduloPanol = document.getElementById("editClientePanol")?.checked || false;
@@ -269,7 +270,7 @@ async function guardarEdicionCliente() {
     toggleModal("modalClienteEditar", false);
     await cargarClientes();
   } catch (err) {
-    alert(`Error al guardar: ${err.message}`);
+    await showAlert(`Error al guardar: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = orig;
@@ -325,7 +326,7 @@ async function crearClienteVacio() {
   if (!btn || btn.disabled) return;
 
   const nombre = document.getElementById("nuevoNombre").value.trim();
-  if (!nombre) return alert("El nombre es obligatorio.");
+  if (!nombre) { await showAlert("El nombre es obligatorio."); return; }
 
   const data = {
     nombre,
@@ -353,7 +354,7 @@ async function crearClienteVacio() {
     toggleModal("modalClienteCrear", false);
     await cargarClientes();
   } catch (err) {
-    alert(`Error al crear cliente: ${err.message}`);
+    await showAlert(`Error al crear cliente: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = orig;
@@ -369,11 +370,11 @@ function abrirModalEliminar(clienteId) {
   document.getElementById("eliminarClienteNombreTexto").textContent = `Cliente: ${c.nombre}`;
 
   document.getElementById("eliminarConDatosBtn").onclick = async () => {
-    if (!confirm(`¿Confirmar eliminación TOTAL de "${c.nombre}" y todos sus datos? Esta acción no se puede deshacer.`)) return;
+    if (!(await showConfirm(`¿Confirmar eliminación TOTAL de "${c.nombre}" y todos sus datos? Esta acción no se puede deshacer.`))) return;
     await eliminarCliente(clienteId, true);
   };
   document.getElementById("eliminarSoloDatosBtn").onclick = async () => {
-    if (!confirm(`¿Eliminar solo el registro de "${c.nombre}" en la colección clientes? Los datos (órdenes, usuarios, etc.) se conservarán.`)) return;
+    if (!(await showConfirm(`¿Eliminar solo el registro de "${c.nombre}" en la colección clientes? Los datos (órdenes, usuarios, etc.) se conservarán.`))) return;
     await eliminarCliente(clienteId, false);
   };
   document.getElementById("cancelarEliminarBtn").onclick = () => toggleModal("modalClienteEliminar", false);
@@ -410,9 +411,9 @@ async function eliminarCliente(clienteId, conDatos) {
     await deleteDoc(doc(db, "clientes", clienteId));
     toggleModal("modalClienteEliminar", false);
     await cargarClientes();
-    alert("Cliente eliminado correctamente.");
+    await showAlert("Cliente eliminado correctamente.");
   } catch (err) {
-    alert(`Error al eliminar: ${err.message}`);
+    await showAlert(`Error al eliminar: ${err.message}`);
   } finally {
     [btn, btn2].forEach((b) => { if (b) b.disabled = false; });
   }
@@ -463,7 +464,7 @@ async function exportarCliente(clienteId) {
     const blob = await zip.generateAsync({ type: "blob" });
     descargarBlob(blob, `backup_${slugify(c.nombre)}_${fechaHoy()}.zip`);
   } catch (err) {
-    alert(`Error al exportar: ${err.message}`);
+    await showAlert(`Error al exportar: ${err.message}`);
   }
 }
 
@@ -505,7 +506,7 @@ async function importarClienteDesdeZip() {
   if (!btn || btn.disabled) return;
 
   const file = document.getElementById("importarZipInput").files[0];
-  if (!file) return alert("Seleccioná un archivo ZIP.");
+  if (!file) { await showAlert("Seleccioná un archivo ZIP."); return; }
 
   const orig = btn.innerHTML;
   btn.disabled = true;
@@ -559,9 +560,9 @@ async function importarClienteDesdeZip() {
 
     toggleModal("modalClienteCrear", false);
     await cargarClientes();
-    alert(`Cliente "${nuevoClienteData.nombre}" importado correctamente.`);
+    await showAlert(`Cliente "${nuevoClienteData.nombre}" importado correctamente.`);
   } catch (err) {
-    alert(`Error al importar: ${err.message}`);
+    await showAlert(`Error al importar: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = orig;

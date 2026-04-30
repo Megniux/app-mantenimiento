@@ -2,6 +2,7 @@ import { connectAuthEmulator, createUserWithEmailAndPassword, deleteUser, getAut
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getApp, getApps, initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { auth, db, firebaseConfig, isLocal } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _currentRole = "";
@@ -89,11 +90,12 @@ async function crearUsuario() {
   const nombre = document.getElementById("nombre").value.trim();
   const password = document.getElementById("password").value;
   const rol = document.getElementById("rol").value;
-  if (!email || !nombre || !password) return alert("Complete todos los campos");
+  if (!email || !nombre || !password) { await showAlert("Complete todos los campos"); return; }
 
   // Solo superadmin puede crear usuarios con rol superadmin
   if (rol === "superadmin" && _currentRole !== "superadmin") {
-    return alert("No tiene permisos para crear usuarios superadmin.");
+    await showAlert("No tiene permisos para crear usuarios superadmin.");
+    return;
   }
 
   const originalHTML = btn.innerHTML;
@@ -135,14 +137,14 @@ async function crearUsuario() {
       throw firestoreErr;
     }
 
-    alert("Usuario creado exitosamente");
+    await showAlert("Usuario creado exitosamente");
     document.getElementById("email").value = "";
     document.getElementById("nombre").value = "";
     document.getElementById("password").value = "";
     await cargarUsuarios();
   } catch (error) {
     console.error(error);
-    alert(`Error al crear usuario: ${error.message}`);
+    await showAlert(`Error al crear usuario: ${error.message}`);
   } finally {
     try { await secondaryAuth.signOut(); } catch (e) { console.error(e); }
     try { await deleteApp(secondaryApp); } catch (e) { console.error(e); }
@@ -152,7 +154,7 @@ async function crearUsuario() {
 }
 
 async function eliminarUsuario(uid) {
-  if (!confirm("¿Eliminar usuario? (No se elimina autenticación, solo Firestore)")) return;
+  if (!(await showConfirm("¿Eliminar usuario? (No se elimina autenticación, solo Firestore)"))) return;
   await deleteDoc(doc(db, "users", uid));
   await cargarUsuarios();
 }
