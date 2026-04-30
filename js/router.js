@@ -56,6 +56,7 @@ const MOBILE_BREAKPOINT = 1024;
 
 let activeClienteId = "";
 let moduloPanolActivo = false; // se actualiza al cargar el cliente
+let _viewAbortController = null; // listeners scoped a la vista activa
 
 export function getActiveClienteId() { return activeClienteId; }
 export function isModuloPanolActivo() { return moduloPanolActivo; }
@@ -231,6 +232,11 @@ async function renderClienteSelector(selectedId = "") {
 // ── Carga de contenido ─────────────────────────────────────────────────────
 
 export async function cargarContenido(routeKey, push = true) {
+  // Cortar listeners de la vista anterior antes de montar la nueva
+  if (_viewAbortController) _viewAbortController.abort();
+  _viewAbortController = new AbortController();
+  const viewSignal = _viewAbortController.signal;
+
   const role = authState.profile?.rol || "";
 
   if (role === "superadmin") {
@@ -265,7 +271,7 @@ export async function cargarContenido(routeKey, push = true) {
   await renderTelefonos(activeClienteId);
 
   // ── Pasar clienteId activo y role a cada vista ──
-  const ctx = { role, userName: authState.profile.nombre, clienteId: activeClienteId };
+  const ctx = { role, userName: authState.profile.nombre, clienteId: activeClienteId, signal: viewSignal };
   await route.init?.(ctx);
 }
 

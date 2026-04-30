@@ -3,13 +3,35 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+    //
+    // El rol y el clienteId del usuario se leen primero desde los custom claims
+    // del JWT (gratis: vienen en el token). Si los claims aún no están seteados
+    // (usuario antiguo, antes de que la Cloud Function 'syncUserClaims' los
+    // sincronice por primera vez), se cae al patrón antiguo de leer
+    // users/{uid}. Esto permite migrar sin lockout.
+
+    function tokenRol() {
+      return 'rol' in request.auth.token ? request.auth.token.rol : '';
+    }
+
+    function tokenClienteId() {
+      return 'clienteId' in request.auth.token ? request.auth.token.clienteId : '';
+    }
 
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function userRole() {
-      return getUserData().rol;
+      return tokenRol() != ''
+        ? tokenRol()
+        : getUserData().rol;
+    }
+
+    function userClienteId() {
+      return 'clienteId' in request.auth.token
+        ? tokenClienteId()
+        : getUserData().clienteId;
     }
 
     function isSuperadmin() {
@@ -17,7 +39,7 @@ service cloud.firestore {
     }
 
     function belongsToCliente(clienteId) {
-      return getUserData().clienteId == clienteId;
+      return userClienteId() == clienteId;
     }
 
     function hasAccessToCliente(clienteId) {

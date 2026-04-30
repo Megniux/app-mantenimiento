@@ -5,9 +5,8 @@ let _clienteId = "";
 let _ubicaciones = [];
 let _equipos = [];
 let currentMoveEquipoId = null;
-let listenerModalEquiposRegistrado = false;
 
-export async function initEquiposView({ clienteId } = {}) {
+export async function initEquiposView({ clienteId, signal } = {}) {
   _clienteId = clienteId || "";
   _ubicaciones = await cargarUbicaciones();
   await cargarEquipos();
@@ -15,17 +14,14 @@ export async function initEquiposView({ clienteId } = {}) {
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
   document.getElementById("guardarCambioUbicacionBtn").addEventListener("click", guardarCambioUbicacion);
   document.getElementById("busquedaEquipos").addEventListener("input", renderEquiposFiltrados);
-  if (!listenerModalEquiposRegistrado) {
-    document.getElementById("mainContent").addEventListener("click", (e) => {
-      if (e.target.matches(".close-modal")) {
-        toggleModal(e.target.dataset.modal, false);
-      }
-      if (e.target.matches(".modal")) {
-        toggleModal(e.target.id, false);
-      }
-    });
-    listenerModalEquiposRegistrado = true;
-  }
+  document.getElementById("mainContent").addEventListener("click", (e) => {
+    if (e.target.matches(".close-modal")) {
+      toggleModal(e.target.dataset.modal, false);
+    }
+    if (e.target.matches(".modal")) {
+      toggleModal(e.target.id, false);
+    }
+  }, signal ? { signal } : undefined);
 }
 
 async function cargarUbicaciones() {

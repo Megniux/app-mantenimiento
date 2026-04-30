@@ -4,6 +4,7 @@ import {
 import { db } from "../firebase-config.js";
 
 let _clienteId = "";
+let _movimientos = [];
 
 export async function initPanolMovimientosView({ clienteId } = {}) {
   _clienteId = clienteId || "";
@@ -73,11 +74,11 @@ async function cargarMovimientos() {
   });
 
   // Guardar para exportar
-  window._movimientosPanol = movimientos;
+  _movimientos = movimientos;
 }
 
 function exportarCSV() {
-  const movimientos = window._movimientosPanol || [];
+  const movimientos = _movimientos;
   if (!movimientos.length) return alert("No hay movimientos para exportar.");
   const headers = ["Fecha", "Repuesto", "Tipo", "Cantidad", "Stock resultante", "Orden", "Usuario", "Observaciones"];
   const rows = movimientos.map((m) => [

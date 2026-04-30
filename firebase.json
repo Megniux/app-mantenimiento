@@ -5,6 +5,19 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
   "hosting": {
     "public": ".",
     "ignore": [
@@ -14,7 +27,8 @@
       ".firebaserc",
       "**/.*",
       "**/node_modules/**",
-      "emulator-data/**"
+      "emulator-data/**",
+      "functions/**"
     ]
   },
   "emulators": {
@@ -23,6 +37,9 @@
     },
     "firestore": {
       "port": 8080
+    },
+    "functions": {
+      "port": 5001
     },
     "hosting": {
       "port": 5000

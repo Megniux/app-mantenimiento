@@ -10,6 +10,9 @@ export const authState = {
 export async function login(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
   const uid = cred.user.uid;
+  // Refrescar el ID token para asegurar que los custom claims (rol/clienteId) estén actualizados
+  // si la Cloud Function de sync los repobló recientemente.
+  try { await cred.user.getIdToken(true); } catch (_) { /* sin claims aún: se usará el doc */ }
   const userDoc = await getDoc(doc(db, "users", uid));
   const userData = userDoc.exists()
     ? userDoc.data()

@@ -11,7 +11,6 @@ let listaTecnicos = [];
 let consultaLoadToken = 0;
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
-let listenerCierreMenuRegistrado = false;
 let _panolActivo = false;
 let _repuestosDisponibles = [];   // lista cacheada para el modal
 let _repuestosEnOrden = [];       // repuestos cargados en la orden actual
@@ -48,7 +47,7 @@ const CAMPOS_DETALLE_ORDEN = [
   { label: "Tiempo real (hs)", getValue: (orden) => orden.tiempoReal ?? "-" }
 ];
 
-export async function initConsultaView({ role, clienteId }) {
+export async function initConsultaView({ role, clienteId, signal } = {}) {
   userRole = role;
   const clienteIdActual = clienteId || "";
   const loadToken = ++consultaLoadToken;
@@ -64,7 +63,7 @@ export async function initConsultaView({ role, clienteId }) {
   if (!esCargaConsultaActual(clienteIdActual, loadToken)) return;
   configurarOrdenPredeterminado();
   await cargar();
-  inicializarToolbarMovil();
+  inicializarToolbarMovil(signal);
 
   document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
@@ -84,15 +83,12 @@ export async function initConsultaView({ role, clienteId }) {
     if (e.target.matches(".modal")) {
       toggleModal(e.target.id, false);
     }
-  });
+  }, signal ? { signal } : undefined);
 
-  if (!listenerCierreMenuRegistrado) {
-    document.addEventListener("click", (e) => {
-      if (e.target.closest(".actions-menu")) return;
-      cerrarMenusDesplegables();
-    });
-    listenerCierreMenuRegistrado = true;
-  }
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".actions-menu")) return;
+    cerrarMenusDesplegables();
+  }, signal ? { signal } : undefined);
 }
 
 function esCargaConsultaActual(clienteId, loadToken) {
@@ -104,7 +100,7 @@ function cerrarMenusDesplegables() {
   if (menu) menu.remove();
 }
 
-function inicializarToolbarMovil() {
+function inicializarToolbarMovil(signal) {
   const toolbar = document.querySelector(".table-toolbar");
   const toggleBtn = document.getElementById("toolbarToggleBtn");
   if (!toolbar || !toggleBtn) return;
@@ -135,15 +131,10 @@ function inicializarToolbarMovil() {
     });
   });
 
-  const controller = new AbortController();
+  // El listener de resize queda atado al signal de la vista, así se desmonta al cambiar de ruta
   window.addEventListener("resize", () => {
     if (window.innerWidth >= MOBILE_BREAKPOINT) closeToolbar();
-  }, { signal: controller.signal });
-
-  if (window._toolbarResizeController) {
-    window._toolbarResizeController.abort();
-  }
-  window._toolbarResizeController = controller;
+  }, signal ? { signal } : undefined);
 }
 
 async function cargarTecnicos(clienteId = _clienteId, loadToken = consultaLoadToken) {
