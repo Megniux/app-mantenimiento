@@ -551,12 +551,14 @@ async function importarClienteDesdeZip() {
     const nuevoClienteId = nuevoClienteRef.id;
     const oldClienteId = clienteRow.id || null;
 
-    await importarColeccion(zip, "ubicaciones.csv", "ubicaciones", nuevoClienteId, oldClienteId);
-    await importarColeccion(zip, "equipos.csv", "equipos", nuevoClienteId, oldClienteId);
-    await importarColeccion(zip, "usuarios.csv", "users", nuevoClienteId, oldClienteId);
-    await importarColeccion(zip, "ordenes.csv", "ordenes", nuevoClienteId, oldClienteId);
-    // ── NUEVO ──
-    await importarColeccion(zip, "repuestos.csv", "repuestos", nuevoClienteId, oldClienteId);
+    // Mapas oldId → newId. Las colecciones que se importan después usan estos
+    // mapas para remapear sus referencias cruzadas (ej. equipos.ubicacionActualId).
+    const idMaps = {};
+    idMaps.ubicaciones = await importarColeccion(zip, "ubicaciones.csv", "ubicaciones", nuevoClienteId, oldClienteId, idMaps);
+    idMaps.equipos     = await importarColeccion(zip, "equipos.csv",     "equipos",     nuevoClienteId, oldClienteId, idMaps);
+    await importarColeccion(zip, "usuarios.csv", "users",     nuevoClienteId, oldClienteId, idMaps);
+    await importarColeccion(zip, "ordenes.csv",  "ordenes",   nuevoClienteId, oldClienteId, idMaps);
+    await importarColeccion(zip, "repuestos.csv","repuestos", nuevoClienteId, oldClienteId, idMaps);
 
     toggleModal("modalClienteCrear", false);
     await cargarClientes();
@@ -569,18 +571,64 @@ async function importarClienteDesdeZip() {
   }
 }
 
-async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, oldClienteId) {
+// Configuración de referencias cruzadas a remapear por colección importada.
+// path: nombre del campo. Soporta "campo.subcampo" para objetos anidados y
+// "campo[].subcampo" para arrays de objetos. mapa: nombre del idMap a usar.
+const REMAP_CONFIG = {
+  equipos: [
+    { path: "ubicacionActualId",                mapa: "ubicaciones" },
+    { path: "historialUbicaciones[].desdeId",   mapa: "ubicaciones" },
+    { path: "historialUbicaciones[].haciaId",   mapa: "ubicaciones" }
+  ],
+  ordenes: [
+    { path: "ubicacionId", mapa: "ubicaciones" },
+    { path: "equipoId",    mapa: "equipos" }
+  ],
+  repuestos: [
+    { path: "equiposAsociados[].equipoId", mapa: "equipos" }
+  ]
+};
+
+function remapearCampo(row, path, idMap) {
+  if (!idMap) return;
+  if (path.includes("[].")) {
+    const [arrKey, sub] = path.split("[].");
+    const arr = row[arrKey];
+    if (!Array.isArray(arr)) return;
+    row[arrKey] = arr.map((item) => {
+      if (!item || typeof item !== "object") return item;
+      const valor = item[sub];
+      return (valor && idMap[valor]) ? { ...item, [sub]: idMap[valor] } : item;
+    });
+    return;
+  }
+  const valor = row[path];
+  if (valor && idMap[valor]) row[path] = idMap[valor];
+}
+
+async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, oldClienteId, idMaps = {}) {
   const csv = await leerArchivoZip(zip, archivoCSV);
-  if (!csv) return;
+  if (!csv) return {};
 
   const rows = parsearCSV(csv);
-  if (!rows.length) return;
+  if (!rows.length) return {};
 
   const CAMPOS_FECHA = ["fechaCreacion", "fechaProgramada", "fechaCierre", "fechaInicioEspera"];
   const CAMPOS_NUMERICOS = ["contadorOMC", "contadorOMP", "tiempoEstimado", "tiempoReal",
     "tiempoTotalEspera", "stockActual", "stockMinimo", "stockMaximo", "precioReferencia"];
   const CAMPOS_NULOS_SI_VACIO = ["tiempoEstimado", "tiempoReal", "stockMaximo", "precioReferencia"];
   const CAMPOS_ARRAY_CON_FECHA = ["historial", "historialUbicaciones"];
+
+  // Pre-generar refs ANTES de transformar para construir oldId → newId.
+  // Eso permite que la propia colección, o las siguientes, remapeen referencias
+  // cruzadas usando el mapa.
+  const refs = rows.map(() => doc(collection(db, coleccion)));
+  const idMap = {};
+  rows.forEach((row, i) => {
+    if (row.id) idMap[row.id] = refs[i].id;
+  });
+
+  const remaps = REMAP_CONFIG[coleccion] || [];
 
   const docsParaGuardar = rows.map((row) => {
     delete row.id;
@@ -620,6 +668,12 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       });
     }
 
+    // Aplicar remaps de referencias cruzadas (oldId → newId) usando los mapas
+    // de las colecciones importadas previamente.
+    for (const { path, mapa } of remaps) {
+      remapearCampo(row, path, idMaps[mapa]);
+    }
+
     return row;
   });
 
@@ -627,8 +681,8 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
   let batch = writeBatch(db);
   let count = 0;
 
-  for (const data of docsParaGuardar) {
-    batch.set(doc(collection(db, coleccion)), data);
+  for (let i = 0; i < docsParaGuardar.length; i++) {
+    batch.set(refs[i], docsParaGuardar[i]);
     count++;
     if (count === BATCH_SIZE) {
       await batch.commit();
@@ -637,6 +691,8 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
     }
   }
   if (count > 0) await batch.commit();
+
+  return idMap;
 }
 
 async function leerArchivoZip(zip, nombre) {

@@ -20,8 +20,11 @@ export function bindGlobalDialogShortcuts() {
 // Cierra el modal visible con mayor z-index. Funciona tanto con los modales
 // legacy del HTML (.modal con .is-hidden) como con los creados por show().
 export function closeTopModal() {
+  // Nota: no usar offsetParent — los modales son position:fixed, lo que hace
+  // que offsetParent siempre sea null aunque estén visibles. La clase
+  // .is-hidden es el único toggle real de visibilidad.
   const visibles = Array.from(document.querySelectorAll(".modal"))
-    .filter((el) => !el.classList.contains("is-hidden") && el.offsetParent !== null);
+    .filter((el) => !el.classList.contains("is-hidden"));
   if (!visibles.length) return;
   const top = visibles.reduce((acc, el) => {
     const accZ = parseInt(getComputedStyle(acc).zIndex, 10) || 0;

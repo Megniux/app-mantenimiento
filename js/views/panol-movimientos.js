@@ -5,16 +5,20 @@ import { db } from "../firebase-config.js";
 import { showAlert } from "../ui/dialog.js";
 
 let _clienteId = "";
-let _movimientos = [];
+let _movimientosTodos = [];   // dataset completo, fetched una vez al iniciar
+let _movimientosFiltrados = []; // resultado del último filtrado (para exportar)
 
 export async function initPanolMovimientosView({ clienteId } = {}) {
   _clienteId = clienteId || "";
   await cargarMovimientos();
 
-  document.getElementById("busquedaMovimientos").addEventListener("input", cargarMovimientos);
-  document.getElementById("filtroMovTipo").addEventListener("change", cargarMovimientos);
-  document.getElementById("filtroMovDesde").addEventListener("change", cargarMovimientos);
-  document.getElementById("filtroMovHasta").addEventListener("change", cargarMovimientos);
+  // Cada filtro solo re-renderiza desde el dataset cacheado en memoria — no
+  // refetch a Firestore. Esto evita la race condition que hacía duplicar filas
+  // cuando el usuario tipeaba rápido en el buscador.
+  document.getElementById("busquedaMovimientos").addEventListener("input", aplicarFiltrosYRender);
+  document.getElementById("filtroMovTipo").addEventListener("change", aplicarFiltrosYRender);
+  document.getElementById("filtroMovDesde").addEventListener("change", aplicarFiltrosYRender);
+  document.getElementById("filtroMovHasta").addEventListener("change", aplicarFiltrosYRender);
   document.getElementById("exportMovBtn").addEventListener("click", exportarCSV);
 }
 
@@ -31,32 +35,52 @@ async function cargarMovimientos() {
     orderBy("fecha", "desc")
   ));
 
-  let movimientos = [];
-  snap.forEach((d) => movimientos.push({ id: d.id, ...d.data() }));
+  _movimientosTodos = [];
+  snap.forEach((d) => _movimientosTodos.push({ id: d.id, ...d.data() }));
 
-  // Filtros en cliente
+  if (cargando) cargando.style.display = "none";
+  aplicarFiltrosYRender();
+}
+
+function aplicarFiltrosYRender() {
+  const tbody = document.getElementById("tbodyMovimientos");
+  if (!tbody) return;
+
   const termino = (document.getElementById("busquedaMovimientos")?.value || "").trim().toLowerCase();
   const tipo = document.getElementById("filtroMovTipo")?.value || "";
   const desde = document.getElementById("filtroMovDesde")?.value;
   const hasta = document.getElementById("filtroMovHasta")?.value;
 
+  let movimientos = _movimientosTodos.slice();
   if (termino) {
     movimientos = movimientos.filter((m) =>
-      `${m.repuestoNombre} ${m.usuario} ${m.ordenNumero || ""}`.toLowerCase().includes(termino)
+      `${m.repuestoNombre || ""} ${m.usuario || ""} ${m.ordenNumero || ""}`.toLowerCase().includes(termino)
     );
   }
   if (tipo) movimientos = movimientos.filter((m) => m.tipo === tipo);
-  if (desde) movimientos = movimientos.filter((m) => toDate(m.fecha) >= new Date(desde));
+  if (desde) {
+    const desdeDate = parseFechaInputLocal(desde);
+    if (desdeDate) movimientos = movimientos.filter((m) => {
+      const f = toDate(m.fecha);
+      return f && f >= desdeDate;
+    });
+  }
   if (hasta) {
-    const hastaDate = new Date(hasta);
-    hastaDate.setHours(23, 59, 59, 999);
-    movimientos = movimientos.filter((m) => toDate(m.fecha) <= hastaDate);
+    const hastaDate = parseFechaInputLocal(hasta);
+    if (hastaDate) {
+      hastaDate.setHours(23, 59, 59, 999);
+      movimientos = movimientos.filter((m) => {
+        const f = toDate(m.fecha);
+        return f && f <= hastaDate;
+      });
+    }
   }
 
-  if (cargando) cargando.style.display = "none";
-
+  // Render — siempre limpia tbody primero (sin awaits intermedios, no hay race)
+  tbody.innerHTML = "";
   if (!movimientos.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888">Sin movimientos</td></tr>';
+    _movimientosFiltrados = [];
     return;
   }
 
@@ -74,12 +98,21 @@ async function cargarMovimientos() {
       <td>${escHtml(m.observaciones || "-")}</td>`;
   });
 
-  // Guardar para exportar
-  _movimientos = movimientos;
+  _movimientosFiltrados = movimientos;
+}
+
+// Parsea "YYYY-MM-DD" del input type="date" como medianoche local (no UTC).
+// new Date("2026-04-29") parsea como UTC, lo que en Argentina (UTC-3) es
+// 2026-04-28 21:00 local — eso "cuela" eventos del día anterior por la tarde.
+function parseFechaInputLocal(yyyyMmDd) {
+  if (!yyyyMmDd) return null;
+  const [y, m, d] = yyyyMmDd.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
 async function exportarCSV() {
-  const movimientos = _movimientos;
+  const movimientos = _movimientosFiltrados;
   if (!movimientos.length) { await showAlert("No hay movimientos para exportar."); return; }
   const headers = ["Fecha", "Repuesto", "Tipo", "Cantidad", "Stock resultante", "Orden", "Usuario", "Observaciones"];
   const rows = movimientos.map((m) => [

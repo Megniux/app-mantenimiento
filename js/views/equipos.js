@@ -61,16 +61,20 @@ function normalizarEquipo(docSnap) {
     ? data.ubicaciones.filter(Boolean)
     : (data.ubicacion ? [data.ubicacion] : []);
 
-  const ubicacionMatch = _ubicaciones.find((ubicacion) =>
-    ubicacion.id === data.ubicacionActualId
-    || (!data.ubicacionActualId && (ubicacion.nombre === data.ubicacionActualNombre || ubicacion.nombre === legacyUbicaciones[0]))
-  );
+  // 1° intentar match por id; 2° fallback por nombre aunque el id esté seteado
+  // pero stale (ej. datos importados con ids viejos). Si no hay match, dejar el
+  // id vacío — propagar un id huérfano hace que el equipo no matchee con ningún
+  // filtro de ubicación y "desaparezca" de la lista.
+  const ubicacionMatch = _ubicaciones.find((u) => u.id === data.ubicacionActualId)
+    || _ubicaciones.find((u) =>
+      u.nombre === data.ubicacionActualNombre || u.nombre === legacyUbicaciones[0]
+    );
 
   return {
     id: docSnap.id || data.id,
     nombre: data.nombre || "",
     clienteId: data.clienteId || _clienteId,
-    ubicacionActualId: ubicacionMatch?.id || data.ubicacionActualId || "",
+    ubicacionActualId: ubicacionMatch?.id || "",
     ubicacionActualNombre: ubicacionMatch?.nombre || data.ubicacionActualNombre || legacyUbicaciones[0] || "",
     historialUbicaciones: Array.isArray(data.historialUbicaciones) ? data.historialUbicaciones : []
   };

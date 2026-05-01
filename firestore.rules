@@ -124,14 +124,17 @@ service cloud.firestore {
     }
 
     // ── Repuestos ─────────────────────────────────────────────────────────────
-    // Lectura: supervisor, admin, superadmin del cliente.
-    // Escritura: supervisor, admin, superadmin.
-    // Los técnicos y usuarios NO tienen acceso directo.
+    // Lectura: técnico, supervisor, admin, superadmin del cliente.
+    //   - Los técnicos necesitan ver el catálogo para seleccionar repuestos
+    //     al cerrar una OT (lo que dispara una solicitudPanol). Sin lectura
+    //     no pueden poblar el dropdown del modal de edición.
+    // Escritura: supervisor, admin, superadmin (el stock se modifica vía
+    //   solicitudes aprobadas, no directamente por el técnico).
 
     match /repuestos/{doc} {
       allow read: if request.auth != null
                    && hasAccessToCliente(resource.data.clienteId)
-                   && userRole() in ["supervisor", "admin", "superadmin"];
+                   && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
       allow create: if request.auth != null
                      && hasAccessToCliente(request.resource.data.clienteId)
                      && userRole() in ["supervisor", "admin", "superadmin"];
