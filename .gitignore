@@ -12,6 +12,7 @@ firebase-debug.*.log*
 
 # Datos del emulador local (no subir al repo)
 emulator-data/
+firebase-export-*/
 
 # Exports de Auth (contienen hashes de password / PII)
 users.json

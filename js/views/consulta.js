@@ -485,6 +485,7 @@ async function guardarEdicion() {
   if (nuevoEstado === "Cerrado" && _panolActivo) {
     const pendSnap = await getDocs(query(
       collection(db, "solicitudesPanol"),
+      where("clienteId", "==", _clienteId),
       where("ordenId", "==", currentOrderId),
       where("estado", "==", "pendiente")
     ));

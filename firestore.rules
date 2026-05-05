@@ -175,12 +175,14 @@ service cloud.firestore {
 
     // ── Solicitudes de pañol ──────────────────────────────────────────────────
     // Creación: técnico, supervisor, admin, superadmin (al registrar consumo en OT).
-    // Lectura y aprobación: supervisor, admin, superadmin.
+    // Lectura: técnico también, para poder verificar al cerrar una OT que no
+    // queden solicitudes pendientes de aprobación de sus repuestos.
+    // Aprobación (update): supervisor, admin, superadmin.
 
     match /solicitudesPanol/{doc} {
       allow read: if request.auth != null
                    && hasAccessToCliente(resource.data.clienteId)
-                   && userRole() in ["supervisor", "admin", "superadmin"];
+                   && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
       allow create: if request.auth != null
                      && hasAccessToCliente(request.resource.data.clienteId)
                      && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
