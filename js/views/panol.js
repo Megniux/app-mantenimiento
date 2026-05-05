@@ -622,7 +622,12 @@ export async function registrarMovimiento({ repuestoId, repuestoNombre, tipo, ca
 }
 
 export async function registrarEgresoDesdeOrden({ clienteId, repuestoId, cantidad, ordenId, ordenNumero, solicitante }) {
-  // Función llamada desde consulta.js al cerrar una OT
+  // Función llamada desde consulta.js al cerrar una OT.
+  // Todos los roles (técnico incluido) respetan el flag requiereAprobacion
+  // del repuesto: si está prendido se crea una solicitudPanol que el
+  // supervisor aprueba; si está apagado se descuenta directo del stock.
+  // Las reglas de Firestore permiten al técnico escribir sobre stockActual
+  // y crear movimientosRepuestos para sostener este flujo.
   const repSnap = await getDoc(doc(db, "repuestos", repuestoId));
   if (!repSnap.exists()) throw new Error("Repuesto no encontrado.");
 

@@ -291,7 +291,8 @@ async function cargar() {
       };
 
       addOption("Ver detalles", () => verDetalles(id));
-      if (userRole !== "usuario" && userRole !== "supervisor") {
+      if (userRole !== "usuario") {
+        // Cerrado solo lo pueden reabrir/editar admin y superadmin.
         if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
           addOption("Editar", () => abrirModal(id));
         }
@@ -859,6 +860,8 @@ async function procesarRepuestosOrden(ordenId, ordenNumero) {
   const mensajes = [];
   const registrados = [];
 
+  const errores = [];
+
   for (const item of _repuestosEnOrden) {
     if (!item.repuestoId || !item.cantidad) continue;
     try {
@@ -884,11 +887,24 @@ async function procesarRepuestosOrden(ordenId, ordenNumero) {
       }
     } catch (err) {
       console.warn(`Error al registrar repuesto ${item.repuestoId}:`, err.message);
+      errores.push(item.repuestoId);
     }
   }
 
-  if (mensajes.length) {
-    await showAlert(`Repuestos procesados con observaciones:\n${mensajes.join("\n")}`);
+  // Resumen al usuario: cuántos quedaron aprobados (descontados de stock) y
+  // cuántos esperando aprobación. Si todos fallaron, avisar.
+  const aprobados = registrados.filter((r) => r.estado === "aprobado").length;
+  const pendientes = registrados.filter((r) => r.estado === "pendiente_aprobacion").length;
+
+  const partes = [];
+  if (aprobados) partes.push(`${aprobados} descontado${aprobados !== 1 ? "s" : ""} de stock`);
+  if (pendientes) partes.push(`${pendientes} pendiente${pendientes !== 1 ? "s" : ""} de aprobación`);
+
+  if (partes.length) {
+    const detalle = mensajes.length ? `\n\n${mensajes.join("\n")}` : "";
+    await showAlert(`Repuestos procesados: ${partes.join(", ")}.${detalle}`);
+  } else if (errores.length) {
+    await showAlert(`No se pudieron registrar los repuestos. Probá de nuevo o avisá al supervisor.`);
   }
   return registrados;
 }

@@ -138,18 +138,30 @@ service cloud.firestore {
       allow create: if request.auth != null
                      && hasAccessToCliente(request.resource.data.clienteId)
                      && userRole() in ["supervisor", "admin", "superadmin"];
+      // Update: supervisor/admin/superadmin pueden modificar todo; el técnico
+      // solo puede tocar stockActual (descuento al cerrar una OT cuando el
+      // repuesto no requiere aprobación). Cualquier otro campo queda fuera de
+      // su alcance vía hasOnly().
       allow update: if request.auth != null
                      && hasAccessToCliente(resource.data.clienteId)
-                     && userRole() in ["supervisor", "admin", "superadmin"];
+                     && (
+                       userRole() in ["supervisor", "admin", "superadmin"]
+                       || (
+                         userRole() == "tecnico"
+                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stockActual"])
+                       )
+                     );
       allow delete: if request.auth != null
                      && hasAccessToCliente(resource.data.clienteId)
                      && userRole() in ["admin", "superadmin"];
     }
 
     // ── Movimientos de repuestos ──────────────────────────────────────────────
-    // Los movimientos son de solo lectura para todos (excepto sistema).
-    // Escritura: supervisor, admin, superadmin.
-    // Los técnicos no crean movimientos directamente; lo hacen a través de solicitudes.
+    // Lectura: supervisor/admin/superadmin (los técnicos no ven el historial).
+    // Creación: cualquier rol con acceso al cliente que escriba dentro de
+    // una transacción de descuento de stock (incluye técnico para cerrar
+    // OTs cuando el repuesto no requiere aprobación).
+    // Update/delete: bloqueados — los movimientos son inmutables.
 
     match /movimientosRepuestos/{doc} {
       allow read: if request.auth != null
@@ -157,8 +169,8 @@ service cloud.firestore {
                    && userRole() in ["supervisor", "admin", "superadmin"];
       allow create: if request.auth != null
                      && hasAccessToCliente(request.resource.data.clienteId)
-                     && userRole() in ["supervisor", "admin", "superadmin"];
-      allow update, delete: if false; // Los movimientos son inmutables
+                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow update, delete: if false;
     }
 
     // ── Solicitudes de pañol ──────────────────────────────────────────────────
