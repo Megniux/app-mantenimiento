@@ -617,6 +617,7 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
   const CAMPOS_NUMERICOS = ["contadorOMC", "contadorOMP", "tiempoEstimado", "tiempoReal",
     "tiempoTotalEspera", "stockActual", "stockMinimo", "stockMaximo", "precioReferencia"];
   const CAMPOS_NULOS_SI_VACIO = ["tiempoEstimado", "tiempoReal", "stockMaximo", "precioReferencia"];
+  const CAMPOS_BOOLEAN = ["requiereAprobacion"];
   const CAMPOS_ARRAY_CON_FECHA = ["historial", "historialUbicaciones"];
 
   // Pre-generar refs ANTES de transformar para construir oldId → newId.
@@ -643,6 +644,9 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       }
       if (val === "" && CAMPOS_NULOS_SI_VACIO.includes(key)) {
         row[key] = null;
+      }
+      if (CAMPOS_BOOLEAN.includes(key) && typeof val === "string") {
+        row[key] = val.toLowerCase() === "true";
       }
     }
 

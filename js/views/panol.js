@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
+import { actualizarBadgePanol } from "../router.js";
 
 let _clienteId = "";
 let _role = "";
@@ -572,6 +573,7 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
     await verificarSolicitudesPendientes();
     await abrirModalSolicitudes();
     await cargarRepuestos();
+    await actualizarBadgePanol();
   } catch (err) {
     console.error(err);
     await showAlert(`Error: ${err.message}`);

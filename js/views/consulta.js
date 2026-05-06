@@ -1,7 +1,7 @@
 import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, runTransaction, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
-import { isModuloPanolActivo } from "../router.js";
+import { isModuloPanolActivo, actualizarBadgePanol } from "../router.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let userRole = null;
@@ -277,6 +277,10 @@ async function cargar() {
 
       const id = trigger.dataset.id;
       const orden = todasOrdenes.find((o) => o.id === id);
+      // Guarda contra carreras: si la lista todavía no tiene la orden (por
+      // ejemplo, click durante un re-render), abortamos en silencio en lugar
+      // de tirar TypeError al leer orden.estado.
+      if (!orden) return;
 
       const menu = document.createElement("div");
       menu.id = "floatingDropdown";
@@ -577,6 +581,11 @@ async function guardarEdicion() {
     toggleModal("modalEditar", false);
     await cargarTodasOrdenes();
     await cargar();
+    // Si se procesaron repuestos, alguno pudo haber generado una solicitud
+    // pendiente — refrescar el badge del sidebar para que no quede stale.
+    if (nuevosRepuestos.length) {
+      await actualizarBadgePanol();
+    }
   } catch (error) {
     console.error(error);
     await showAlert(`Error al guardar cambios: ${error.message}`);

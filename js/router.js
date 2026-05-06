@@ -138,7 +138,7 @@ function renderSidebar(activeRoute) {
   }
 }
 
-async function actualizarBadgePanol() {
+export async function actualizarBadgePanol() {
   try {
     const snap = await getDocs(query(
       collection(db, "solicitudesPanol"),
