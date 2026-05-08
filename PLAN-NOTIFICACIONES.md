@@ -81,22 +81,51 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
 ## Estado actual
 
+### Fase 1 — Push (✅ TERMINADA y FUNCIONANDO)
 - [x] Worktree y rama creados.
-- [x] Plan documentado.
-- [x] Fase 1.1 — Setup PWA básico (manifest, SW, links en index.html).
-- [x] Fase 1.3 — Cliente FCM (`js/notifications/push.js`) y hook en `auth.js`.
-- [x] Fase 1.5 — Cloud Function `onOrdenCreated` lista (sin deployar).
-- [x] Reglas Firestore para subcolección `fcmTokens`.
-- [ ] **BLOQUEADO**: VAPID key para que el cliente pueda obtener tokens FCM reales.
-- [ ] Deploy de Cloud Functions (requiere plan Blaze).
-- [ ] Pruebas end-to-end en celular real.
-- [ ] UI explícita "Activar notificaciones" (botón en perfil/sidebar).
-- [ ] Fase 2 — Email.
+- [x] Setup PWA: manifest, service worker FCM, meta tags en index.html.
+- [x] Cliente FCM (`js/notifications/push.js`) con dedup de registros concurrentes y espera del SW activo.
+- [x] Hook en `auth.js` (login + watchAuth + logout).
+- [x] VAPID key configurada.
+- [x] Cloud Function `onOrdenCreated` deployada y andando.
+- [x] Reglas Firestore para `users/{uid}/fcmTokens/*` deployadas.
+- [x] Convivencia con stock: funciones (`syncUserClaims`, `backfillUserClaims`) y reglas (`repuestos`, `movimientosRepuestos`, `solicitudesPanol`) fusionadas en este archivo para no borrarlas en deploy.
+- [x] Configs de Firebase traídas de stock (`firebase.json`, `.firebaserc`, `firestore.indexes.json`, `.gitignore`).
+- [x] Banner "Activar notificaciones" para destrabar permiso en celu (iOS PWA + Android Chrome con sesión persistida).
+- [x] Payload data-only para evitar duplicado en Android.
+- [x] `skipWaiting` + `clients.claim` en SW para que actualizaciones futuras se apliquen sin reinstalar PWA.
+- [x] **Probado end-to-end**: push llega correctamente al celu con título y cuerpo.
+
+### Pendiente
+
+#### Pulido cosmético (rápido, baja prioridad)
+- [ ] Sacar `console.log('[push] ...')` de diagnóstico (o dejarlos opt-in con un flag).
+- [ ] Cambiar `<meta name="apple-mobile-web-app-capable">` por el moderno `<meta name="mobile-web-app-capable">` para sacar el warning de DevTools.
+- [ ] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512.
+
+#### Fase 2 — Email (próxima sesión)
+- [ ] Decidir proveedor de envío (SendGrid / Mailgun / Brevo / Resend / SMTP propio).
+- [ ] Configurar credenciales en Cloud Functions secrets.
+- [ ] Template HTML con todos los campos del modal "detalles" de la orden.
+- [ ] Cloud Function `onOrdenCreatedEmail` → envía mail al solicitante.
+- [ ] Cloud Function `onOrdenUpdatedEmail` → envía mail al solicitante en cambios de estado o edición.
+
+#### Edge case conocido (no urgente)
+- [ ] Token huérfano: si user A cierra el navegador sin logout y user B se loguea después, el token de A queda en `users/A/fcmTokens` aunque ese dispositivo ya no le corresponda. Solución posible: al registrar un token nuevo, una Cloud Function limpia ese mismo token de cualquier otro `users/*/fcmTokens`.
+
+#### Cierre de la rama
+- [ ] Decidir si mergear Notificaciones a `main` ahora (con solo push) o esperar a tener email también.
+- [ ] Cuando se mergee: PR + revisar diff + merge a main + deploy de hosting desde main.
 
 ## Próximo paso
 
-⚠️ Acción de Maxi: generar VAPID key + habilitar Blaze + deployar.
-Luego Claude: agregar UI con botón "Activar notificaciones" para forzar el prompt en navegadores donde el permiso está en "default".
+Pulido cosmético de la fase 1 + arrancar **Fase 2 (email)**. Antes de empezar email, decidir el proveedor:
+- **SendGrid**: clásico, plan gratis 100 mails/día. Requiere verificar dominio.
+- **Brevo (ex Sendinblue)**: 300 mails/día gratis. Más simple de setup.
+- **Resend**: el más nuevo y prolijo para developers. 3000/mes gratis. Requiere dominio.
+- **SMTP de Gmail**: gratis pero limitado y poco recomendado para producción.
+
+Mi recomendación: **Brevo** o **Resend** para arrancar.
 
 ## Cómo retomar después de un parate
 
