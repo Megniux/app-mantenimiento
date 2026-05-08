@@ -69,12 +69,23 @@ export function pushPermissionState() {
 }
 
 // Llamado desde auth.js después de un login exitoso.
-// Si el permiso ya está otorgado, registra el token silenciosamente.
-// Si está en "default", no pide permiso para no asustar al usuario en cada login —
-// la solicitud se hace explícitamente con requestPushPermission() (ej. desde un botón).
+// - Si el permiso ya está concedido → registra el token en silencio.
+// - Si está en "default" → muestra el prompt nativo del navegador. Al ser
+//   disparado durante un login (acción del usuario), iOS Safari/Chrome lo
+//   permiten siempre que la PWA esté instalada en pantalla de inicio.
+// - Si está en "denied" → no insiste; el usuario tiene que reactivar
+//   manualmente desde la config del navegador.
 export async function registerPushForUser(uid) {
   if (!uid || !pushSupported()) return null;
-  if (Notification.permission !== "granted") return null;
+  if (Notification.permission === "denied") return null;
+  if (Notification.permission === "default") {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return null;
+    } catch (_) {
+      return null;
+    }
+  }
   return await getAndSaveToken(uid);
 }
 
