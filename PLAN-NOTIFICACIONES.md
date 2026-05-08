@@ -131,8 +131,9 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 - [ ] Cambiar `<meta name="apple-mobile-web-app-capable">` por el moderno `<meta name="mobile-web-app-capable">` para sacar el warning de DevTools.
 - [ ] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512.
 
-#### Edge case conocido (no urgente)
-- [ ] Token huérfano: si user A cierra el navegador sin logout y user B se loguea después, el token de A queda en `users/A/fcmTokens` aunque ese dispositivo ya no le corresponda. Solución posible: al registrar un token nuevo, una Cloud Function limpia ese mismo token de cualquier otro `users/*/fcmTokens`.
+#### Edge case token huérfano (✅ CÓDIGO LISTO, pendiente deploy)
+- [x] Cloud Function `cleanupOrphanFcmTokens`: trigger en `users/{uid}/fcmTokens/{tokenId}` que cuando se crea un token, lo borra de cualquier otro `users/*/fcmTokens/{tokenId}`. Estrategia simple: delete directo a la ruta (noop si no existe), sin índice especial.
+- [ ] **Acción Maxi**: deploy con `firebase deploy --only functions:cleanupOrphanFcmTokens`.
 
 #### Cierre de la rama
 - [ ] Decidir si mergear Notificaciones a `main` ahora (con solo push) o esperar a tener email también.

@@ -12,6 +12,9 @@
 //                           solicitante cuando se crea su orden.
 //   - onOrdenUpdatedEmail   (rama Notificaciones): trigger que envía email al
 //                           solicitante cuando hay cambios relevantes en su orden.
+//   - cleanupOrphanFcmTokens (rama Notificaciones): al registrarse un token FCM
+//                           en un user, borra ese mismo token de cualquier otro
+//                           user (token huérfano por cambio de cuenta sin logout).
 //
 // IMPORTANTE: este archivo unifica deliberadamente funciones de varias ramas
 // porque `firebase deploy --only functions` borra del proyecto las funciones que
@@ -603,5 +606,41 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
       html
     });
     logger.info(`Orden ${ordenId}: email update a ${destinatario.email} (${cambios.length} cambios) → ${result.ok ? "OK" : "FAIL " + result.reason}`);
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// cleanupOrphanFcmTokens (Notificaciones)
+// Cuando un user registra un token FCM, borra ese mismo token de cualquier otro
+// user que lo tuviera. Cierra el caso del dispositivo compartido: si A no hace
+// logout y B se loguea en el mismo navegador, el token queda en users/A/fcmTokens
+// y A recibiría push que ya no le corresponden.
+//
+// Estrategia: como el ID del doc es el propio token, intentamos un delete()
+// directo en users/<otroUid>/fcmTokens/<tokenId> para cada otro user. Es noop
+// si el doc no existe, así que no necesitamos query previa ni índice especial.
+// ════════════════════════════════════════════════════════════════════════════
+
+export const cleanupOrphanFcmTokens = onDocumentCreated(
+  { document: "users/{uid}/fcmTokens/{tokenId}", region: REGION },
+  async (event) => {
+    const { uid, tokenId } = event.params;
+    if (!uid || !tokenId) return;
+
+    const db = getFirestore();
+    const usersSnap = await db.collection("users").get();
+    const otrosUids = usersSnap.docs.map((d) => d.id).filter((id) => id !== uid);
+    if (!otrosUids.length) return;
+
+    const results = await Promise.allSettled(
+      otrosUids.map((otroUid) => db.doc(`users/${otroUid}/fcmTokens/${tokenId}`).delete())
+    );
+    const fallidos = results.filter((r) => r.status === "rejected");
+    if (fallidos.length) {
+      logger.warn(`cleanupOrphanFcmTokens: ${fallidos.length}/${otrosUids.length} deletes fallaron`);
+    }
+    logger.info(
+      `cleanupOrphanFcmTokens: token ${tokenId.slice(0, 20)}... reclamado por ${uid}, chequeados ${otrosUids.length} otros users`
+    );
   }
 );
