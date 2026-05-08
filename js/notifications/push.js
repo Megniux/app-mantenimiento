@@ -45,16 +45,17 @@ async function ensureMessaging() {
 }
 
 function handleForegroundMessage(payload) {
-  const notif = payload.notification || {};
-  if (!notif.title) return;
+  // El payload viene data-only desde la Cloud Function (ver functions/index.js).
+  const data = payload.data || {};
+  if (!data.title) return;
   if (Notification.permission !== "granted") return;
   // Cuando la app está abierta en foreground, mostramos una Notification simple.
   // El SW solo se activa cuando la app está en background/cerrada.
   try {
-    new Notification(notif.title, {
-      body: notif.body || "",
+    new Notification(data.title, {
+      body: data.body || "",
       icon: "logo.jpg",
-      tag: payload.data?.ordenId || undefined
+      tag: data.ordenId || undefined
     });
   } catch (_) { /* algunos navegadores móviles solo permiten via SW */ }
 }

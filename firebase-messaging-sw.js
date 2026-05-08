@@ -18,10 +18,12 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notif = payload.notification || {};
+  // Payload data-only desde la Cloud Function: el título y el cuerpo vienen como
+  // strings dentro de payload.data. Esto evita la doble notificación que ocurre
+  // cuando FCM auto-muestra el bloque "notification" Y además el SW dispara una.
   const data = payload.data || {};
-  const title = notif.title || "Mantenimiento";
-  const body = notif.body || "";
+  const title = data.title || "Mantenimiento";
+  const body = data.body || "";
 
   self.registration.showNotification(title, {
     body,

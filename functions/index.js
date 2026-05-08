@@ -212,10 +212,15 @@ export const onOrdenCreated = onDocumentCreated(
 
     const tokens = tokenEntries.map((t) => t.token);
 
+    // Payload SOLO data: si incluyéramos `notification`, FCM auto-mostraría el push
+    // en la bandeja del SO Y además nuestro Service Worker mostraría otro mediante
+    // onBackgroundMessage → notificación duplicada en Android. Mandando solo data
+    // queda en manos del SW renderizar una única notificación.
     const response = await messaging.sendEachForMulticast({
       tokens,
-      notification: { title: titulo, body: cuerpo },
       data: {
+        title: titulo,
+        body: cuerpo,
         ordenId,
         numeroOrden: String(orden.numeroOrden || ""),
         equipo: String(orden.equipo || ""),
@@ -224,13 +229,6 @@ export const onOrdenCreated = onDocumentCreated(
         prioridad: String(orden.prioridad || ""),
         solicitante: String(orden.solicitante || ""),
         tipo: "orden_creada"
-      },
-      webpush: {
-        fcmOptions: {
-          // Cuando el usuario clickea la notificación abre la app en la raíz.
-          // El SW se encarga de redirigir a la orden específica si está corriendo.
-          link: "/"
-        }
       }
     });
 
