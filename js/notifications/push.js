@@ -132,6 +132,64 @@ export async function requestPushPermission(uid) {
   return token ? { ok: true, token } : { ok: false, reason: "token_failed" };
 }
 
+// Banner #pushPrompt: se muestra cuando el usuario está logueado y el permiso
+// está en "default". Esto es la única forma confiable de pedir permisos en iOS PWA
+// y en Chrome Android cuando la sesión ya estaba persistida (no hay user gesture
+// en el page-load).
+let _pushUIWired = false;
+
+export function refreshPushPrompt() {
+  const banner = document.getElementById("pushPrompt");
+  const btn = document.getElementById("activarPushBtn");
+  if (!banner || !btn) return;
+
+  if (!pushSupported()) { banner.classList.add("is-hidden"); return; }
+  const uid = sessionStorage.getItem("userUid");
+  if (!uid) { banner.classList.add("is-hidden"); return; }
+
+  // Solo mostramos en estado "default". Si el usuario ya dio permiso o lo
+  // denegó explícitamente, no insistimos con el banner.
+  if (Notification.permission === "default" && !sessionStorage.getItem("pushPromptDismissed")) {
+    banner.classList.remove("is-hidden");
+  } else {
+    banner.classList.add("is-hidden");
+  }
+
+  if (_pushUIWired) return;
+  _pushUIWired = true;
+
+  btn.addEventListener("click", async () => {
+    const currentUid = sessionStorage.getItem("userUid");
+    if (!currentUid) return;
+    btn.disabled = true;
+    btn.textContent = "Activando...";
+    try {
+      const result = await requestPushPermission(currentUid);
+      if (result.ok) {
+        banner.classList.add("is-hidden");
+      } else if (result.reason === "denied") {
+        btn.textContent = "Bloqueado por el navegador";
+      } else {
+        btn.textContent = "No se pudo activar";
+      }
+    } finally {
+      // Reset visual del botón en caso de error transitorio.
+      setTimeout(() => {
+        btn.disabled = false;
+        if (!banner.classList.contains("is-hidden")) btn.textContent = "Activar";
+      }, 2000);
+    }
+  });
+
+  const closeBtn = document.getElementById("cerrarPushPromptBtn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      sessionStorage.setItem("pushPromptDismissed", "1");
+      banner.classList.add("is-hidden");
+    });
+  }
+}
+
 async function getAndSaveToken(uid) {
   const messaging = await ensureMessaging();
   if (!messaging) {
