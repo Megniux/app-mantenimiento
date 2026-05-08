@@ -113,6 +113,15 @@ service cloud.firestore {
                                 (belongsToCliente(resource.data.clienteId)
                                  && userRole() in ["admin", "superadmin"])
                               );
+
+      // ── FCM Tokens ────────────────────────────────────────────────────────
+      // Cada usuario puede gestionar (leer/crear/borrar) únicamente sus propios
+      // tokens. La Cloud Function que envía notificaciones usa el Admin SDK y
+      // bypasea estas reglas.
+      match /fcmTokens/{tokenId} {
+        allow read, write, delete: if request.auth != null
+                                    && request.auth.uid == uid;
+      }
     }
   }
 }

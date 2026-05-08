@@ -83,11 +83,20 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
 - [x] Worktree y rama creados.
 - [x] Plan documentado.
-- [ ] Fase 1.1 — Setup PWA básico (PRÓXIMO).
+- [x] Fase 1.1 — Setup PWA básico (manifest, SW, links en index.html).
+- [x] Fase 1.3 — Cliente FCM (`js/notifications/push.js`) y hook en `auth.js`.
+- [x] Fase 1.5 — Cloud Function `onOrdenCreated` lista (sin deployar).
+- [x] Reglas Firestore para subcolección `fcmTokens`.
+- [ ] **BLOQUEADO**: VAPID key para que el cliente pueda obtener tokens FCM reales.
+- [ ] Deploy de Cloud Functions (requiere plan Blaze).
+- [ ] Pruebas end-to-end en celular real.
+- [ ] UI explícita "Activar notificaciones" (botón en perfil/sidebar).
+- [ ] Fase 2 — Email.
 
 ## Próximo paso
 
-Crear `manifest.webmanifest` + `firebase-messaging-sw.js` (esqueleto) + agregar links en `index.html`. Esto NO requiere claves de Firebase aún, solo deja la PWA instalable.
+⚠️ Acción de Maxi: generar VAPID key + habilitar Blaze + deployar.
+Luego Claude: agregar UI con botón "Activar notificaciones" para forzar el prompt en navegadores donde el permiso está en "default".
 
 ## Cómo retomar después de un parate
 
