@@ -76,16 +76,32 @@ export function pushPermissionState() {
 // - Si está en "denied" → no insiste; el usuario tiene que reactivar
 //   manualmente desde la config del navegador.
 export async function registerPushForUser(uid) {
-  if (!uid || !pushSupported()) return null;
-  if (Notification.permission === "denied") return null;
+  console.log("[push] registerPushForUser invocado", { uid });
+  if (!uid) {
+    console.log("[push] sin uid, abortando");
+    return null;
+  }
+  if (!pushSupported()) {
+    console.log("[push] navegador no soporta push (Notification/SW)");
+    return null;
+  }
+  console.log("[push] estado inicial del permiso:", Notification.permission);
+  if (Notification.permission === "denied") {
+    console.log("[push] permiso denegado por el usuario, no se insiste");
+    return null;
+  }
   if (Notification.permission === "default") {
     try {
+      console.log("[push] pidiendo permiso de notificaciones...");
       const permission = await Notification.requestPermission();
+      console.log("[push] respuesta del prompt:", permission);
       if (permission !== "granted") return null;
-    } catch (_) {
+    } catch (err) {
+      console.warn("[push] requestPermission tiró error:", err);
       return null;
     }
   }
+  console.log("[push] permiso concedido, registrando token...");
   return await getAndSaveToken(uid);
 }
 
@@ -105,23 +121,33 @@ export async function requestPushPermission(uid) {
 
 async function getAndSaveToken(uid) {
   const messaging = await ensureMessaging();
-  if (!messaging) return null;
+  if (!messaging) {
+    console.warn("[push] messaging no disponible (isSupported devolvió false)");
+    return null;
+  }
   if (VAPID_KEY === "REEMPLAZAR_CON_VAPID_KEY") {
-    console.warn("FCM: VAPID_KEY no configurada en js/notifications/push.js");
+    console.warn("[push] VAPID_KEY no configurada en js/notifications/push.js");
     return null;
   }
   try {
+    console.log("[push] registrando service worker...");
     const swReg = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+    console.log("[push] SW registrado, pidiendo token a FCM...");
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg
     });
-    if (!token) return null;
+    if (!token) {
+      console.warn("[push] FCM devolvió token vacío");
+      return null;
+    }
     _currentToken = token;
+    console.log("[push] token obtenido, guardando en Firestore...", token.slice(0, 20) + "...");
     await persistToken(uid, token);
+    console.log("[push] token persistido en users/" + uid + "/fcmTokens/" + token.slice(0, 20) + "...");
     return token;
   } catch (err) {
-    console.warn("FCM no se pudo registrar:", err);
+    console.warn("[push] error registrando token FCM:", err);
     return null;
   }
 }
