@@ -3,13 +3,35 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+    //
+    // El rol y el clienteId del usuario se leen primero desde los custom claims
+    // del JWT (gratis: vienen en el token). Si los claims aún no están seteados
+    // (usuario antiguo, antes de que la Cloud Function 'syncUserClaims' los
+    // sincronice por primera vez), se cae al patrón antiguo de leer
+    // users/{uid}. Esto permite migrar sin lockout.
+
+    function tokenRol() {
+      return 'rol' in request.auth.token ? request.auth.token.rol : '';
+    }
+
+    function tokenClienteId() {
+      return 'clienteId' in request.auth.token ? request.auth.token.clienteId : '';
+    }
 
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function userRole() {
-      return getUserData().rol;
+      return tokenRol() != ''
+        ? tokenRol()
+        : getUserData().rol;
+    }
+
+    function userClienteId() {
+      return 'clienteId' in request.auth.token
+        ? tokenClienteId()
+        : getUserData().clienteId;
     }
 
     function isSuperadmin() {
@@ -17,7 +39,7 @@ service cloud.firestore {
     }
 
     function belongsToCliente(clienteId) {
-      return getUserData().clienteId == clienteId;
+      return userClienteId() == clienteId;
     }
 
     function hasAccessToCliente(clienteId) {
@@ -25,15 +47,11 @@ service cloud.firestore {
     }
 
     function isAtLeast(rol) {
-      // Jerarquía: usuario < tecnico < supervisor < admin < superadmin
       let roles = ["usuario", "tecnico", "supervisor", "admin", "superadmin"];
       return userRole() in roles[roles.indexOf(rol):];
     }
 
     // ── Clientes ─────────────────────────────────────────────────────────────
-    // Solo superadmin puede crear/eliminar clientes.
-    // Cualquier usuario del cliente puede leer y actualizar sus propios datos
-    // (necesario para leer/incrementar contadores de órdenes).
 
     match /clientes/{clienteId} {
       allow read, update: if request.auth != null
@@ -42,9 +60,6 @@ service cloud.firestore {
     }
 
     // ── Órdenes ──────────────────────────────────────────────────────────────
-    // Lectura: cualquier usuario autenticado del cliente.
-    // Creación: cualquier usuario autenticado del cliente (usuarios crean solicitudes).
-    // Edición / eliminación: técnico, supervisor, admin o superadmin.
 
     match /ordenes/{doc} {
       allow read: if request.auth != null
@@ -60,9 +75,6 @@ service cloud.firestore {
     }
 
     // ── Equipos ──────────────────────────────────────────────────────────────
-    // Lectura: cualquier usuario autenticado del cliente
-    //          (necesario para poblar selectores en solicitud y consulta).
-    // Escritura: supervisor, admin o superadmin.
 
     match /equipos/{doc} {
       allow read: if request.auth != null
@@ -76,7 +88,6 @@ service cloud.firestore {
     }
 
     // ── Ubicaciones ──────────────────────────────────────────────────────────
-    // Misma lógica que equipos.
 
     match /ubicaciones/{doc} {
       allow read: if request.auth != null
@@ -90,9 +101,6 @@ service cloud.firestore {
     }
 
     // ── Usuarios ─────────────────────────────────────────────────────────────
-    // Lectura: el propio usuario, cualquier usuario del mismo cliente, o superadmin.
-    // Creación: admin del cliente o superadmin (via secondary Auth instance).
-    // Edición / eliminación: admin del cliente o superadmin.
 
     match /users/{uid} {
       allow read: if request.auth != null
@@ -114,7 +122,7 @@ service cloud.firestore {
                                  && userRole() in ["admin", "superadmin"])
                               );
 
-      // ── FCM Tokens ────────────────────────────────────────────────────────
+      // ── FCM Tokens (Notificaciones) ──────────────────────────────────────
       // Cada usuario puede gestionar (leer/crear/borrar) únicamente sus propios
       // tokens. La Cloud Function que envía notificaciones usa el Admin SDK y
       // bypasea estas reglas.
@@ -122,6 +130,75 @@ service cloud.firestore {
         allow read, write, delete: if request.auth != null
                                     && request.auth.uid == uid;
       }
+    }
+
+    // ── Repuestos ─────────────────────────────────────────────────────────────
+    // Lectura: técnico, supervisor, admin, superadmin del cliente.
+    //   - Los técnicos necesitan ver el catálogo para seleccionar repuestos
+    //     al cerrar una OT (lo que dispara una solicitudPanol). Sin lectura
+    //     no pueden poblar el dropdown del modal de edición.
+    // Escritura: supervisor, admin, superadmin (el stock se modifica vía
+    //   solicitudes aprobadas, no directamente por el técnico).
+
+    match /repuestos/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId)
+                   && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      // Update: supervisor/admin/superadmin pueden modificar todo; el técnico
+      // solo puede tocar stockActual (descuento al cerrar una OT cuando el
+      // repuesto no requiere aprobación). Cualquier otro campo queda fuera de
+      // su alcance vía hasOnly().
+      allow update: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && (
+                       userRole() in ["supervisor", "admin", "superadmin"]
+                       || (
+                         userRole() == "tecnico"
+                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stockActual"])
+                       )
+                     );
+      allow delete: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["admin", "superadmin"];
+    }
+
+    // ── Movimientos de repuestos ──────────────────────────────────────────────
+    // Lectura: supervisor/admin/superadmin (los técnicos no ven el historial).
+    // Creación: cualquier rol con acceso al cliente que escriba dentro de
+    // una transacción de descuento de stock (incluye técnico para cerrar
+    // OTs cuando el repuesto no requiere aprobación).
+    // Update/delete: bloqueados — los movimientos son inmutables.
+
+    match /movimientosRepuestos/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId)
+                   && userRole() in ["supervisor", "admin", "superadmin"];
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow update, delete: if false;
+    }
+
+    // ── Solicitudes de pañol ──────────────────────────────────────────────────
+    // Creación: técnico, supervisor, admin, superadmin (al registrar consumo en OT).
+    // Lectura: técnico también, para poder verificar al cerrar una OT que no
+    // queden solicitudes pendientes de aprobación de sus repuestos.
+    // Aprobación (update): supervisor, admin, superadmin.
+
+    match /solicitudesPanol/{doc} {
+      allow read: if request.auth != null
+                   && hasAccessToCliente(resource.data.clienteId)
+                   && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow create: if request.auth != null
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+      allow update: if request.auth != null
+                     && hasAccessToCliente(resource.data.clienteId)
+                     && userRole() in ["supervisor", "admin", "superadmin"];
+      allow delete: if false;
     }
   }
 }
