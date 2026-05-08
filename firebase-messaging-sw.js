@@ -37,8 +37,8 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(title, {
     body,
-    icon: "logo.jpg",
-    badge: "logo.jpg",
+    icon: "icon-192.png",
+    badge: "icon-192.png",
     data,
     tag: data.ordenId || undefined
   });

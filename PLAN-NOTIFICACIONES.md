@@ -129,7 +129,7 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 #### Pulido cosmético
 - [x] Sacados los `console.log('[push] ...')` de diagnóstico. Se conservan los `console.warn` de errores reales.
 - [x] Agregado `<meta name="mobile-web-app-capable">` (moderno, lo lee Chrome) sin romper iOS Safari (que sigue usando `apple-mobile-web-app-capable`).
-- [ ] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512. **Acción Maxi**: pasarme los PNGs (o decir si arrancamos sin ellos).
+- [x] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512. Wiring en `manifest.webmanifest`, `index.html` (apple-touch + favicons), `firebase-messaging-sw.js`, `js/notifications/push.js`. El `<img class="sidebar-logo">` del menú lateral sigue usando `logo.jpg` (es UI, no PWA).
 
 #### Edge case token huérfano (✅ CÓDIGO LISTO, pendiente deploy)
 - [x] Cloud Function `cleanupOrphanFcmTokens`: trigger en `users/{uid}/fcmTokens/{tokenId}` que cuando se crea un token, lo borra de cualquier otro `users/*/fcmTokens/{tokenId}`. Estrategia simple: delete directo a la ruta (noop si no existe), sin índice especial.
