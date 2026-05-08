@@ -72,12 +72,30 @@ Documento vivo. Se actualiza al final de cada sesión. Para retomar: leer este a
 
 Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
-1. **Crear API Key VAPID en Firebase Console** → Project Settings → Cloud Messaging → Web configuration → Generate key pair.
-2. **Habilitar Cloud Messaging API** en Google Cloud Console (puede que ya esté).
+1. **Crear API Key VAPID en Firebase Console** → Project Settings → Cloud Messaging → Web configuration → Generate key pair. ✅ HECHO.
+2. **Habilitar Cloud Messaging API** en Google Cloud Console (puede que ya esté). ✅ HECHO.
 3. **Subir íconos PWA reales** (192x192 y 512x512) si no querés usar placeholders.
-4. **Aprobar primer push de prueba** desde tu propio celular.
-5. **Configurar billing en Firebase si hace falta** para Cloud Functions (plan Blaze). Cloud Messaging es gratis pero las Functions requieren Blaze.
+4. **Aprobar primer push de prueba** desde tu propio celular. ✅ HECHO.
+5. **Configurar billing en Firebase si hace falta** para Cloud Functions (plan Blaze). Cloud Messaging es gratis pero las Functions requieren Blaze. ✅ HECHO (Functions ya andan).
 6. **Push final + apertura de PR** cuando esté todo verificado.
+
+### Para Fase 2 — Email (Brevo)
+
+7. **Crear cuenta en Brevo** → https://www.brevo.com (300 mails/día gratis).
+8. **Verificar remitente** en Brevo → Settings → Senders → agregar el email "From" que vamos a usar (ej. `no-reply@tudominio.com` si tenés dominio, o tu propio gmail). Brevo te manda un mail con un link de verificación.
+9. **Generar API Key** en Brevo → Settings → API Keys → Generate new key. Guardarla.
+10. **Setear los 3 secrets en Firebase** (correr en `functions/`):
+    ```
+    firebase functions:secrets:set BREVO_API_KEY
+    firebase functions:secrets:set BREVO_FROM_EMAIL
+    firebase functions:secrets:set BREVO_FROM_NAME
+    ```
+    Cada uno te pide el valor por consola.
+11. **Deploy de las nuevas funciones**:
+    ```
+    firebase deploy --only functions:onOrdenCreatedEmail,functions:onOrdenUpdatedEmail
+    ```
+12. **Probar end-to-end**: crear una orden de prueba y editarla, verificar que llega el mail al solicitante.
 
 ## Estado actual
 
@@ -96,19 +114,22 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 - [x] `skipWaiting` + `clients.claim` en SW para que actualizaciones futuras se apliquen sin reinstalar PWA.
 - [x] **Probado end-to-end**: push llega correctamente al celu con título y cuerpo.
 
+### Fase 2 — Email (✅ CÓDIGO LISTO, pendiente deploy + test)
+- [x] Proveedor elegido: **Brevo** (300 mails/día gratis).
+- [x] Helpers en `functions/index.js`: `sendEmail`, `obtenerEmailUsuario`, `renderOrdenEmail`, `detectarCambios`.
+- [x] Secrets declarados: `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`.
+- [x] Cloud Function `onOrdenCreatedEmail` → email al solicitante con todos los campos del modal "detalles".
+- [x] Cloud Function `onOrdenUpdatedEmail` → email al solicitante con lista de cambios + detalle. Solo dispara si cambia algún campo de `CAMPOS_EMAIL_RELEVANTES` (estado, técnico, fechas, descripción, etc.) — ignora updates de historial/contadores internos.
+- [ ] **Acción Maxi**: setear los 3 secrets en Firebase (ver "Acciones que requieren al usuario" puntos 7-12).
+- [ ] **Acción Maxi**: deploy de las dos funciones nuevas.
+- [ ] **Acción Maxi**: probar end-to-end (crear orden + editar orden y verificar mails).
+
 ### Pendiente
 
 #### Pulido cosmético (rápido, baja prioridad)
 - [ ] Sacar `console.log('[push] ...')` de diagnóstico (o dejarlos opt-in con un flag).
 - [ ] Cambiar `<meta name="apple-mobile-web-app-capable">` por el moderno `<meta name="mobile-web-app-capable">` para sacar el warning de DevTools.
 - [ ] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512.
-
-#### Fase 2 — Email (próxima sesión)
-- [ ] Decidir proveedor de envío (SendGrid / Mailgun / Brevo / Resend / SMTP propio).
-- [ ] Configurar credenciales en Cloud Functions secrets.
-- [ ] Template HTML con todos los campos del modal "detalles" de la orden.
-- [ ] Cloud Function `onOrdenCreatedEmail` → envía mail al solicitante.
-- [ ] Cloud Function `onOrdenUpdatedEmail` → envía mail al solicitante en cambios de estado o edición.
 
 #### Edge case conocido (no urgente)
 - [ ] Token huérfano: si user A cierra el navegador sin logout y user B se loguea después, el token de A queda en `users/A/fcmTokens` aunque ese dispositivo ya no le corresponda. Solución posible: al registrar un token nuevo, una Cloud Function limpia ese mismo token de cualquier otro `users/*/fcmTokens`.
@@ -119,13 +140,12 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
 ## Próximo paso
 
-Pulido cosmético de la fase 1 + arrancar **Fase 2 (email)**. Antes de empezar email, decidir el proveedor:
-- **SendGrid**: clásico, plan gratis 100 mails/día. Requiere verificar dominio.
-- **Brevo (ex Sendinblue)**: 300 mails/día gratis. Más simple de setup.
-- **Resend**: el más nuevo y prolijo para developers. 3000/mes gratis. Requiere dominio.
-- **SMTP de Gmail**: gratis pero limitado y poco recomendado para producción.
+**Maxi**: configurar Brevo (puntos 7-12 de "Acciones que requieren al usuario") y probar end-to-end.
 
-Mi recomendación: **Brevo** o **Resend** para arrancar.
+Una vez que el email esté verificado en producción:
+1. Decidir si mergear `Notificaciones` a `main` ahora o seguir con pulido cosmético + edge case del token huérfano antes de mergear.
+2. Pulido cosmético (console.logs, meta tag moderno, íconos PWA reales).
+3. Cierre de rama: PR + merge a main + deploy de hosting.
 
 ## Cómo retomar después de un parate
 

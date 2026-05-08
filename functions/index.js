@@ -8,6 +8,10 @@
 //   - onOrdenCreated        (rama Notificaciones): trigger que envía push a
 //                           técnicos del cliente y superadmins cuando se crea una
 //                           orden Correctiva.
+//   - onOrdenCreatedEmail   (rama Notificaciones): trigger que envía email al
+//                           solicitante cuando se crea su orden.
+//   - onOrdenUpdatedEmail   (rama Notificaciones): trigger que envía email al
+//                           solicitante cuando hay cambios relevantes en su orden.
 //
 // IMPORTANTE: este archivo unifica deliberadamente funciones de varias ramas
 // porque `firebase deploy --only functions` borra del proyecto las funciones que
@@ -15,8 +19,13 @@
 // alguien deploye desaparece de producción. Antes de borrar algo, confirmá que
 // también se borra del archivo en TODAS las ramas que se vayan a deployar.
 
-import { onDocumentCreated, onDocumentWritten } from "firebase-functions/v2/firestore";
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentWritten
+} from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -26,6 +35,14 @@ import { logger } from "firebase-functions";
 initializeApp();
 
 const REGION = "southamerica-east1";
+
+// Secrets para envío de email vía Brevo. Se setean con:
+//   firebase functions:secrets:set BREVO_API_KEY
+//   firebase functions:secrets:set BREVO_FROM_EMAIL
+//   firebase functions:secrets:set BREVO_FROM_NAME
+const BREVO_API_KEY = defineSecret("BREVO_API_KEY");
+const BREVO_FROM_EMAIL = defineSecret("BREVO_FROM_EMAIL");
+const BREVO_FROM_NAME = defineSecret("BREVO_FROM_NAME");
 
 // ════════════════════════════════════════════════════════════════════════════
 // syncUserClaims (Gestion-stock-panol)
@@ -259,5 +276,321 @@ export const onOrdenCreated = onDocumentCreated(
       await Promise.allSettled(cleanups);
       logger.info(`Orden ${ordenId}: ${cleanups.length} tokens inválidos limpiados`);
     }
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// Helpers de email (Brevo)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Campos que disparan email cuando cambian en una update. Si solo cambian
+// campos fuera de esta lista (ej. historial, fechaInicioEspera), no enviamos.
+const CAMPOS_EMAIL_RELEVANTES = [
+  ["estado", "Estado"],
+  ["tecnicoAsignado", "Técnico asignado"],
+  ["fechaProgramada", "Fecha programada"],
+  ["fechaCierre", "Fecha cierre"],
+  ["comentarioMantenimiento", "Comentario mantenimiento"],
+  ["informeCierre", "Informe de cierre"],
+  ["prioridad", "Prioridad"],
+  ["descripcion", "Descripción"],
+  ["equipo", "Equipo"],
+  ["ubicacion", "Ubicación"],
+  ["tiempoEstimado", "Tiempo estimado (hs)"],
+  ["tiempoReal", "Tiempo real (hs)"]
+];
+
+// Mismo orden que CAMPOS_DETALLE_ORDEN del modal "detalles" en js/views/consulta.js.
+const CAMPOS_DETALLE_EMAIL = [
+  ["N° Orden", (o) => o.numeroOrden],
+  ["Tipo", (o) => o.tipo],
+  ["Estado", (o) => o.estado],
+  ["Solicitante", (o) => o.solicitante],
+  ["Ubicación", (o) => o.ubicacion],
+  ["Equipo", (o) => o.equipo],
+  ["Prioridad", (o) => o.prioridad],
+  ["Frecuencia", (o) => o.frecuencia || "-"],
+  ["Técnico asignado", (o) => o.tecnicoAsignado || "-"],
+  ["Descripción", (o) => o.descripcion || "-"],
+  ["Comentario mantenimiento", (o) => o.comentarioMantenimiento || "-"],
+  ["Informe de cierre", (o) => o.informeCierre || "-"],
+  ["Fecha creación", (o) => formatearFechaLarga(o.fechaCreacion)],
+  ["Fecha programada", (o) => formatearFechaCorta(o.fechaProgramada)],
+  ["Fecha cierre", (o) => formatearFechaLarga(o.fechaCierre)],
+  ["Tiempo estimado (hs)", (o) => o.tiempoEstimado ?? "-"],
+  ["Tiempo real (hs)", (o) => o.tiempoReal ?? "-"]
+];
+
+function toDate(v) {
+  if (!v) return null;
+  if (typeof v.toDate === "function") return v.toDate();
+  if (v instanceof Date) return v;
+  if (typeof v === "string" || typeof v === "number") {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof v === "object" && typeof v._seconds === "number") {
+    return new Date(v._seconds * 1000);
+  }
+  return null;
+}
+
+function formatearFechaLarga(v) {
+  const d = toDate(v);
+  if (!d) return "-";
+  return d.toLocaleString("es-AR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+    timeZone: "America/Argentina/Buenos_Aires"
+  });
+}
+
+function formatearFechaCorta(v) {
+  const d = toDate(v);
+  if (!d) return "-";
+  return d.toLocaleDateString("es-AR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    timeZone: "America/Argentina/Buenos_Aires"
+  });
+}
+
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function obtenerEmailUsuario(uid) {
+  if (!uid) return null;
+  try {
+    const userDoc = await getFirestore().collection("users").doc(uid).get();
+    if (userDoc.exists) {
+      const data = userDoc.data() || {};
+      if (data.email) return { email: data.email, nombre: data.nombreCompleto || data.email };
+    }
+  } catch (err) {
+    logger.warn(`No se pudo leer users/${uid}: ${err.message}`);
+  }
+  // Fallback: traer de Firebase Auth.
+  try {
+    const userRecord = await getAuth().getUser(uid);
+    if (userRecord.email) {
+      return { email: userRecord.email, nombre: userRecord.displayName || userRecord.email };
+    }
+  } catch (err) {
+    logger.warn(`No se pudo obtener Auth user ${uid}: ${err.message}`);
+  }
+  return null;
+}
+
+function renderTablaDetalle(orden) {
+  const filas = CAMPOS_DETALLE_EMAIL.map(([label, getter]) => {
+    const valor = getter(orden);
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600;color:#555;white-space:nowrap;">${escapeHtml(label)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;">${escapeHtml(valor)}</td>
+    </tr>`;
+  }).join("");
+  return `<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">${filas}</table>`;
+}
+
+function renderListaCambios(cambios) {
+  if (!cambios.length) return "";
+  const items = cambios.map(({ label, antes, despues }) => `
+    <li style="margin-bottom:6px;">
+      <strong>${escapeHtml(label)}:</strong>
+      <span style="color:#999;text-decoration:line-through;">${escapeHtml(antes ?? "-")}</span>
+      &nbsp;→&nbsp;
+      <span style="color:#222;font-weight:600;">${escapeHtml(despues ?? "-")}</span>
+    </li>`).join("");
+  return `<div style="margin:16px 0;padding:12px;background:#fff8e1;border-left:4px solid #f5b400;font-family:Arial,sans-serif;font-size:14px;">
+    <div style="font-weight:600;margin-bottom:8px;">Cambios:</div>
+    <ul style="margin:0;padding-left:20px;">${items}</ul>
+  </div>`;
+}
+
+function renderOrdenEmail(orden, ordenId, modo, cambios = []) {
+  const numero = orden.numeroOrden || ordenId;
+  const subject = modo === "creada"
+    ? `Tu orden ${numero} fue creada`
+    : `Actualización de tu orden ${numero}`;
+  const headline = modo === "creada"
+    ? "Tu orden fue creada con éxito."
+    : "Hubo cambios en tu orden.";
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;">
+  <div style="max-width:640px;margin:0 auto;padding:24px;background:#ffffff;font-family:Arial,sans-serif;color:#222;">
+    <h2 style="margin:0 0 8px 0;color:#0b6cb8;">Orden ${escapeHtml(numero)}</h2>
+    <p style="margin:0 0 16px 0;color:#555;">${escapeHtml(headline)}</p>
+    ${renderListaCambios(cambios)}
+    ${renderTablaDetalle(orden)}
+    <p style="margin-top:24px;color:#999;font-size:12px;">
+      Email automático de App Mantenimiento. No respondas a este mensaje.
+    </p>
+  </div>
+</body></html>`;
+  return { subject, html };
+}
+
+async function sendEmail({ to, toName, subject, html }) {
+  const apiKey = BREVO_API_KEY.value();
+  const fromEmail = BREVO_FROM_EMAIL.value();
+  const fromName = BREVO_FROM_NAME.value() || "App Mantenimiento";
+
+  if (!apiKey || !fromEmail) {
+    logger.error("Brevo no configurado: faltan BREVO_API_KEY o BREVO_FROM_EMAIL");
+    return { ok: false, reason: "config-missing" };
+  }
+  if (!to) {
+    logger.warn("sendEmail llamado sin destinatario");
+    return { ok: false, reason: "no-recipient" };
+  }
+
+  const body = {
+    sender: { name: fromName, email: fromEmail },
+    to: [{ email: to, name: toName || to }],
+    subject,
+    htmlContent: html
+  };
+
+  try {
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      logger.error(`Brevo respondió ${res.status}: ${text.slice(0, 500)}`);
+      return { ok: false, reason: `http-${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    logger.error(`Error enviando email vía Brevo: ${err.message}`);
+    return { ok: false, reason: "exception" };
+  }
+}
+
+function valoresEquivalentes(a, b) {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  const da = toDate(a);
+  const db = toDate(b);
+  if (da && db) return da.getTime() === db.getTime();
+  return String(a) === String(b);
+}
+
+function formatearValorParaEmail(label, valor) {
+  if (valor == null || valor === "") return "-";
+  if (label.startsWith("Fecha cierre") || label.startsWith("Estado") || label === "Comentario mantenimiento" || label === "Informe de cierre") {
+    // Para campos con fechas, usar formato largo si parece fecha.
+    const d = toDate(valor);
+    if (d) return formatearFechaLarga(d);
+  }
+  if (label === "Fecha programada") {
+    const d = toDate(valor);
+    if (d) return formatearFechaCorta(d);
+  }
+  return String(valor);
+}
+
+function detectarCambios(before, after) {
+  const cambios = [];
+  for (const [campo, label] of CAMPOS_EMAIL_RELEVANTES) {
+    if (!valoresEquivalentes(before?.[campo], after?.[campo])) {
+      cambios.push({
+        label,
+        antes: formatearValorParaEmail(label, before?.[campo]),
+        despues: formatearValorParaEmail(label, after?.[campo])
+      });
+    }
+  }
+  return cambios;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// onOrdenCreatedEmail (Notificaciones)
+// Trigger: cuando se crea una orden, envía email al solicitante con el detalle
+// completo (mismos campos que el modal "Ver detalles").
+// ════════════════════════════════════════════════════════════════════════════
+
+export const onOrdenCreatedEmail = onDocumentCreated(
+  {
+    document: "ordenes/{ordenId}",
+    region: REGION,
+    secrets: [BREVO_API_KEY, BREVO_FROM_EMAIL, BREVO_FROM_NAME]
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const orden = snap.data() || {};
+    const ordenId = event.params.ordenId;
+
+    const destinatario = await obtenerEmailUsuario(orden.solicitanteUid);
+    if (!destinatario) {
+      logger.warn(`Orden ${ordenId}: solicitante sin email (uid=${orden.solicitanteUid}), no se envía mail`);
+      return;
+    }
+
+    const { subject, html } = renderOrdenEmail(orden, ordenId, "creada");
+    const result = await sendEmail({
+      to: destinatario.email,
+      toName: destinatario.nombre,
+      subject,
+      html
+    });
+    logger.info(`Orden ${ordenId}: email creación a ${destinatario.email} → ${result.ok ? "OK" : "FAIL " + result.reason}`);
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// onOrdenUpdatedEmail (Notificaciones)
+// Trigger: cuando una orden cambia, si el cambio toca campos relevantes
+// (estado, técnico, fechas, descripción, etc.), envía email al solicitante con
+// la lista de cambios + el detalle actualizado.
+// ════════════════════════════════════════════════════════════════════════════
+
+export const onOrdenUpdatedEmail = onDocumentUpdated(
+  {
+    document: "ordenes/{ordenId}",
+    region: REGION,
+    secrets: [BREVO_API_KEY, BREVO_FROM_EMAIL, BREVO_FROM_NAME]
+  },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    const ordenId = event.params.ordenId;
+
+    const cambios = detectarCambios(before, after);
+    if (!cambios.length) {
+      // Solo cambiaron campos no relevantes (historial, contadores internos, etc.)
+      return;
+    }
+
+    const destinatario = await obtenerEmailUsuario(after.solicitanteUid);
+    if (!destinatario) {
+      logger.warn(`Orden ${ordenId}: solicitante sin email (uid=${after.solicitanteUid}), no se envía mail`);
+      return;
+    }
+
+    const { subject, html } = renderOrdenEmail(after, ordenId, "actualizada", cambios);
+    const result = await sendEmail({
+      to: destinatario.email,
+      toName: destinatario.nombre,
+      subject,
+      html
+    });
+    logger.info(`Orden ${ordenId}: email update a ${destinatario.email} (${cambios.length} cambios) → ${result.ok ? "OK" : "FAIL " + result.reason}`);
   }
 );
