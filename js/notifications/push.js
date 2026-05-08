@@ -81,37 +81,20 @@ export function pushPermissionState() {
 // - Si está en "denied" → no insiste; el usuario tiene que reactivar
 //   manualmente desde la config del navegador.
 export async function registerPushForUser(uid) {
-  if (_registerInFlight) {
-    console.log("[push] registro ya en curso, reusando promesa");
-    return _registerInFlight;
-  }
+  if (_registerInFlight) return _registerInFlight;
   _registerInFlight = (async () => {
-    console.log("[push] registerPushForUser invocado", { uid });
-    if (!uid) {
-      console.log("[push] sin uid, abortando");
-      return null;
-    }
-    if (!pushSupported()) {
-      console.log("[push] navegador no soporta push (Notification/SW)");
-      return null;
-    }
-    console.log("[push] estado inicial del permiso:", Notification.permission);
-    if (Notification.permission === "denied") {
-      console.log("[push] permiso denegado por el usuario, no se insiste");
-      return null;
-    }
+    if (!uid) return null;
+    if (!pushSupported()) return null;
+    if (Notification.permission === "denied") return null;
     if (Notification.permission === "default") {
       try {
-        console.log("[push] pidiendo permiso de notificaciones...");
         const permission = await Notification.requestPermission();
-        console.log("[push] respuesta del prompt:", permission);
         if (permission !== "granted") return null;
       } catch (err) {
         console.warn("[push] requestPermission tiró error:", err);
         return null;
       }
     }
-    console.log("[push] permiso concedido, registrando token...");
     return await getAndSaveToken(uid);
   })().finally(() => {
     _registerInFlight = null;
@@ -202,13 +185,10 @@ async function getAndSaveToken(uid) {
     return null;
   }
   try {
-    console.log("[push] registrando service worker...");
     await navigator.serviceWorker.register("firebase-messaging-sw.js");
     // serviceWorker.ready resuelve sólo cuando el SW pasó de "installing" a
     // "activated". Sin esta espera, getToken() falla con "no active Service Worker".
-    console.log("[push] esperando que el SW esté activo...");
     const swReg = await navigator.serviceWorker.ready;
-    console.log("[push] SW activo, pidiendo token a FCM...");
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg
@@ -218,9 +198,7 @@ async function getAndSaveToken(uid) {
       return null;
     }
     _currentToken = token;
-    console.log("[push] token obtenido, guardando en Firestore...", token.slice(0, 20) + "...");
     await persistToken(uid, token);
-    console.log("[push] token persistido en users/" + uid + "/fcmTokens/" + token.slice(0, 20) + "...");
     return token;
   } catch (err) {
     console.warn("[push] error registrando token FCM:", err);

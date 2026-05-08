@@ -126,10 +126,10 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
 ### Pendiente
 
-#### Pulido cosmético (rápido, baja prioridad)
-- [ ] Sacar `console.log('[push] ...')` de diagnóstico (o dejarlos opt-in con un flag).
-- [ ] Cambiar `<meta name="apple-mobile-web-app-capable">` por el moderno `<meta name="mobile-web-app-capable">` para sacar el warning de DevTools.
-- [ ] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512.
+#### Pulido cosmético
+- [x] Sacados los `console.log('[push] ...')` de diagnóstico. Se conservan los `console.warn` de errores reales.
+- [x] Agregado `<meta name="mobile-web-app-capable">` (moderno, lo lee Chrome) sin romper iOS Safari (que sigue usando `apple-mobile-web-app-capable`).
+- [ ] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512. **Acción Maxi**: pasarme los PNGs (o decir si arrancamos sin ellos).
 
 #### Edge case token huérfano (✅ CÓDIGO LISTO, pendiente deploy)
 - [x] Cloud Function `cleanupOrphanFcmTokens`: trigger en `users/{uid}/fcmTokens/{tokenId}` que cuando se crea un token, lo borra de cualquier otro `users/*/fcmTokens/{tokenId}`. Estrategia simple: delete directo a la ruta (noop si no existe), sin índice especial.
