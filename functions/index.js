@@ -536,6 +536,12 @@ export const onOrdenCreatedEmail = onDocumentCreated(
     const orden = snap.data() || {};
     const ordenId = event.params.ordenId;
 
+    // Mismo criterio que onOrdenCreated (push): solo correctivas.
+    if (orden.tipo !== "Correctivo") {
+      logger.info(`Orden ${ordenId}: tipo ${orden.tipo}, sin email de creación`);
+      return;
+    }
+
     const destinatario = await obtenerEmailUsuario(orden.solicitanteUid);
     if (!destinatario) {
       logger.warn(`Orden ${ordenId}: solicitante sin email (uid=${orden.solicitanteUid}), no se envía mail`);
@@ -571,6 +577,11 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
     const after = event.data?.after?.data();
     if (!before || !after) return;
     const ordenId = event.params.ordenId;
+
+    // Solo correctivas. Si la orden no es (o pasó a no ser) correctiva, no mandamos.
+    if (after.tipo !== "Correctivo") {
+      return;
+    }
 
     const cambios = detectarCambios(before, after);
     if (!cambios.length) {
