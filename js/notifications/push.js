@@ -19,7 +19,7 @@ import { db } from "../firebase-config.js";
 
 // ⚠️ ACCIÓN REQUERIDA: reemplazar con la VAPID key generada en
 // Firebase Console → Project Settings → Cloud Messaging → Web Push certificates.
-const VAPID_KEY = "REEMPLAZAR_CON_VAPID_KEY";
+const VAPID_KEY = "grWnoTiHtOOG9e6ynb-vxZLKi0y9vOFIMBcADamIY_k";
 
 let _messaging = null;
 let _foregroundBound = false;
