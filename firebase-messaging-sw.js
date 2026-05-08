@@ -3,6 +3,16 @@
 // Usa la versión "compat" del SDK porque los Service Workers todavía no soportan
 // import maps de manera consistente entre navegadores.
 
+// skipWaiting + clients.claim: cada deploy nuevo del SW se activa de inmediato
+// en lugar de quedar "waiting" hasta que se cierren todas las pestañas/PWAs.
+// Sin esto, en PWAs instaladas el SW viejo persiste durante semanas.
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
