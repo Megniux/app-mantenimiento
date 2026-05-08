@@ -24,6 +24,10 @@ const VAPID_KEY = "grWnoTiHtOOG9e6ynb-vxZLKi0y9vOFIMBcADamIY_k";
 let _messaging = null;
 let _foregroundBound = false;
 let _currentToken = null;
+// Deduplica registraciones concurrentes: login() y watchAuth() pueden disparar
+// registerPushForUser casi al mismo tiempo, y dos navigator.serviceWorker.register
+// en paralelo dejan al SW en estado inconsistente.
+let _registerInFlight = null;
 
 async function ensureMessaging() {
   if (_messaging) return _messaging;
@@ -76,33 +80,42 @@ export function pushPermissionState() {
 // - Si está en "denied" → no insiste; el usuario tiene que reactivar
 //   manualmente desde la config del navegador.
 export async function registerPushForUser(uid) {
-  console.log("[push] registerPushForUser invocado", { uid });
-  if (!uid) {
-    console.log("[push] sin uid, abortando");
-    return null;
+  if (_registerInFlight) {
+    console.log("[push] registro ya en curso, reusando promesa");
+    return _registerInFlight;
   }
-  if (!pushSupported()) {
-    console.log("[push] navegador no soporta push (Notification/SW)");
-    return null;
-  }
-  console.log("[push] estado inicial del permiso:", Notification.permission);
-  if (Notification.permission === "denied") {
-    console.log("[push] permiso denegado por el usuario, no se insiste");
-    return null;
-  }
-  if (Notification.permission === "default") {
-    try {
-      console.log("[push] pidiendo permiso de notificaciones...");
-      const permission = await Notification.requestPermission();
-      console.log("[push] respuesta del prompt:", permission);
-      if (permission !== "granted") return null;
-    } catch (err) {
-      console.warn("[push] requestPermission tiró error:", err);
+  _registerInFlight = (async () => {
+    console.log("[push] registerPushForUser invocado", { uid });
+    if (!uid) {
+      console.log("[push] sin uid, abortando");
       return null;
     }
-  }
-  console.log("[push] permiso concedido, registrando token...");
-  return await getAndSaveToken(uid);
+    if (!pushSupported()) {
+      console.log("[push] navegador no soporta push (Notification/SW)");
+      return null;
+    }
+    console.log("[push] estado inicial del permiso:", Notification.permission);
+    if (Notification.permission === "denied") {
+      console.log("[push] permiso denegado por el usuario, no se insiste");
+      return null;
+    }
+    if (Notification.permission === "default") {
+      try {
+        console.log("[push] pidiendo permiso de notificaciones...");
+        const permission = await Notification.requestPermission();
+        console.log("[push] respuesta del prompt:", permission);
+        if (permission !== "granted") return null;
+      } catch (err) {
+        console.warn("[push] requestPermission tiró error:", err);
+        return null;
+      }
+    }
+    console.log("[push] permiso concedido, registrando token...");
+    return await getAndSaveToken(uid);
+  })().finally(() => {
+    _registerInFlight = null;
+  });
+  return _registerInFlight;
 }
 
 // Llamado desde un botón "Activar notificaciones" para forzar el prompt.
@@ -131,8 +144,12 @@ async function getAndSaveToken(uid) {
   }
   try {
     console.log("[push] registrando service worker...");
-    const swReg = await navigator.serviceWorker.register("firebase-messaging-sw.js");
-    console.log("[push] SW registrado, pidiendo token a FCM...");
+    await navigator.serviceWorker.register("firebase-messaging-sw.js");
+    // serviceWorker.ready resuelve sólo cuando el SW pasó de "installing" a
+    // "activated". Sin esta espera, getToken() falla con "no active Service Worker".
+    console.log("[push] esperando que el SW esté activo...");
+    const swReg = await navigator.serviceWorker.ready;
+    console.log("[push] SW activo, pidiendo token a FCM...");
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swReg
