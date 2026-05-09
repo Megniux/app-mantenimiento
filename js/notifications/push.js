@@ -54,7 +54,7 @@ function handleForegroundMessage(payload) {
   try {
     new Notification(data.title, {
       body: data.body || "",
-      icon: "icon-192.png",
+      icon: "icons/icon-192.png",
       tag: data.ordenId || undefined
     });
   } catch (_) { /* algunos navegadores móviles solo permiten via SW */ }
