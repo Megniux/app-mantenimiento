@@ -114,15 +114,14 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 - [x] `skipWaiting` + `clients.claim` en SW para que actualizaciones futuras se apliquen sin reinstalar PWA.
 - [x] **Probado end-to-end**: push llega correctamente al celu con título y cuerpo.
 
-### Fase 2 — Email (✅ CÓDIGO LISTO, pendiente deploy + test)
+### Fase 2 — Email (✅ TERMINADA y FUNCIONANDO)
 - [x] Proveedor elegido: **Brevo** (300 mails/día gratis).
 - [x] Helpers en `functions/index.js`: `sendEmail`, `obtenerEmailUsuario`, `renderOrdenEmail`, `detectarCambios`.
-- [x] Secrets declarados: `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`.
-- [x] Cloud Function `onOrdenCreatedEmail` → email al solicitante con todos los campos del modal "detalles".
-- [x] Cloud Function `onOrdenUpdatedEmail` → email al solicitante con lista de cambios + detalle. Solo dispara si cambia algún campo de `CAMPOS_EMAIL_RELEVANTES` (estado, técnico, fechas, descripción, etc.) — ignora updates de historial/contadores internos.
-- [ ] **Acción Maxi**: setear los 3 secrets en Firebase (ver "Acciones que requieren al usuario" puntos 7-12).
-- [ ] **Acción Maxi**: deploy de las dos funciones nuevas.
-- [ ] **Acción Maxi**: probar end-to-end (crear orden + editar orden y verificar mails).
+- [x] Secrets seteados en Firebase: `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`.
+- [x] Cloud Function `onOrdenCreatedEmail` deployada → email al solicitante con todos los campos del modal "detalles".
+- [x] Cloud Function `onOrdenUpdatedEmail` deployada → email al solicitante con lista de cambios + detalle. Solo dispara si cambia algún campo de `CAMPOS_EMAIL_RELEVANTES` (estado, técnico, fechas, descripción, etc.) — ignora updates de historial/contadores internos.
+- [x] Filtro de tipo Correctiva en ambas funciones (commit bfbcaad).
+- [x] **Probado end-to-end** (2026-05-08): emails de creación y modificación llegan correctamente al solicitante.
 
 ### Pendiente
 
@@ -131,22 +130,48 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 - [x] Agregado `<meta name="mobile-web-app-capable">` (moderno, lo lee Chrome) sin romper iOS Safari (que sigue usando `apple-mobile-web-app-capable`).
 - [x] Reemplazar íconos PWA placeholder (`logo.jpg`) por PNG real 192x192 y 512x512. Wiring en `manifest.webmanifest`, `index.html` (apple-touch + favicons), `firebase-messaging-sw.js`, `js/notifications/push.js`. El `<img class="sidebar-logo">` del menú lateral sigue usando `logo.jpg` (es UI, no PWA).
 
-#### Edge case token huérfano (✅ CÓDIGO LISTO, pendiente deploy)
-- [x] Cloud Function `cleanupOrphanFcmTokens`: trigger en `users/{uid}/fcmTokens/{tokenId}` que cuando se crea un token, lo borra de cualquier otro `users/*/fcmTokens/{tokenId}`. Estrategia simple: delete directo a la ruta (noop si no existe), sin índice especial.
-- [ ] **Acción Maxi**: deploy con `firebase deploy --only functions:cleanupOrphanFcmTokens`.
+#### Edge case token huérfano (✅ DEPLOYADA)
+- [x] Cloud Function `cleanupOrphanFcmTokens` deployada: trigger en `users/{uid}/fcmTokens/{tokenId}` que cuando se crea un token, lo borra de cualquier otro `users/*/fcmTokens/{tokenId}`. Estrategia simple: delete directo a la ruta (noop si no existe), sin índice especial.
+
+#### Edge case token huérfano por user borrado (✅ DEPLOYADA 2026-05-09)
+- [x] Cloud Function `cleanupUserFcmTokens` deployada: trigger en `users/{uid}` deletion que borra la subcolección `fcmTokens` del user eliminado. Firestore no hace delete en cascada, así que sin esto los tokens quedaban huérfanos cuando se borra un user desde la UI (`js/views/usuarios.js:eliminarUsuario`). Para test: borrar un user con tokens y verificar que la subcolección quedó vacía.
 
 #### Cierre de la rama
 - [ ] Decidir si mergear Notificaciones a `main` ahora (con solo push) o esperar a tener email también.
 - [ ] Cuando se mergee: PR + revisar diff + merge a main + deploy de hosting desde main.
 
+#### Mantenimiento futuro (no bloqueante)
+- [ ] **Subir runtime de Functions a Node.js 22**: Firebase tiró warning durante el deploy 2026-05-09. Node 20 fue marcado como deprecated en 2026-04-30 y se decomisiona el **2026-10-30**. Después de esa fecha no se puede deployar. Cambio: editar `functions/package.json` `engines.node` y reinstalar. Bajo riesgo, se puede hacer en cualquier momento antes de octubre 2026.
+
 ## Próximo paso
 
-**Maxi**: configurar Brevo (puntos 7-12 de "Acciones que requieren al usuario") y probar end-to-end.
+**Sesión 2026-05-09**: Maxi reemplazó los 3 íconos PWA (`icon-192.png`, `icon-512.png`, `icon-badge.png`) y movimos todas las imágenes a `icons/` para mantener el root limpio. Ahora falta probar en celu y cerrar la rama.
 
-Una vez que el email esté verificado en producción:
-1. Decidir si mergear `Notificaciones` a `main` ahora o seguir con pulido cosmético + edge case del token huérfano antes de mergear.
-2. Pulido cosmético (console.logs, meta tag moderno, íconos PWA reales).
-3. Cierre de rama: PR + merge a main + deploy de hosting.
+### Issues detectados al probar push en celu (2026-05-08)
+1. **Notificación silenciosa de Chrome "Mantenimiento — Presiona para copiar URL"**: NO es nuestra. Es comportamiento de Chrome cuando se entra al sitio desde el navegador en lugar de la PWA instalada. Workaround: abrir siempre desde el ícono de la PWA. No actionable desde el código.
+2. **Ícono de notificación se ve como cuadrado oscuro vacío en Android** (RESUELTO 2026-05-09): el `badge` necesita PNG monocromático con alpha. Maxi proveyó un PNG limpio (operario + llave + lista + engranaje) y se cableó como `badge` en el SW.
+
+### Refactor de assets (2026-05-09)
+Todas las imágenes movidas a `icons/` con `git mv` (preserva historial):
+- `icon-192.png` → `icons/icon-192.png` (nuevo PNG, plano azul)
+- `icon-512.png` → `icons/icon-512.png` (nuevo PNG, plano azul)
+- `Icon-badge.png` → `icons/icon-badge.png` (nuevo, normalizado a minúscula)
+- `logo.jpg` → `icons/logo.jpg`
+
+Referencias actualizadas en: `manifest.webmanifest`, `firebase-messaging-sw.js`, `js/notifications/push.js`, `index.html` (4 referencias: 3 link + 1 img sidebar).
+
+### Cómo retomar
+1. Probar push en celu con el nuevo badge.
+2. Commitear los cambios + push a `origin/Notificaciones`.
+3. Decidir cierre de rama.
+
+Estado de deploys:
+- `onOrdenCreated` (push) ✅
+- `onOrdenCreatedEmail` ✅
+- `onOrdenUpdatedEmail` ✅
+- `cleanupOrphanFcmTokens` ✅
+- `cleanupUserFcmTokens` ✅ (2026-05-09)
+- `syncUserClaims`, `backfillUserClaims` (de stock) ✅
 
 ## Cómo retomar después de un parate
 

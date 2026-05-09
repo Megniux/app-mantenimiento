@@ -15,6 +15,9 @@
 //   - cleanupOrphanFcmTokens (rama Notificaciones): al registrarse un token FCM
 //                           en un user, borra ese mismo token de cualquier otro
 //                           user (token huérfano por cambio de cuenta sin logout).
+//   - cleanupUserFcmTokens  (rama Notificaciones): cuando se elimina un user,
+//                           borra su subcolección fcmTokens (Firestore no borra
+//                           subcolecciones en cascada).
 //
 // IMPORTANTE: este archivo unifica deliberadamente funciones de varias ramas
 // porque `firebase deploy --only functions` borra del proyecto las funciones que
@@ -24,6 +27,7 @@
 
 import {
   onDocumentCreated,
+  onDocumentDeleted,
   onDocumentUpdated,
   onDocumentWritten
 } from "firebase-functions/v2/firestore";
@@ -642,5 +646,33 @@ export const cleanupOrphanFcmTokens = onDocumentCreated(
     logger.info(
       `cleanupOrphanFcmTokens: token ${tokenId.slice(0, 20)}... reclamado por ${uid}, chequeados ${otrosUids.length} otros users`
     );
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// cleanupUserFcmTokens (Notificaciones)
+// Cuando se elimina un doc users/{uid}, borra su subcolección fcmTokens.
+// Firestore no hace delete en cascada de subcolecciones, así que sin esto
+// los tokens del user borrado quedan huérfanos en la base ocupando espacio.
+// ════════════════════════════════════════════════════════════════════════════
+
+export const cleanupUserFcmTokens = onDocumentDeleted(
+  { document: "users/{uid}", region: REGION },
+  async (event) => {
+    const { uid } = event.params;
+    if (!uid) return;
+
+    const db = getFirestore();
+    const tokensSnap = await db.collection(`users/${uid}/fcmTokens`).get();
+    if (tokensSnap.empty) return;
+
+    const results = await Promise.allSettled(
+      tokensSnap.docs.map((d) => d.ref.delete())
+    );
+    const fallidos = results.filter((r) => r.status === "rejected");
+    if (fallidos.length) {
+      logger.warn(`cleanupUserFcmTokens: ${fallidos.length}/${tokensSnap.size} deletes fallaron en ${uid}`);
+    }
+    logger.info(`cleanupUserFcmTokens: ${tokensSnap.size} tokens borrados del user ${uid}`);
   }
 );
