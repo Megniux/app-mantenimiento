@@ -35,7 +35,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldPath } from "firebase-admin/firestore";
+import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
 
@@ -639,9 +639,12 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
 // logout y B se loguea en el mismo navegador, el token queda en users/A/fcmTokens
 // y A recibiría push que ya no le corresponden.
 //
-// Estrategia: collectionGroup("fcmTokens") filtrado por documentId == tokenId.
-// Como el ID del doc es el propio token, esto trae a lo sumo unos pocos docs
-// (típicamente 0 o 1) en una sola query, en vez de escanear toda /users.
+// Estrategia: collectionGroup("fcmTokens") filtrado por el campo `token`.
+// (Filtrar por FieldPath.documentId() NO sirve en collection groups: matchea
+// contra el path completo `users/<uid>/fcmTokens/<token>`, no contra solo el
+// último segmento. El campo `token` lo escribe persistToken en push.js).
+// Requiere un single-field index exemption para collection-group en
+// firestore.indexes.json → fieldOverrides.
 // ════════════════════════════════════════════════════════════════════════════
 
 export const cleanupOrphanFcmTokens = onDocumentCreated(
@@ -652,10 +655,16 @@ export const cleanupOrphanFcmTokens = onDocumentCreated(
 
     const db = getFirestore();
     const groupSnap = await db.collectionGroup("fcmTokens")
-      .where(FieldPath.documentId(), "==", tokenId)
+      .where("token", "==", tokenId)
       .get();
     const orphans = groupSnap.docs.filter((d) => d.ref.parent.parent.id !== uid);
-    if (!orphans.length) return;
+
+    if (!orphans.length) {
+      logger.info(
+        `cleanupOrphanFcmTokens: token ${tokenId.slice(0, 20)}... reclamado por ${uid}, sin huérfanos (${groupSnap.size} matches totales)`
+      );
+      return;
+    }
 
     const results = await Promise.allSettled(orphans.map((d) => d.ref.delete()));
     const fallidos = results.filter((r) => r.status === "rejected");
