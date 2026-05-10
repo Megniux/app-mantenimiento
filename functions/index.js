@@ -7,7 +7,7 @@
 //                           popular claims iniciales en todos los users existentes.
 //   - onOrdenCreated        (rama Notificaciones): trigger que envía push a
 //                           técnicos del cliente y superadmins cuando se crea una
-//                           orden Correctiva.
+//                           orden Correctivo.
 //   - onOrdenCreatedEmail   (rama Notificaciones): trigger que envía email al
 //                           solicitante cuando se crea su orden.
 //   - onOrdenUpdatedEmail   (rama Notificaciones): trigger que envía email al
@@ -35,7 +35,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldPath } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
 
@@ -151,7 +151,7 @@ export const backfillUserClaims = onCall(
 
 // ════════════════════════════════════════════════════════════════════════════
 // onOrdenCreated (Notificaciones)
-// Trigger: cuando se crea una orden, si es Correctiva, envía push a:
+// Trigger: cuando se crea una orden, si es Correctivo, envía push a:
 //   - todos los técnicos / supervisores / admin del cliente,
 //   - todos los superadmin (de cualquier cliente).
 // Respeta la preferencia opt-out `notificacionesPush == false` en el doc del usuario.
@@ -165,7 +165,7 @@ export const onOrdenCreated = onDocumentCreated(
     const orden = snap.data() || {};
     const ordenId = event.params.ordenId;
 
-    // Por ahora solo notificamos correctivas. Si más adelante se quieren preventivas
+    // Por ahora solo notificamos correctivos. Si más adelante se quieren preventivos
     // u otros tipos, ajustar este filtro o eliminarlo.
     if (orden.tipo !== "Correctivo") {
       logger.info(`Orden ${ordenId}: tipo ${orden.tipo}, sin push`);
@@ -543,7 +543,7 @@ export const onOrdenCreatedEmail = onDocumentCreated(
     const orden = snap.data() || {};
     const ordenId = event.params.ordenId;
 
-    // Mismo criterio que onOrdenCreated (push): solo correctivas.
+    // Mismo criterio que onOrdenCreated (push): solo correctivos.
     if (orden.tipo !== "Correctivo") {
       logger.info(`Orden ${ordenId}: tipo ${orden.tipo}, sin email de creación`);
       return;
@@ -585,7 +585,7 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
     if (!before || !after) return;
     const ordenId = event.params.ordenId;
 
-    // Solo correctivas. Si la orden no es (o pasó a no ser) correctiva, no mandamos.
+    // Solo correctivos. Si la orden no es (o pasó a no ser) correctivo, no mandamos.
     if (after.tipo !== "Correctivo") {
       return;
     }
@@ -620,9 +620,9 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
 // logout y B se loguea en el mismo navegador, el token queda en users/A/fcmTokens
 // y A recibiría push que ya no le corresponden.
 //
-// Estrategia: como el ID del doc es el propio token, intentamos un delete()
-// directo en users/<otroUid>/fcmTokens/<tokenId> para cada otro user. Es noop
-// si el doc no existe, así que no necesitamos query previa ni índice especial.
+// Estrategia: collectionGroup("fcmTokens") filtrado por documentId == tokenId.
+// Como el ID del doc es el propio token, esto trae a lo sumo unos pocos docs
+// (típicamente 0 o 1) en una sola query, en vez de escanear toda /users.
 // ════════════════════════════════════════════════════════════════════════════
 
 export const cleanupOrphanFcmTokens = onDocumentCreated(
@@ -632,19 +632,19 @@ export const cleanupOrphanFcmTokens = onDocumentCreated(
     if (!uid || !tokenId) return;
 
     const db = getFirestore();
-    const usersSnap = await db.collection("users").get();
-    const otrosUids = usersSnap.docs.map((d) => d.id).filter((id) => id !== uid);
-    if (!otrosUids.length) return;
+    const groupSnap = await db.collectionGroup("fcmTokens")
+      .where(FieldPath.documentId(), "==", tokenId)
+      .get();
+    const orphans = groupSnap.docs.filter((d) => d.ref.parent.parent.id !== uid);
+    if (!orphans.length) return;
 
-    const results = await Promise.allSettled(
-      otrosUids.map((otroUid) => db.doc(`users/${otroUid}/fcmTokens/${tokenId}`).delete())
-    );
+    const results = await Promise.allSettled(orphans.map((d) => d.ref.delete()));
     const fallidos = results.filter((r) => r.status === "rejected");
     if (fallidos.length) {
-      logger.warn(`cleanupOrphanFcmTokens: ${fallidos.length}/${otrosUids.length} deletes fallaron`);
+      logger.warn(`cleanupOrphanFcmTokens: ${fallidos.length}/${orphans.length} deletes fallaron`);
     }
     logger.info(
-      `cleanupOrphanFcmTokens: token ${tokenId.slice(0, 20)}... reclamado por ${uid}, chequeados ${otrosUids.length} otros users`
+      `cleanupOrphanFcmTokens: token ${tokenId.slice(0, 20)}... reclamado por ${uid}, ${orphans.length} huérfanos limpiados`
     );
   }
 );

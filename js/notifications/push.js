@@ -17,16 +17,18 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-// ⚠️ ACCIÓN REQUERIDA: reemplazar con la VAPID key generada en
-// Firebase Console → Project Settings → Cloud Messaging → Web Push certificates.
+// VAPID public key del proyecto (Firebase Console → Cloud Messaging → Web Push
+// certificates). No es secreta: se expone al browser, está pensada para eso.
 const VAPID_KEY = "BAUKk7uI1Yy_86IdeR2lHgtZ5TCw7WXiJcHNWPZOLaMoL0fPFC7c5RWCWWlSGJfcPHzpS6ebXEwbYBf5ODWAqTg";
 
 let _messaging = null;
 let _foregroundBound = false;
 let _currentToken = null;
 // Deduplica registraciones concurrentes: login() y watchAuth() pueden disparar
-// registerPushForUser casi al mismo tiempo, y dos navigator.serviceWorker.register
-// en paralelo dejan al SW en estado inconsistente.
+// registerPushForUser casi al mismo tiempo, y el botón "Activar" puede dispararse
+// en paralelo a esos. Dos navigator.serviceWorker.register + getToken simultáneos
+// dejan al SW en estado inconsistente. El lock vive dentro de getAndSaveToken
+// para que TODOS los puntos de entrada (auth flow + botón) lo compartan.
 let _registerInFlight = null;
 
 async function ensureMessaging() {
@@ -81,25 +83,19 @@ export function pushPermissionState() {
 // - Si está en "denied" → no insiste; el usuario tiene que reactivar
 //   manualmente desde la config del navegador.
 export async function registerPushForUser(uid) {
-  if (_registerInFlight) return _registerInFlight;
-  _registerInFlight = (async () => {
-    if (!uid) return null;
-    if (!pushSupported()) return null;
-    if (Notification.permission === "denied") return null;
-    if (Notification.permission === "default") {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") return null;
-      } catch (err) {
-        console.warn("[push] requestPermission tiró error:", err);
-        return null;
-      }
+  if (!uid) return null;
+  if (!pushSupported()) return null;
+  if (Notification.permission === "denied") return null;
+  if (Notification.permission === "default") {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return null;
+    } catch (err) {
+      console.warn("[push] requestPermission tiró error:", err);
+      return null;
     }
-    return await getAndSaveToken(uid);
-  })().finally(() => {
-    _registerInFlight = null;
-  });
-  return _registerInFlight;
+  }
+  return await getAndSaveToken(uid);
 }
 
 // Llamado desde un botón "Activar notificaciones" para forzar el prompt.
@@ -175,35 +171,37 @@ export function refreshPushPrompt() {
 }
 
 async function getAndSaveToken(uid) {
-  const messaging = await ensureMessaging();
-  if (!messaging) {
-    console.warn("[push] messaging no disponible (isSupported devolvió false)");
-    return null;
-  }
-  if (VAPID_KEY === "REEMPLAZAR_CON_VAPID_KEY") {
-    console.warn("[push] VAPID_KEY no configurada en js/notifications/push.js");
-    return null;
-  }
-  try {
-    await navigator.serviceWorker.register("firebase-messaging-sw.js");
-    // serviceWorker.ready resuelve sólo cuando el SW pasó de "installing" a
-    // "activated". Sin esta espera, getToken() falla con "no active Service Worker".
-    const swReg = await navigator.serviceWorker.ready;
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swReg
-    });
-    if (!token) {
-      console.warn("[push] FCM devolvió token vacío");
+  if (_registerInFlight) return _registerInFlight;
+  _registerInFlight = (async () => {
+    const messaging = await ensureMessaging();
+    if (!messaging) {
+      console.warn("[push] messaging no disponible (isSupported devolvió false)");
       return null;
     }
-    _currentToken = token;
-    await persistToken(uid, token);
-    return token;
-  } catch (err) {
-    console.warn("[push] error registrando token FCM:", err);
-    return null;
-  }
+    try {
+      await navigator.serviceWorker.register("firebase-messaging-sw.js");
+      // serviceWorker.ready resuelve sólo cuando el SW pasó de "installing" a
+      // "activated". Sin esta espera, getToken() falla con "no active Service Worker".
+      const swReg = await navigator.serviceWorker.ready;
+      const token = await getToken(messaging, {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: swReg
+      });
+      if (!token) {
+        console.warn("[push] FCM devolvió token vacío");
+        return null;
+      }
+      _currentToken = token;
+      await persistToken(uid, token);
+      return token;
+    } catch (err) {
+      console.warn("[push] error registrando token FCM:", err);
+      return null;
+    }
+  })().finally(() => {
+    _registerInFlight = null;
+  });
+  return _registerInFlight;
 }
 
 async function persistToken(uid, token) {
