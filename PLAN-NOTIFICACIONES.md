@@ -142,6 +142,7 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
 #### Mantenimiento futuro (no bloqueante)
 - [ ] **Subir runtime de Functions a Node.js 22**: Firebase tiró warning durante el deploy 2026-05-09. Node 20 fue marcado como deprecated en 2026-04-30 y se decomisiona el **2026-10-30**. Después de esa fecha no se puede deployar. Cambio: editar `functions/package.json` `engines.node` y reinstalar. Bajo riesgo, se puede hacer en cualquier momento antes de octubre 2026.
+- [ ] **Activar IP allowlist en Brevo (SMTP + API)**: Brevo recomienda en su panel restringir el uso de las claves SMTP y API a IPs autorizadas para que, si la API key se filtra, no pueda usarse desde otro lado. **Bloqueante técnico**: Cloud Functions de Firebase (gen2) salen a internet con IPs **dinámicas** del pool de Google Cloud, no podemos predecirlas. Para tener IP estática habría que configurar VPC connector + Cloud NAT con IP reservada (cuesta plata mensual y agrega complejidad). Decisión: dejar la API key con buen rotation (rotarla si filtra) y revisar este tema solo si se vuelve un requisito de compliance o si se observa abuso.
 
 ## Próximo paso
 
@@ -149,7 +150,7 @@ Estas no las puedo hacer yo, te aviso cuando lleguemos a cada una:
 
 ### Issues detectados al probar push en celu (2026-05-08)
 1. **Notificación silenciosa de Chrome "Mantenimiento — Presiona para copiar URL"**: NO es nuestra. Es comportamiento de Chrome cuando se entra al sitio desde el navegador en lugar de la PWA instalada. Workaround: abrir siempre desde el ícono de la PWA. No actionable desde el código.
-2. **Ícono de notificación se ve como cuadrado oscuro vacío en Android** (RESUELTO 2026-05-09): el `badge` necesita PNG monocromático con alpha. Maxi proveyó un PNG limpio (operario + llave + lista + engranaje) y se cableó como `badge` en el SW.
+2. **Ícono de notificación se ve como cuadrado oscuro vacío en Android** (RESUELTO 2026-05-09): el `badge` necesita PNG monocromático con alpha. Maxi proveyó un PNG limpio (silueta del operario, fondo transparente) y se cableó como `badge` en el SW. **Verificado funcionando en celu**.
 
 ### Refactor de assets (2026-05-09)
 Todas las imágenes movidas a `icons/` con `git mv` (preserva historial):

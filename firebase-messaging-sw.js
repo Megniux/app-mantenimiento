@@ -32,7 +32,7 @@ messaging.onBackgroundMessage((payload) => {
   // strings dentro de payload.data. Esto evita la doble notificación que ocurre
   // cuando FCM auto-muestra el bloque "notification" Y además el SW dispara una.
   const data = payload.data || {};
-  const title = data.title || "Mantenimiento";
+  const title = data.title || "Mantenimiento-app";
   const body = data.body || "";
 
   self.registration.showNotification(title, {

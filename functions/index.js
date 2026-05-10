@@ -437,7 +437,7 @@ function renderOrdenEmail(orden, ordenId, modo, cambios = []) {
     ${renderListaCambios(cambios)}
     ${renderTablaDetalle(orden)}
     <p style="margin-top:24px;color:#999;font-size:12px;">
-      Email automático de App Mantenimiento. No respondas a este mensaje.
+      Email automático de Mantenimiento-app. No respondas a este mensaje.
     </p>
   </div>
 </body></html>`;
@@ -447,7 +447,7 @@ function renderOrdenEmail(orden, ordenId, modo, cambios = []) {
 async function sendEmail({ to, toName, subject, html }) {
   const apiKey = BREVO_API_KEY.value();
   const fromEmail = BREVO_FROM_EMAIL.value();
-  const fromName = BREVO_FROM_NAME.value() || "App Mantenimiento";
+  const fromName = BREVO_FROM_NAME.value() || "Mantenimiento-app";
 
   if (!apiKey || !fromEmail) {
     logger.error("Brevo no configurado: faltan BREVO_API_KEY o BREVO_FROM_EMAIL");
