@@ -377,13 +377,19 @@ function escapeHtml(s) {
 // update), pero como el Admin SDK bypasea reglas, repetimos la validación acá
 // para que un futuro cambio en rules no abra un canal de phishing cross-tenant
 // a través del sender verificado de Brevo.
+//
+// Excepción: superadmin no tiene clienteId fijo (opera sobre cualquier cliente
+// vía el selector), así que su doc tiene clienteId="". Como las rules siguen
+// exigiendo solicitanteUid == request.auth.uid en create, si un superadmin es
+// destinatario es porque él mismo creó la orden — no hay vector de phishing.
 async function obtenerEmailUsuario(uid, clienteIdEsperado) {
   if (!uid) return null;
   try {
     const userDoc = await getFirestore().collection("users").doc(uid).get();
     if (userDoc.exists) {
       const data = userDoc.data() || {};
-      if (clienteIdEsperado && data.clienteId !== clienteIdEsperado) {
+      const esSuperadmin = data.rol === "superadmin";
+      if (clienteIdEsperado && !esSuperadmin && data.clienteId !== clienteIdEsperado) {
         logger.warn(`Solicitante ${uid} pertenece a clienteId ${data.clienteId}, distinto al de la orden (${clienteIdEsperado}). No se envía email.`);
         return null;
       }
