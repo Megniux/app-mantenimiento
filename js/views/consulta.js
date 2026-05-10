@@ -1,5 +1,5 @@
 import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { db } from "../firebase-config.js";
+import { db, auth } from "../firebase-config.js";
 
 let userRole = null;
 let _clienteId = "";
@@ -571,11 +571,16 @@ async function generarPreventivaRecurrente(original) {
   const numeroOrden = `OMP-${String(contadorOMP).padStart(4, "0")}`;
   await updateDoc(refCont, { contadorOMP: contadorOMP + 1 });
 
+  // solicitanteUid se reasigna al user que cierra la preventiva (no se hereda
+  // del original): la regla de Firestore exige que el creador sea el solicitante,
+  // y además si el solicitante original ya no está en la empresa la próxima
+  // recurrente quedaría atada a un uid huérfano.
   const nueva = {
     ...original,
     clienteId: _clienteId,
     numeroOrden,
     estado: "Pendiente",
+    solicitanteUid: auth.currentUser?.uid || original.solicitanteUid,
     fechaCreacion: new Date(),
     fechaProgramada: calcularProximaFechaProgramada(original.frecuencia),
     fechaCierre: null,

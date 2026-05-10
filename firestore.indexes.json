@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "repuestos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "nombre",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "movimientosRepuestos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "fecha",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "solicitudesPanol",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clienteId", "order": "ASCENDING" },
+        { "fieldPath": "estado",    "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
