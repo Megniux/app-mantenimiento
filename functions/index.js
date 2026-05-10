@@ -371,18 +371,31 @@ function escapeHtml(s) {
     .replace(/'/g, "&#39;");
 }
 
-async function obtenerEmailUsuario(uid) {
+// Resuelve el email del solicitante validando que pertenezca al mismo cliente
+// que la orden. El check de tenant es defense-in-depth: las reglas de Firestore
+// ya exigen que solicitanteUid == request.auth.uid en create (y lo congelan en
+// update), pero como el Admin SDK bypasea reglas, repetimos la validación acá
+// para que un futuro cambio en rules no abra un canal de phishing cross-tenant
+// a través del sender verificado de Brevo.
+async function obtenerEmailUsuario(uid, clienteIdEsperado) {
   if (!uid) return null;
   try {
     const userDoc = await getFirestore().collection("users").doc(uid).get();
     if (userDoc.exists) {
       const data = userDoc.data() || {};
+      if (clienteIdEsperado && data.clienteId !== clienteIdEsperado) {
+        logger.warn(`Solicitante ${uid} pertenece a clienteId ${data.clienteId}, distinto al de la orden (${clienteIdEsperado}). No se envía email.`);
+        return null;
+      }
       if (data.email) return { email: data.email, nombre: data.nombreCompleto || data.email };
     }
   } catch (err) {
     logger.warn(`No se pudo leer users/${uid}: ${err.message}`);
   }
-  // Fallback: traer de Firebase Auth.
+  // Fallback Auth: solo si NO se pidió validar tenant. Auth no guarda clienteId,
+  // así que sin doc en /users no podemos verificar pertenencia y no es seguro
+  // mandarle un email "oficial" desde la plataforma.
+  if (clienteIdEsperado) return null;
   try {
     const userRecord = await getAuth().getUser(uid);
     if (userRecord.email) {
@@ -549,9 +562,9 @@ export const onOrdenCreatedEmail = onDocumentCreated(
       return;
     }
 
-    const destinatario = await obtenerEmailUsuario(orden.solicitanteUid);
+    const destinatario = await obtenerEmailUsuario(orden.solicitanteUid, orden.clienteId);
     if (!destinatario) {
-      logger.warn(`Orden ${ordenId}: solicitante sin email (uid=${orden.solicitanteUid}), no se envía mail`);
+      logger.warn(`Orden ${ordenId}: solicitante sin email o tenant inválido (uid=${orden.solicitanteUid}), no se envía mail`);
       return;
     }
 
@@ -596,9 +609,9 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
       return;
     }
 
-    const destinatario = await obtenerEmailUsuario(after.solicitanteUid);
+    const destinatario = await obtenerEmailUsuario(after.solicitanteUid, after.clienteId);
     if (!destinatario) {
-      logger.warn(`Orden ${ordenId}: solicitante sin email (uid=${after.solicitanteUid}), no se envía mail`);
+      logger.warn(`Orden ${ordenId}: solicitante sin email o tenant inválido (uid=${after.solicitanteUid}), no se envía mail`);
       return;
     }
 

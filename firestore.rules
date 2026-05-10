@@ -64,11 +64,20 @@ service cloud.firestore {
     match /ordenes/{doc} {
       allow read: if request.auth != null
                    && hasAccessToCliente(resource.data.clienteId);
+      // solicitanteUid debe ser el propio uid del autor: evita que se pueda
+      // crear una orden con solicitanteUid de otra persona y disparar un email
+      // (onOrdenCreatedEmail) con texto controlado por el atacante a la víctima
+      // desde el sender verificado de Brevo. Ver functions/index.js:onOrdenCreatedEmail.
       allow create: if request.auth != null
-                     && hasAccessToCliente(request.resource.data.clienteId);
+                     && hasAccessToCliente(request.resource.data.clienteId)
+                     && request.resource.data.solicitanteUid == request.auth.uid;
+      // solicitanteUid es inmutable post-creación (mismo motivo que arriba para
+      // onOrdenUpdatedEmail). Un updateDoc que no incluya el campo lo deja igual,
+      // así que esto solo bloquea cambios explícitos del campo.
       allow update: if request.auth != null
                      && hasAccessToCliente(resource.data.clienteId)
-                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"];
+                     && userRole() in ["tecnico", "supervisor", "admin", "superadmin"]
+                     && request.resource.data.solicitanteUid == resource.data.solicitanteUid;
       allow delete: if request.auth != null
                      && hasAccessToCliente(resource.data.clienteId)
                      && userRole() in ["admin", "superadmin"];
