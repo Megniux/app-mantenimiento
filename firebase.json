@@ -30,7 +30,8 @@
       "emulator-data/**",
       "functions/**",
       "PLAN-*.md",
-      "*.zip"
+      "*.zip",
+      "migration-redirect/**"
     ],
     "headers": [
       {
