@@ -237,6 +237,7 @@ export async function cargarContenido(routeKey, push = true) {
 
   if (role === "superadmin") {
     await renderClienteSelector(activeClienteId);
+    if (viewSignal.aborted) return;
   } else {
     const container = document.getElementById("clienteSelectorContainer");
     if (container) { container.innerHTML = ""; container.classList.add("is-hidden"); }
@@ -245,12 +246,20 @@ export async function cargarContenido(routeKey, push = true) {
 
   // Resolver módulo pañol ANTES de decidir si puede acceder a la ruta
   await resolverModulosPanol(activeClienteId);
+  if (viewSignal.aborted) return;
 
   const finalRoute = canAccess(routeKey, role) ? routeKey : (authState.profile ? "consulta" : "login");
   const route = routes[finalRoute];
 
   const response = await fetch(route.template, { cache: "no-store" });
-  mainContent.innerHTML = await response.text();
+  if (viewSignal.aborted) return;
+  const templateHtml = await response.text();
+  // Antes de pisar mainContent: si otra navegación arrancó mientras estábamos
+  // fetcheando, su signal nos dejó aborted=true. Pisar el DOM acá borraría el
+  // contenido que esa nueva navegación ya montó, y el init siguiente correría
+  // sobre un DOM ajeno.
+  if (viewSignal.aborted) return;
+  mainContent.innerHTML = templateHtml;
   pageTitle.textContent = route.title;
 
   renderSidebar(finalRoute);
@@ -265,10 +274,12 @@ export async function cargarContenido(routeKey, push = true) {
   }
 
   await renderTelefonos(activeClienteId);
+  if (viewSignal.aborted) return;
 
   // ── Pasar clienteId activo y role a cada vista ──
   const ctx = { role, userName: authState.profile.nombre, clienteId: activeClienteId, signal: viewSignal };
   const initFn = route.loader ? await route.loader() : null;
+  if (viewSignal.aborted) return;
   await initFn?.(ctx);
 }
 

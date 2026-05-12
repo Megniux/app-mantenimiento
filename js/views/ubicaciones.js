@@ -5,9 +5,10 @@ import { showAlert, showConfirm } from "../ui/dialog.js";
 let _clienteId = "";
 let _ubicaciones = [];
 
-export async function initUbicacionesView({ clienteId } = {}) {
+export async function initUbicacionesView({ clienteId, signal } = {}) {
   _clienteId = clienteId || "";
   await cargarUbicaciones();
+  if (signal?.aborted) return;
   document.getElementById("agregarUbicacionBtn").addEventListener("click", agregarUbicacion);
   document.getElementById("busquedaUbicaciones").addEventListener("input", renderUbicacionesFiltradas);
 }

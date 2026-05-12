@@ -8,9 +8,10 @@ let _clienteId = "";
 let _movimientosTodos = [];   // dataset completo, fetched una vez al iniciar
 let _movimientosFiltrados = []; // resultado del último filtrado (para exportar)
 
-export async function initPanolMovimientosView({ clienteId } = {}) {
+export async function initPanolMovimientosView({ clienteId, signal } = {}) {
   _clienteId = clienteId || "";
   await cargarMovimientos();
+  if (signal?.aborted) return;
 
   // Cada filtro solo re-renderiza desde el dataset cacheado en memoria — no
   // refetch a Firestore. Esto evita la race condition que hacía duplicar filas

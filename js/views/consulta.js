@@ -10,6 +10,7 @@ let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
 let consultaLoadToken = 0;
+let _viewSignal = null;
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
 let _panolActivo = false;
@@ -52,6 +53,7 @@ export async function initConsultaView({ role, clienteId, signal } = {}) {
   userRole = role;
   const clienteIdActual = clienteId || "";
   const loadToken = ++consultaLoadToken;
+  _viewSignal = signal;
   _clienteId = clienteIdActual;
   listaTecnicos = [];
   todasOrdenes = [];
@@ -93,7 +95,9 @@ export async function initConsultaView({ role, clienteId, signal } = {}) {
 }
 
 function esCargaConsultaActual(clienteId, loadToken) {
-  return _clienteId === clienteId && consultaLoadToken === loadToken;
+  return _clienteId === clienteId
+      && consultaLoadToken === loadToken
+      && !_viewSignal?.aborted;
 }
 
 function cerrarMenusDesplegables() {

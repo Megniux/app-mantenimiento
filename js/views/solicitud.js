@@ -5,9 +5,11 @@ import { showAlert } from "../ui/dialog.js";
 let _clienteId = "";
 let _todosEquipos = [];
 let _ubicaciones = [];
+let _viewSignal = null;
 
-export async function initSolicitudView({ role, userName, clienteId }) {
+export async function initSolicitudView({ role, userName, clienteId, signal } = {}) {
   _clienteId = clienteId || "";
+  _viewSignal = signal;
   document.getElementById("solicitante").value = userName;
   if (role === "usuario" || role === "supervisor") {
     document.getElementById("tipoGrupo").classList.add("is-hidden");
@@ -15,6 +17,7 @@ export async function initSolicitudView({ role, userName, clienteId }) {
   }
 
   await cargarOpciones();
+  if (_viewSignal?.aborted) return;
 
   document.getElementById("tipo").addEventListener("change", mostrarFrecuencia);
   document.getElementById("ubicacion").addEventListener("change", actualizarEquiposDisponibles);
@@ -24,6 +27,7 @@ export async function initSolicitudView({ role, userName, clienteId }) {
 
 async function cargarOpciones() {
   const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
+  if (_viewSignal?.aborted) return;
   const ubicacionSelect = document.getElementById("ubicacion");
   ubicacionSelect.innerHTML = '<option value="">Seleccionar ubicación</option>';
 
@@ -41,6 +45,7 @@ async function cargarOpciones() {
   });
 
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
+  if (_viewSignal?.aborted) return;
   _todosEquipos = [];
   equiposSnap.forEach((docSnap) => _todosEquipos.push(normalizarEquipo(docSnap)));
   _todosEquipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));

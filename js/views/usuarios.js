@@ -8,10 +8,11 @@ let _clienteId = "";
 let _currentRole = "";
 let _usuarios = [];
 
-export async function initUsuariosView({ clienteId, role } = {}) {
+export async function initUsuariosView({ clienteId, role, signal } = {}) {
   _clienteId = clienteId || "";
   _currentRole = role || "";
   await cargarUsuarios();
+  if (signal?.aborted) return;
   configurarSelectorRol();
   document.getElementById("crearUsuarioBtn").addEventListener("click", crearUsuario);
   document.getElementById("busquedaUsuarios").addEventListener("input", renderUsuariosFiltrados);

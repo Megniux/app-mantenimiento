@@ -13,13 +13,16 @@ let _repuestos = [];
 let _currentEditId = null;
 let _currentAjusteId = null;
 
-export async function initPanolView({ clienteId, role } = {}) {
+export async function initPanolView({ clienteId, role, signal } = {}) {
   _clienteId = clienteId || "";
   _role = role || "";
 
   _equipos = await cargarEquipos();
+  if (signal?.aborted) return;
   await cargarRepuestos();
+  if (signal?.aborted) return;
   await verificarSolicitudesPendientes();
+  if (signal?.aborted) return;
 
   document.getElementById("agregarRepuestoBtn").addEventListener("click", agregarRepuesto);
   document.getElementById("guardarEditRepuestoBtn").addEventListener("click", guardarEdicionRepuesto);

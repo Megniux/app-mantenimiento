@@ -10,7 +10,9 @@ let currentMoveEquipoId = null;
 export async function initEquiposView({ clienteId, signal } = {}) {
   _clienteId = clienteId || "";
   _ubicaciones = await cargarUbicaciones();
+  if (signal?.aborted) return;
   await cargarEquipos();
+  if (signal?.aborted) return;
 
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
   document.getElementById("guardarCambioUbicacionBtn").addEventListener("click", guardarCambioUbicacion);

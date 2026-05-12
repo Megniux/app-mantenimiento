@@ -25,6 +25,7 @@ let _currentClienteId = null;
 // ─── Inicialización ──────────────────────────────────────────────────────────
 export async function initClientesView({ signal } = {}) {
   await cargarClientes();
+  if (signal?.aborted) return;
 
   document.getElementById("busquedaClientes").addEventListener("input", renderClientesFiltrados);
   document.getElementById("agregarClienteBtn").addEventListener("click", () => abrirModalCrear());
