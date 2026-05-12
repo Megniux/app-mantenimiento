@@ -407,6 +407,7 @@ async function confirmarAjuste() {
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando…';
 
   try {
+    const clienteId = clienteIdActivo();
     const repuestoRef = doc(db, "repuestos", _currentAjusteId);
     const movimientoRef = doc(collection(db, "movimientosRepuestos"));
     await runTransaction(db, async (tx) => {
@@ -419,7 +420,7 @@ async function confirmarAjuste() {
       else if (tipo === "ajuste") stock = cantidad;
       tx.update(repuestoRef, { stockActual: stock });
       tx.set(movimientoRef, {
-        clienteId: _clienteId || sessionStorage.getItem("userClienteId") || "",
+        clienteId,
         repuestoId: _currentAjusteId,
         repuestoNombre: data.nombre,
         tipo,
@@ -529,6 +530,7 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
   if (!s) return;
 
   try {
+    const clienteId = clienteIdActivo();
     const solicitudRef = doc(db, "solicitudesPanol", solicitudId);
     if (nuevoEstado === "aprobado") {
       const repuestoRef = doc(db, "repuestos", s.repuestoId);
@@ -541,7 +543,7 @@ async function procesarSolicitud(solicitudId, nuevoEstado, solicitudes) {
         const nuevoStock = Math.max(0, stockActual - Number(s.cantidad));
         tx.update(repuestoRef, { stockActual: nuevoStock });
         tx.set(movimientoRef, {
-          clienteId: _clienteId || sessionStorage.getItem("userClienteId") || "",
+          clienteId,
           repuestoId: s.repuestoId,
           repuestoNombre: s.repuestoNombre,
           tipo: "egreso",
@@ -612,7 +614,7 @@ function descargarCSV(filas, nombre) {
 
 export async function registrarMovimiento({ repuestoId, repuestoNombre, tipo, cantidad, stockResultante, ordenId = "", ordenNumero = "", observaciones = "" }) {
   await addDoc(collection(db, "movimientosRepuestos"), {
-    clienteId: _clienteId || sessionStorage.getItem("userClienteId") || "",
+    clienteId: clienteIdActivo(),
     repuestoId,
     repuestoNombre,
     tipo,
@@ -695,6 +697,17 @@ function toggleModal(id, show) {
   document.getElementById(id)?.classList.toggle("is-hidden", !show);
   if (!show && id === "modalAjusteStock") _currentAjusteId = null;
   if (!show && id === "modalEditarRepuesto") _currentEditId = null;
+}
+
+// Resuelve el clienteId con el que escribir. _clienteId viene del router al
+// montar la vista; el fallback a sessionStorage cubre el caso de export
+// (registrarMovimiento) invocado antes de que initPanolView corra. Si ninguno
+// está, tirar antes de hacer el write — un clienteId vacío sería rechazado
+// por las rules y enmascararía el problema como un error genérico.
+function clienteIdActivo() {
+  const id = _clienteId || sessionStorage.getItem("userClienteId") || "";
+  if (!id) throw new Error("No hay cliente activo. Recargá la página o seleccioná un cliente en el menú.");
+  return id;
 }
 
 function formatFecha(fecha) {
