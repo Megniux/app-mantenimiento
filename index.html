@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Sistema de Mantenimiento</title>
+  <title>Mantenimiento-app</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1976d2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mantenimiento-app">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,7 +21,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-content">
       <div class="sidebar-header">
-        <img src="logo.jpg" alt="Logo" class="sidebar-logo">
+        <img src="icons/logo.jpg" alt="Logo" class="sidebar-logo">
         <h2>Mantenimiento</h2>
       </div>
       <nav class="sidebar-nav" id="sidebar-nav"></nav>
@@ -37,6 +46,12 @@
       </button>
       <div class="page-title"><h1 id="pageTitle">Iniciar Sesión</h1></div>
       <div id="clienteSelectorContainer" class="cliente-selector-container is-hidden"></div>
+    </div>
+    <div id="pushPrompt" class="push-prompt is-hidden" role="region" aria-label="Activar notificaciones">
+      <i class="fas fa-bell" aria-hidden="true"></i>
+      <span class="push-prompt-text">Activá las notificaciones para recibir avisos de nuevas órdenes en este dispositivo.</span>
+      <button id="activarPushBtn" type="button" class="push-prompt-btn">Activar</button>
+      <button id="cerrarPushPromptBtn" type="button" class="push-prompt-close" aria-label="Cerrar">×</button>
     </div>
     <section id="mainContent" class="view-host"></section>
   </main>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Mantenimiento-app se mudó</title>
+<meta http-equiv="refresh" content="20; url=https://mantenimiento-app.com.ar/">
+<link rel="canonical" href="https://mantenimiento-app.com.ar/">
+<style>
+  :root { --brand: #1976d2; --bg: #f5f7fa; --text: #1f2937; --muted: #6b7280; --card: #ffffff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 40px 32px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+  .icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    margin-bottom: 16px;
+  }
+  h1 { margin: 0 0 8px; font-size: 22px; }
+  h2 { margin: 0 0 24px; font-weight: 500; color: var(--muted); font-size: 15px; }
+  .new-url {
+    background: #eef4fc;
+    color: var(--brand);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    word-break: break-all;
+    margin-bottom: 24px;
+    display: inline-block;
+  }
+  .btn {
+    display: inline-block;
+    background: var(--brand);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-bottom: 28px;
+    transition: background .2s;
+  }
+  .btn:hover { background: #1565c0; }
+  .steps {
+    text-align: left;
+    background: #fafbfc;
+    border-radius: 8px;
+    padding: 16px 20px;
+    border: 1px solid #e5e7eb;
+  }
+  .steps h3 { margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .steps ol { margin: 0; padding-left: 20px; }
+  .steps li { margin-bottom: 8px; font-size: 14px; }
+  .steps li:last-child { margin-bottom: 0; }
+  .countdown { color: var(--muted); font-size: 13px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="icon">&#10140;</div>
+  <h1>Nos mudamos a una nueva direcci&oacute;n</h1>
+  <h2>La aplicaci&oacute;n ahora est&aacute; disponible en:</h2>
+  <div class="new-url">mantenimiento-app.com.ar</div>
+  <div>
+    <a class="btn" href="https://mantenimiento-app.com.ar/" id="goNow">Ir ahora</a>
+  </div>
+
+  <section class="steps" aria-label="Instrucciones">
+    <h3>3 pasos para seguir usando la app</h3>
+    <ol>
+      <li><strong>Entr&aacute;</strong> al nuevo sitio: <a href="https://mantenimiento-app.com.ar/">mantenimiento-app.com.ar</a></li>
+      <li><strong>Ingres&aacute;</strong> con tu mismo email y contrase&ntilde;a de siempre. Tus datos est&aacute;n intactos.</li>
+      <li><strong>Guard&aacute; el acceso</strong>: en el celular toc&aacute; &laquo;Agregar a pantalla de inicio&raquo;; en la PC, agregalo a favoritos. Si us&aacute;s notificaciones, vas a tener que aceptarlas una vez m&aacute;s.</li>
+    </ol>
+  </section>
+
+  <p class="countdown" id="countdown">Te redirigimos autom&aacute;ticamente en 20 segundos&hellip;</p>
+</main>
+
+<script>
+(function () {
+  // Limpieza activa del Service Worker viejo y sus caches, para que la PWA instalada
+  // no quede sirviendo contenido cacheado del origen viejo.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (r) { r.unregister(); });
+    }).catch(function () {});
+  }
+  if ("caches" in window) {
+    caches.keys().then(function (keys) {
+      keys.forEach(function (k) { caches.delete(k); });
+    }).catch(function () {});
+  }
+
+  // Cuenta regresiva visible
+  var seconds = 20;
+  var el = document.getElementById("countdown");
+  var t = setInterval(function () {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(t);
+      window.location.replace("https://mantenimiento-app.com.ar/");
+    } else {
+      el.textContent = "Te redirigimos automáticamente en " + seconds + " segundo" + (seconds === 1 ? "" : "s") + "…";
+    }
+  }, 1000);
+})();
+</script>
+</body>
+</html>

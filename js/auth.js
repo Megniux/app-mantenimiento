@@ -1,6 +1,7 @@
 import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { auth, db } from "./firebase-config.js";
+import { registerPushForUser, unregisterPushForUser, refreshPushPrompt } from "./notifications/push.js";
 
 export const authState = {
   user: null,
@@ -33,6 +34,7 @@ export async function login(email, password) {
 
   authState.user = cred.user;
   authState.profile = profile;
+  registerPushForUser(profile.uid).catch(() => {}).finally(refreshPushPrompt);
   return profile;
 }
 
@@ -41,6 +43,8 @@ export async function resetPassword(email) {
 }
 
 export async function logout() {
+  const uid = authState.profile?.uid;
+  await unregisterPushForUser(uid).catch(() => {});
   await signOut(auth);
   sessionStorage.clear();
   authState.user = null;
@@ -94,6 +98,7 @@ export function watchAuth(callback) {
 
     authState.user = user;
     authState.profile = { uid, nombre, rol, email: user.email, clienteId: clienteId || "" };
+    registerPushForUser(uid).catch(() => {}).finally(refreshPushPrompt);
     callback(authState.profile);
   });
 }

@@ -78,3 +78,6 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Asset bundles descargados (set de favicons, etc.) — usamos solo los PNG extraídos
+favicon.zip
