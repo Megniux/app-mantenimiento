@@ -487,6 +487,19 @@ async function guardarEdicion() {
     return;
   }
   if (nuevoEstado === "Cerrado" && _panolActivo) {
+    // Repuestos agregados en el mismo movimiento que requieren aprobación no
+    // están todavía en solicitudesPanol, así que el chequeo Firestore de abajo
+    // no los detecta. Cruzar el state contra el catálogo cacheado antes.
+    const aprobacionInLine = _repuestosEnOrden.some((item) => {
+      if (!item.repuestoId) return false;
+      const rep = _repuestosDisponibles.find((r) => r.id === item.repuestoId);
+      return rep?.requiereAprobacion === true;
+    });
+    if (aprobacionInLine) {
+      await showAlert("No se puede cerrar la orden: se agregaron repuestos que requieren aprobación de egreso.\nGuarde los cambios sin cerrar y espere la aprobación del supervisor.");
+      return;
+    }
+
     const pendSnap = await getDocs(query(
       collection(db, "solicitudesPanol"),
       where("clienteId", "==", _clienteId),
