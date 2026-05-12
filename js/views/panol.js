@@ -127,6 +127,8 @@ function nivelStock(r) {
   const actual = Number(r.stockActual ?? 0);
   const minimo = Number(r.stockMinimo ?? 0);
   if (actual <= minimo) return "critico";
+  // "Bajo": hasta 50% sobre el mínimo, con +1 de colchón para que repuestos
+  // con stockMinimo 0 o 1 no salten directo de "ok" a "crítico".
   if (actual <= minimo * 1.5 + 1) return "bajo";
   return "ok";
 }
