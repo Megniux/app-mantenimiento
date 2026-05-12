@@ -809,8 +809,8 @@ function agregarFilaRepuestoEnOrden() {
     `<option value="${r.id}" data-nombre="${escapeHtmlInline(r.nombre)}"
        data-stock="${r.stockActual ?? 0}" data-unidad="${escapeHtmlInline(r.unidad || "unidad")}"
        data-aprobacion="${r.requiereAprobacion ? "si" : "no"}">
-       ${escapeHtmlInline(r.nombre)}${r.codigoInterno ? ` (${r.codigoInterno})` : ""}
-       — Stock: ${r.stockActual ?? 0} ${r.unidad || ""}
+       ${escapeHtmlInline(r.nombre)}${r.codigoInterno ? ` (${escapeHtmlInline(r.codigoInterno)})` : ""}
+       — Stock: ${r.stockActual ?? 0} ${escapeHtmlInline(r.unidad || "")}
      </option>`
   ).join("");
 
