@@ -3,6 +3,7 @@ import { db, auth } from "../firebase-config.js";
 import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
 import { isModuloPanolActivo, actualizarBadgePanol } from "../router.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
+import { escapeHtml } from "../ui/format.js";
 
 let userRole = null;
 let _clienteId = "";
@@ -399,8 +400,8 @@ async function verDetalles(id) {
         <thead><tr><th>Repuesto</th><th>Cantidad</th><th>Estado</th></tr></thead>
         <tbody>
           ${repuestosUtilizados.map((r) => `<tr>
-            <td>${escapeHtmlInline(r.repuestoNombre)}</td>
-            <td>${r.cantidad} ${escapeHtmlInline(r.unidad || "")}</td>
+            <td>${escapeHtml(r.repuestoNombre)}</td>
+            <td>${r.cantidad} ${escapeHtml(r.unidad || "")}</td>
             <td>${estadoRepLabel(r.estado)}</td>
           </tr>`).join("")}
         </tbody>
@@ -806,11 +807,11 @@ function agregarFilaRepuestoEnOrden() {
   div.dataset.idx = idx;
 
   const selectOpts = _repuestosDisponibles.map((r) =>
-    `<option value="${r.id}" data-nombre="${escapeHtmlInline(r.nombre)}"
-       data-stock="${r.stockActual ?? 0}" data-unidad="${escapeHtmlInline(r.unidad || "unidad")}"
+    `<option value="${r.id}" data-nombre="${escapeHtml(r.nombre)}"
+       data-stock="${r.stockActual ?? 0}" data-unidad="${escapeHtml(r.unidad || "unidad")}"
        data-aprobacion="${r.requiereAprobacion ? "si" : "no"}">
-       ${escapeHtmlInline(r.nombre)}${r.codigoInterno ? ` (${escapeHtmlInline(r.codigoInterno)})` : ""}
-       — Stock: ${r.stockActual ?? 0} ${escapeHtmlInline(r.unidad || "")}
+       ${escapeHtml(r.nombre)}${r.codigoInterno ? ` (${escapeHtml(r.codigoInterno)})` : ""}
+       — Stock: ${r.stockActual ?? 0} ${escapeHtml(r.unidad || "")}
      </option>`
   ).join("");
 
@@ -877,8 +878,8 @@ function renderRepuestosExistentes(lista) {
       <thead><tr><th>Repuesto</th><th>Cantidad</th><th>Estado</th></tr></thead>
       <tbody>
         ${lista.map((r) => `<tr>
-          <td>${escapeHtmlInline(r.repuestoNombre)}</td>
-          <td>${r.cantidad} ${escapeHtmlInline(r.unidad || "")}</td>
+          <td>${escapeHtml(r.repuestoNombre)}</td>
+          <td>${r.cantidad} ${escapeHtml(r.unidad || "")}</td>
           <td>${estadoLabel(r.estado)}</td>
         </tr>`).join("")}
       </tbody>
@@ -939,9 +940,4 @@ async function procesarRepuestosOrden(ordenId, ordenNumero) {
     await showAlert(`No se pudieron registrar los repuestos. Probá de nuevo o avisá al supervisor.`);
   }
   return registrados;
-}
-
-// Helper local para escapar HTML dentro de template literals
-function escapeHtmlInline(v) {
-  return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }

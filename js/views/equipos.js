@@ -1,6 +1,7 @@
 import { addDoc, collection, deleteDoc, deleteField, doc, getDocs, query, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
+import { escapeHtml } from "../ui/format.js";
 
 let _clienteId = "";
 let _ubicaciones = [];
@@ -248,11 +249,3 @@ function toggleModal(id, show) {
   }
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}

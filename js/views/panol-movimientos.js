@@ -3,6 +3,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { showAlert } from "../ui/dialog.js";
+import { escapeHtml, formatFecha } from "../ui/format.js";
 
 let _clienteId = "";
 let _movimientosTodos = [];   // dataset completo, fetched una vez al iniciar
@@ -90,13 +91,13 @@ function aplicarFiltrosYRender() {
     const tipoClass = m.tipo === "ingreso" ? "panol-mov-ingreso" : m.tipo === "egreso" ? "panol-mov-egreso" : "panol-mov-ajuste";
     row.innerHTML = `
       <td>${formatFecha(m.fecha)}</td>
-      <td>${escHtml(m.repuestoNombre || "-")}</td>
+      <td>${escapeHtml(m.repuestoNombre || "-")}</td>
       <td><span class="panol-tipo-badge ${tipoClass}">${capitalizar(m.tipo)}</span></td>
       <td>${m.cantidad ?? "-"}</td>
       <td>${m.stockResultante ?? "-"}</td>
-      <td>${escHtml(m.ordenNumero || "-")}</td>
-      <td>${escHtml(m.usuario || "-")}</td>
-      <td>${escHtml(m.observaciones || "-")}</td>`;
+      <td>${escapeHtml(m.ordenNumero || "-")}</td>
+      <td>${escapeHtml(m.usuario || "-")}</td>
+      <td>${escapeHtml(m.observaciones || "-")}</td>`;
   });
 
   _movimientosFiltrados = movimientos;
@@ -137,16 +138,6 @@ function toDate(value) {
   return new Date(value);
 }
 
-function formatFecha(fecha) {
-  if (!fecha) return "-";
-  const d = toDate(fecha);
-  return !d || isNaN(d.getTime()) ? "-" : d.toLocaleString("es-AR");
-}
-
 function capitalizar(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
-}
-
-function escHtml(v) {
-  return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }

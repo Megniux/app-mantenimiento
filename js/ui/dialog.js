@@ -6,6 +6,8 @@
 //   await showAlert("No se puede cerrar la orden: …");
 //   if (!(await showConfirm("¿Eliminar repuesto?"))) return;
 
+import { escapeHtml } from "./format.js";
+
 let _escListenerBound = false;
 
 export function bindGlobalDialogShortcuts() {
@@ -36,12 +38,6 @@ export function closeTopModal() {
     return;
   }
   top.classList.add("is-hidden");
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[c]));
 }
 
 function buildDialog({ title, message, kind, okLabel, cancelLabel }) {

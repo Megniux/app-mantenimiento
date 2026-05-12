@@ -4,6 +4,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
+import { escapeHtml, formatFecha } from "../ui/format.js";
 import { actualizarBadgePanol } from "../router.js";
 
 let _clienteId = "";
@@ -93,16 +94,16 @@ function renderRepuestosFiltrados() {
     const nivel = nivelStock(r);
     const row = tbody.insertRow();
     row.innerHTML = `
-      <td>${escHtml(r.codigoInterno || "-")}</td>
+      <td>${escapeHtml(r.codigoInterno || "-")}</td>
       <td>
         <span class="panol-stock-badge panol-stock-${nivel}" title="${labelNivel(nivel)}"></span>
-        ${escHtml(r.nombre)}
-        ${r.equiposAsociados?.length ? `<br><small class="panol-equipos-tag">${r.equiposAsociados.map((e) => escHtml(e.equipoNombre)).join(", ")}</small>` : ""}
+        ${escapeHtml(r.nombre)}
+        ${r.equiposAsociados?.length ? `<br><small class="panol-equipos-tag">${r.equiposAsociados.map((e) => escapeHtml(e.equipoNombre)).join(", ")}</small>` : ""}
       </td>
-      <td class="panol-stock-num panol-num-${nivel}">${r.stockActual ?? 0} ${escHtml(r.unidad || "")}</td>
+      <td class="panol-stock-num panol-num-${nivel}">${r.stockActual ?? 0} ${escapeHtml(r.unidad || "")}</td>
       <td>${r.stockMinimo ?? "-"}</td>
       <td>${r.stockMaximo ?? "-"}</td>
-      <td>${escHtml(r.ubicacionPanol || "-")}</td>
+      <td>${escapeHtml(r.ubicacionPanol || "-")}</td>
       <td class="actions-cell">
         <div class="table-action-group">
           <button type="button" class="btn-row-action" data-action="ajuste" data-id="${r.id}" title="Ajuste de stock"><i class="fas fa-right-left"></i></button>
@@ -162,8 +163,8 @@ function renderEquiposSelector(containerId, seleccionados = []) {
     const row = document.getElementById(`${containerId}-tags`);
     if (!row) return;
     row.innerHTML = [...selectedMap.entries()].map(([id, nombre]) =>
-      `<span class="equipo-tag" data-id="${id}" data-nombre="${escHtml(nombre)}">
-        ${escHtml(nombre)}
+      `<span class="equipo-tag" data-id="${id}" data-nombre="${escapeHtml(nombre)}">
+        ${escapeHtml(nombre)}
         <button type="button" class="equipo-tag-remove" data-id="${id}" aria-label="Quitar">×</button>
       </span>`
     ).join("");
@@ -195,9 +196,9 @@ function renderEquiposSelector(containerId, seleccionados = []) {
     } else {
       dropdown.innerHTML = visibles.map((e) => {
         const sel = selectedMap.has(e.id);
-        return `<div class="equipos-dropdown-item${sel ? " selected" : ""}" data-id="${e.id}" data-nombre="${escHtml(e.nombre)}">
+        return `<div class="equipos-dropdown-item${sel ? " selected" : ""}" data-id="${e.id}" data-nombre="${escapeHtml(e.nombre)}">
           <span class="equipos-check-icon">${sel ? "✓" : ""}</span>
-          ${escHtml(e.nombre)}
+          ${escapeHtml(e.nombre)}
         </div>`;
       }).join("");
       dropdown.querySelectorAll(".equipos-dropdown-item").forEach((item) => {
@@ -384,8 +385,8 @@ function abrirAjuste(id) {
   _currentAjusteId = id;
 
   document.getElementById("ajusteRepuestoInfo").innerHTML =
-    `<span class="detalle-label">Repuesto:</span> ${escHtml(r.nombre)}<br>
-     <span class="detalle-label">Stock actual:</span> ${r.stockActual ?? 0} ${escHtml(r.unidad || "")}`;
+    `<span class="detalle-label">Repuesto:</span> ${escapeHtml(r.nombre)}<br>
+     <span class="detalle-label">Stock actual:</span> ${r.stockActual ?? 0} ${escapeHtml(r.unidad || "")}`;
   document.getElementById("ajusteCantidad").value = "";
   document.getElementById("ajusteObservaciones").value = "";
   toggleModal("modalAjusteStock", true);
@@ -501,10 +502,10 @@ async function abrirModalSolicitudes() {
     solicitudes.forEach((s) => {
       const row = tbody.insertRow();
       row.innerHTML = `
-        <td>${escHtml(s.repuestoNombre || "-")}</td>
+        <td>${escapeHtml(s.repuestoNombre || "-")}</td>
         <td>${s.cantidad ?? "-"}</td>
-        <td>${escHtml(s.solicitante || "-")}</td>
-        <td>${escHtml(s.ordenNumero || "-")}</td>
+        <td>${escapeHtml(s.solicitante || "-")}</td>
+        <td>${escapeHtml(s.ordenNumero || "-")}</td>
         <td>${formatFecha(s.fecha)}</td>
         <td class="actions-cell">
           <div class="table-action-group">
@@ -710,12 +711,3 @@ function clienteIdActivo() {
   return id;
 }
 
-function formatFecha(fecha) {
-  if (!fecha) return "-";
-  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
-  return isNaN(d.getTime()) ? "-" : d.toLocaleString("es-AR");
-}
-
-function escHtml(v) {
-  return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-}
