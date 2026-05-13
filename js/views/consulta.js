@@ -501,7 +501,7 @@ async function guardarEdicion() {
       return rep?.requiereAprobacion === true;
     });
     if (aprobacionInLine) {
-      await showAlert("No se puede cerrar la orden: se agregaron repuestos que requieren aprobación de egreso.\nGuarde los cambios sin cerrar y espere la aprobación del supervisor.");
+      await showAlert("No se puede cerrar la orden: se agregaron repuestos que requieren aprobación de egreso.\nCambie el estado a \"En proceso\" y espere la aprobación del supervisor.");
       return;
     }
 
