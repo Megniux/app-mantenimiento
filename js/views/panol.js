@@ -36,11 +36,6 @@ export async function initPanolView({ clienteId, role, signal } = {}) {
     abrirModalSolicitudes();
   });
 
-  document.getElementById("mainContent").addEventListener("click", (e) => {
-    if (e.target.matches(".close-modal")) toggleModal(e.target.dataset.modal, false);
-    if (e.target.matches(".modal")) toggleModal(e.target.id, false);
-  });
-
   renderEquiposSelector("repEquiposCheck", []);
 
   // Solo supervisor puede agregar repuestos; admin también

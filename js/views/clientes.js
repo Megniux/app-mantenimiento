@@ -33,10 +33,6 @@ export async function initClientesView({ signal } = {}) {
   // Mostrar/ocultar sección de aprobación al cambiar checkbox de pañol
   document.getElementById("editClientePanol")?.addEventListener("change", toggleAprobacionGrupo);
 
-  document.getElementById("mainContent").addEventListener("click", (e) => {
-    if (e.target.matches(".close-modal")) toggleModal(e.target.dataset.modal, false);
-    if (e.target.matches(".modal")) toggleModal(e.target.id, false);
-  }, signal ? { signal } : undefined);
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".actions-menu")) cerrarMenusDesplegables();
   }, signal ? { signal } : undefined);

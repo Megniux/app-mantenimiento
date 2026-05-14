@@ -80,15 +80,6 @@ export async function initConsultaView({ role, clienteId, signal } = {}) {
   document.getElementById("filtroTecnico").addEventListener("change", cargar);
 
 
-  document.getElementById("mainContent").addEventListener("click", (e) => {
-    if (e.target.matches(".close-modal")) {
-      toggleModal(e.target.dataset.modal, false);
-    }
-    if (e.target.matches(".modal")) {
-      toggleModal(e.target.id, false);
-    }
-  }, signal ? { signal } : undefined);
-
   document.addEventListener("click", (e) => {
     if (e.target.closest(".actions-menu")) return;
     cerrarMenusDesplegables();

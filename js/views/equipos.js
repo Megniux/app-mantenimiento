@@ -18,14 +18,6 @@ export async function initEquiposView({ clienteId, signal } = {}) {
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
   document.getElementById("guardarCambioUbicacionBtn").addEventListener("click", guardarCambioUbicacion);
   document.getElementById("busquedaEquipos").addEventListener("input", renderEquiposFiltrados);
-  document.getElementById("mainContent").addEventListener("click", (e) => {
-    if (e.target.matches(".close-modal")) {
-      toggleModal(e.target.dataset.modal, false);
-    }
-    if (e.target.matches(".modal")) {
-      toggleModal(e.target.id, false);
-    }
-  }, signal ? { signal } : undefined);
 }
 
 async function cargarUbicaciones() {
