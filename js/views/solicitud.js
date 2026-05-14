@@ -1,6 +1,7 @@
 import { addDoc, collection, doc, getDoc, getDocs, query, runTransaction, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 import { showAlert } from "../ui/dialog.js";
+import { navigate } from "../router.js";
 
 let _clienteId = "";
 let _todosEquipos = [];
@@ -225,10 +226,7 @@ async function guardar() {
     });
 
     await showAlert(`Orden creada: ${numeroOrden}`);
-    document.getElementById("solicitudForm").reset();
-    document.getElementById("solicitante").value = solicitante;
-    actualizarEquiposDisponibles();
-    mostrarFrecuencia();
+    navigate("consulta");
   } catch (error) {
     console.error(error);
     await showAlert(`Error al guardar: ${error.message}`);
