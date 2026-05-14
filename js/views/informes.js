@@ -1,9 +1,10 @@
 import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
 
-export async function initInformesView({ clienteId } = {}) {
+export async function initInformesView({ clienteId, signal } = {}) {
   const _clienteId = clienteId || "";
   const ordenesSnap = await getDocs(query(collection(db, "ordenes"), where("clienteId", "==", _clienteId)));
+  if (signal?.aborted) return;
   const ordenes = [];
   ordenesSnap.forEach((d) => ordenes.push({ id: d.id, ...d.data() }));
   renderCorrectivos(ordenes.filter((o) => o.tipo === "Correctivo"));
@@ -86,11 +87,6 @@ function porcentaje(parte, total) {
   if (!total) return "0.00";
   return ((parte / total) * 100).toFixed(2);
 }
-
-function formatoNumero(value) {
-  return Number(value || 0).toFixed(2);
-}
-
 
 function formatoDuracionHoras(value) {
   const totalMinutos = Math.max(0, Math.round((Number(value) || 0) * 60));

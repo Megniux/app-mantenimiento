@@ -1,0 +1,59 @@
+<div class="form-card">
+  <div class="form-section">
+    <h3>Historial de Movimientos</h3>
+    <div class="panol-toolbar">
+      <div class="search-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="busquedaMovimientos" placeholder="Buscar por repuesto, usuario u orden…">
+      </div>
+      <div class="panol-toolbar-right">
+        <div class="grupo-filtro">
+          <label>Tipo</label>
+          <select id="filtroMovTipo">
+            <option value="">Todos</option>
+            <option value="ingreso">Ingreso</option>
+            <option value="egreso">Egreso</option>
+            <option value="ajuste">Ajuste</option>
+          </select>
+        </div>
+        <div class="grupo-filtro">
+          <label>Desde</label>
+          <input type="date" id="filtroMovDesde">
+        </div>
+        <div class="grupo-filtro">
+          <label>Hasta</label>
+          <input type="date" id="filtroMovHasta">
+        </div>
+        <button type="button" id="exportMovBtn" class="btn-outline">Exportar CSV</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="management-table">
+        <colgroup>
+          <col style="width:14%">
+          <col style="width:20%">
+          <col style="width:8%">
+          <col style="width:8%">
+          <col style="width:10%">
+          <col style="width:12%">
+          <col style="width:12%">
+          <col style="width:16%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Repuesto</th>
+            <th>Tipo</th>
+            <th>Cantidad</th>
+            <th>Stock result.</th>
+            <th>Orden</th>
+            <th>Usuario</th>
+            <th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyMovimientos"></tbody>
+      </table>
+    </div>
+    <p id="movimientosCargando" class="panol-cargando">Cargando movimientos…</p>
+  </div>
+</div>

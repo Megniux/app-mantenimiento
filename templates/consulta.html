@@ -47,7 +47,7 @@
   </div>
 </div>
 
-<div id="modalEditar" class="modal is-hidden"><div class="modal-content">
+<div id="modalEditar" class="modal is-hidden" data-modal-kind="edit"><div class="modal-content">
   <span class="close close-modal" data-modal="modalEditar">&times;</span>
   <div class="form-card modal-form-card form-section">
     <h3>Editar Orden</h3>
@@ -75,13 +75,22 @@
         <div class="input-with-icon"><i class="fa-solid fa-file-circle-check"></i><textarea id="editInformeCierre" rows="7" placeholder="Informe de cierre"></textarea></div>
       </div>
     </div>
+    <div id="editRepuestosGrupo" class="form-section is-hidden">
+        <h3><i class="fas fa-warehouse" style="margin-right:0.4rem;font-size:0.9rem;"></i>Repuestos utilizados</h3>
+        <div id="editRepuestosExistentes"></div>
+        <div id="editRepuestosLista"></div>
+        <button type="button" id="editAgregarRepuestoOrdenBtn" class="btn-row-action" style="margin-top:0.5rem;">
+          <i class="fas fa-plus"></i> Agregar repuesto
+        </button>
+        <p class="form-help">Los repuestos que requieran aprobación quedarán en estado pendiente hasta ser aprobados por el supervisor.</p>
+      </div>
     <button id="guardarEdicionBtn" type="button" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i>Guardar cambios</button>
   </div>
 </div></div>
-<div id="modalDetalles" class="modal is-hidden"><div class="modal-content">
+<div id="modalDetalles" class="modal is-hidden" data-modal-kind="info"><div class="modal-content">
   <span class="close close-modal" data-modal="modalDetalles">&times;</span>
   <div class="form-card modal-form-card form-section">
-    <h3>Ver Detalles</h3>
+    <h3>Detalles</h3>
     <div id="detallesContenido"></div>
   </div>
 </div></div>

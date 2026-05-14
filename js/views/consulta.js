@@ -1,5 +1,9 @@
-import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc, query, runTransaction, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db, auth } from "../firebase-config.js";
+import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
+import { isModuloPanolActivo, actualizarBadgePanol } from "../router.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
+import { escapeHtml } from "../ui/format.js";
 
 let userRole = null;
 let _clienteId = "";
@@ -7,9 +11,13 @@ let todasOrdenes = [];
 let currentOrderId = null;
 let listaTecnicos = [];
 let consultaLoadToken = 0;
+let _viewSignal = null;
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
-let listenerCierreMenuRegistrado = false;
+let _panolActivo = false;
+let _repuestosDisponibles = [];   // lista cacheada para el modal
+let _repuestosEnOrden = [];       // repuestos cargados en la orden actual
+
 const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
@@ -42,13 +50,16 @@ const CAMPOS_DETALLE_ORDEN = [
   { label: "Tiempo real (hs)", getValue: (orden) => orden.tiempoReal ?? "-" }
 ];
 
-export async function initConsultaView({ role, clienteId }) {
+export async function initConsultaView({ role, clienteId, signal } = {}) {
   userRole = role;
   const clienteIdActual = clienteId || "";
   const loadToken = ++consultaLoadToken;
+  _viewSignal = signal;
   _clienteId = clienteIdActual;
   listaTecnicos = [];
   todasOrdenes = [];
+  _panolActivo = isModuloPanolActivo();
+  if (_panolActivo) await prepararRepuestosOrden(clienteIdActual);
 
   const tecnicos = await cargarTecnicos(clienteIdActual, loadToken);
   await cargarListasFiltros(clienteIdActual, tecnicos, loadToken);
@@ -56,7 +67,7 @@ export async function initConsultaView({ role, clienteId }) {
   if (!esCargaConsultaActual(clienteIdActual, loadToken)) return;
   configurarOrdenPredeterminado();
   await cargar();
-  inicializarToolbarMovil();
+  inicializarToolbarMovil(signal);
 
   document.getElementById("limpiarFiltrosBtn").addEventListener("click", limpiarFiltros);
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
@@ -69,26 +80,16 @@ export async function initConsultaView({ role, clienteId }) {
   document.getElementById("filtroTecnico").addEventListener("change", cargar);
 
 
-  document.getElementById("mainContent").addEventListener("click", (e) => {
-    if (e.target.matches(".close-modal")) {
-      toggleModal(e.target.dataset.modal, false);
-    }
-    if (e.target.matches(".modal")) {
-      toggleModal(e.target.id, false);
-    }
-  });
-
-  if (!listenerCierreMenuRegistrado) {
-    document.addEventListener("click", (e) => {
-      if (e.target.closest(".actions-menu")) return;
-      cerrarMenusDesplegables();
-    });
-    listenerCierreMenuRegistrado = true;
-  }
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".actions-menu")) return;
+    cerrarMenusDesplegables();
+  }, signal ? { signal } : undefined);
 }
 
 function esCargaConsultaActual(clienteId, loadToken) {
-  return _clienteId === clienteId && consultaLoadToken === loadToken;
+  return _clienteId === clienteId
+      && consultaLoadToken === loadToken
+      && !_viewSignal?.aborted;
 }
 
 function cerrarMenusDesplegables() {
@@ -96,7 +97,7 @@ function cerrarMenusDesplegables() {
   if (menu) menu.remove();
 }
 
-function inicializarToolbarMovil() {
+function inicializarToolbarMovil(signal) {
   const toolbar = document.querySelector(".table-toolbar");
   const toggleBtn = document.getElementById("toolbarToggleBtn");
   if (!toolbar || !toggleBtn) return;
@@ -127,15 +128,10 @@ function inicializarToolbarMovil() {
     });
   });
 
-  const controller = new AbortController();
+  // El listener de resize queda atado al signal de la vista, así se desmonta al cambiar de ruta
   window.addEventListener("resize", () => {
     if (window.innerWidth >= MOBILE_BREAKPOINT) closeToolbar();
-  }, { signal: controller.signal });
-
-  if (window._toolbarResizeController) {
-    window._toolbarResizeController.abort();
-  }
-  window._toolbarResizeController = controller;
+  }, signal ? { signal } : undefined);
 }
 
 async function cargarTecnicos(clienteId = _clienteId, loadToken = consultaLoadToken) {
@@ -277,6 +273,10 @@ async function cargar() {
 
       const id = trigger.dataset.id;
       const orden = todasOrdenes.find((o) => o.id === id);
+      // Guarda contra carreras: si la lista todavía no tiene la orden (por
+      // ejemplo, click durante un re-render), abortamos en silencio en lugar
+      // de tirar TypeError al leer orden.estado.
+      if (!orden) return;
 
       const menu = document.createElement("div");
       menu.id = "floatingDropdown";
@@ -291,7 +291,8 @@ async function cargar() {
       };
 
       addOption("Ver detalles", () => verDetalles(id));
-      if (userRole !== "usuario" && userRole !== "supervisor") {
+      if (userRole !== "usuario") {
+        // Cerrado solo lo pueden reabrir/editar admin y superadmin.
         if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
           addOption("Editar", () => abrirModal(id));
         }
@@ -337,15 +338,15 @@ function obtenerValorOrden(orden, campoOrden) {
 }
 
 async function eliminarOrden(id) {
-  if (!confirm("¿Está seguro de eliminar esta orden?")) return;
+  if (!(await showConfirm("¿Está seguro de eliminar esta orden?"))) return;
   await deleteDoc(doc(db, "ordenes", id));
   await cargarTodasOrdenes();
   await cargar();
 }
 
-function exportarCSV() {
+async function exportarCSV() {
   if (!todasOrdenes.length) {
-    alert("No hay órdenes para exportar.");
+    await showAlert("No hay órdenes para exportar.");
     return;
   }
 
@@ -376,6 +377,28 @@ async function verDetalles(id) {
   const d = snap.data();
   const fields = CAMPOS_DETALLE_ORDEN.map((campo) => [campo.label, campo.getValue(d)]);
   const detallesHtml = fields.map(([label, value]) => `<div class="detalle-linea"><span class="detalle-label">${label}:</span> ${value || "-"}</div>`).join("");
+
+  const repuestosUtilizados = d.repuestosUtilizados || [];
+  const estadoRepLabel = (estado) => {
+    if (estado === "pendiente_aprobacion") return '<span class="panol-aprobacion-warn">Pendiente de aprobación</span>';
+    if (estado === "rechazado") return '<span style="color:#dc2626">Rechazado</span>';
+    return "Aprobado";
+  };
+  const repuestosHtml = (_panolActivo && repuestosUtilizados.length) ? `
+    <div class="form-section">
+      <h3>Repuestos utilizados</h3>
+      <table class="management-table">
+        <thead><tr><th>Repuesto</th><th>Cantidad</th><th>Estado</th></tr></thead>
+        <tbody>
+          ${repuestosUtilizados.map((r) => `<tr>
+            <td>${escapeHtml(r.repuestoNombre)}</td>
+            <td>${r.cantidad} ${escapeHtml(r.unidad || "")}</td>
+            <td>${estadoRepLabel(r.estado)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>` : "";
+
   const historialRows = (d.historial || []).map((h) => `<tr>
       <td>${formatearFechaLarga(h.fecha)}</td>
       <td>${h.usuario || "-"}</td>
@@ -383,6 +406,7 @@ async function verDetalles(id) {
       <td>${h.camposModificados || "-"}</td>
     </tr>`).join("");
   document.getElementById("detallesContenido").innerHTML = `${detallesHtml}
+    ${repuestosHtml}
     <div class="form-section">
       <h3>Historial</h3>
       <table class="management-table historial-table">
@@ -430,6 +454,7 @@ async function abrirModal(id) {
   actualizarCamposEstadoCierre();
 
   document.getElementById("guardarEdicionBtn").onclick = guardarEdicion;
+  await inicializarSeccionRepuestos(data);
   toggleModal("modalEditar", true);
 }
 
@@ -447,12 +472,40 @@ async function guardarEdicion() {
   const tiempoReal = parseFloat(document.getElementById("editTiempoReal").value) || null;
   const comentarioMantenimiento = document.getElementById("editComentario").value.trim();
   const informeCierre = document.getElementById("editInformeCierre").value.trim();
+  const hayRepuestosNuevos = _repuestosEnOrden.some((r) => r.repuestoId);
 
   if ((nuevoEstado === "Pendiente" || nuevoEstado === "En proceso") && (!tecnicoAsignado || !fechaProgramada)) {
-    return alert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
+    await showAlert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
+    return;
   }
   if (nuevoEstado === "Cerrado" && (!tecnicoAsignado || !fechaProgramada || !tiempoEstimado || !tiempoReal || !comentarioMantenimiento || !informeCierre)) {
-    return alert("Para pasar a Cerrado debe completar todos los campos.");
+    await showAlert("Para pasar a Cerrado debe completar todos los campos.");
+    return;
+  }
+  if (nuevoEstado === "Cerrado" && _panolActivo) {
+    // Repuestos agregados en el mismo movimiento que requieren aprobación no
+    // están todavía en solicitudesPanol, así que el chequeo Firestore de abajo
+    // no los detecta. Cruzar el state contra el catálogo cacheado antes.
+    const aprobacionInLine = _repuestosEnOrden.some((item) => {
+      if (!item.repuestoId) return false;
+      const rep = _repuestosDisponibles.find((r) => r.id === item.repuestoId);
+      return rep?.requiereAprobacion === true;
+    });
+    if (aprobacionInLine) {
+      await showAlert("No se puede cerrar la orden: se agregaron repuestos que requieren aprobación de egreso.\nCambie el estado a \"En proceso\" y espere la aprobación del supervisor.");
+      return;
+    }
+
+    const pendSnap = await getDocs(query(
+      collection(db, "solicitudesPanol"),
+      where("clienteId", "==", _clienteId),
+      where("ordenId", "==", currentOrderId),
+      where("estado", "==", "pendiente")
+    ));
+    if (!pendSnap.empty) {
+      await showAlert("No se puede cerrar la orden: hay repuestos pendientes de aprobación de egreso.\nEspere que el supervisor apruebe o rechace las solicitudes.");
+      return;
+    }
   }
 
   const updateData = {
@@ -473,17 +526,15 @@ async function guardarEdicion() {
     comentarioMantenimiento,
     informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
   });
-  const camposModificados = obtenerCamposModificadosAnteriores(data, {
-    tecnicoAsignado,
-    fechaProgramada: fechaProgramada || null,
-    tiempoEstimado,
-    tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
-    comentarioMantenimiento,
-    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
-  }, data.estado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"]);
+  const camposOcultosHistorial = data.estado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"];
+  const camposModificados = [
+    ...cambiosDetectados.filter((c) => !camposOcultosHistorial.includes(c.campo)).map((c) => c.texto),
+    ...(hayRepuestosNuevos ? ["Repuestos agregados"] : [])
+  ];
 
-  if (!cambiosDetectados.length && !estadoCambio) {
-    return alert("No hay cambios para guardar.");
+  if (!cambiosDetectados.length && !estadoCambio && !hayRepuestosNuevos) {
+    await showAlert("No hay cambios para guardar.");
+    return;
   }
 
   const originalHTML = btn.innerHTML;
@@ -508,23 +559,52 @@ async function guardarEdicion() {
           const ordenCerrada = { ...data, ...updateData, estado: nuevoEstado };
           await generarPreventivaRecurrente(ordenCerrada);
         }
+      } else if (data.estado === "Cerrado") {
+        // Reapertura: limpiar fechaCierre para que la orden no quede con fecha de cierre obsoleta
+        updateData.fechaCierre = null;
       }
+
+      // ── Tracking de tiempo en espera de proveedor ──
+      if (nuevoEstado === "Esperando proveedor" && data.estado !== "Esperando proveedor") {
+        // Entra en espera: marcar inicio
+        updateData.fechaInicioEspera = new Date();
+      } else if (data.estado === "Esperando proveedor" && nuevoEstado !== "Esperando proveedor") {
+        // Sale de espera: acumular minutos transcurridos y limpiar inicio
+        const inicio = data.fechaInicioEspera?.toDate
+          ? data.fechaInicioEspera.toDate()
+          : (data.fechaInicioEspera ? new Date(data.fechaInicioEspera) : null);
+        const minutosEspera = inicio && !Number.isNaN(inicio.getTime())
+          ? Math.max(0, (Date.now() - inicio.getTime()) / (1000 * 60))
+          : 0;
+        updateData.tiempoTotalEspera = Number(data.tiempoTotalEspera || 0) + minutosEspera;
+        updateData.fechaInicioEspera = null;
+      }
+    }
+
+    const nuevosRepuestos = await procesarRepuestosOrden(currentOrderId, data.numeroOrden);
+    if (nuevosRepuestos.length) {
+      updateData.repuestosUtilizados = [...(data.repuestosUtilizados || []), ...nuevosRepuestos];
     }
 
     await updateDoc(docRef, updateData);
     toggleModal("modalEditar", false);
     await cargarTodasOrdenes();
     await cargar();
+    // Si se procesaron repuestos, alguno pudo haber generado una solicitud
+    // pendiente — refrescar el badge del sidebar para que no quede stale.
+    if (nuevosRepuestos.length) {
+      await actualizarBadgePanol();
+    }
   } catch (error) {
     console.error(error);
-    alert(`Error al guardar cambios: ${error.message}`);
+    await showAlert(`Error al guardar cambios: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
   }
 }
 
-function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHistorial = []) {
+function obtenerCamposModificadosAnteriores(actual, actualizado) {
   const mapeo = {
     tecnicoAsignado: "Técnico asignado",
     fechaProgramada: "Fecha programada",
@@ -535,11 +615,10 @@ function obtenerCamposModificadosAnteriores(actual, actualizado, camposOcultosHi
   };
 
   return Object.keys(mapeo).flatMap((campo) => {
-    if (camposOcultosHistorial.includes(campo)) return [];
     const valorActual = normalizarValorComparacion(campo, actual[campo]);
     const valorActualizado = normalizarValorComparacion(campo, actualizado[campo]);
     if (valorActual === valorActualizado) return [];
-    return `${mapeo[campo]} anterior: "${normalizarValorVisual(campo, actual[campo])}"`;
+    return [{ campo, texto: `${mapeo[campo]} anterior: "${normalizarValorVisual(campo, actual[campo])}"` }];
   });
 }
 
@@ -565,11 +644,14 @@ function normalizarValorVisual(campo, valor) {
 
 async function generarPreventivaRecurrente(original) {
   const refCont = doc(db, "clientes", _clienteId);
-  const snapCont = await getDoc(refCont);
-  const cont = snapCont.data() || {};
-  const contadorOMP = cont.contadorOMP || 1;
+  const contadorOMP = await runTransaction(db, async (tx) => {
+    const snapCont = await tx.get(refCont);
+    const cont = snapCont.data() || {};
+    const actual = cont.contadorOMP || 1;
+    tx.update(refCont, { contadorOMP: actual + 1 });
+    return actual;
+  });
   const numeroOrden = `OMP-${String(contadorOMP).padStart(4, "0")}`;
-  await updateDoc(refCont, { contadorOMP: contadorOMP + 1 });
 
   // solicitanteUid se reasigna al user que cierra la preventiva (no se hereda
   // del original): la regla de Firestore exige que el creador sea el solicitante,
@@ -670,4 +752,183 @@ async function limpiarFiltros() {
   document.getElementById("filtroUsuario").value = "";
   document.getElementById("filtroTecnico").value = "";
   await cargar();
+}
+
+async function prepararRepuestosOrden(clienteId) {
+  // Carga y cachea la lista de repuestos disponibles para el selector del modal
+  try {
+    _repuestosDisponibles = await cargarRepuestosParaOrden(clienteId);
+  } catch (_) {
+    _repuestosDisponibles = [];
+  }
+}
+
+async function inicializarSeccionRepuestos(ordenData) {
+  const grupo = document.getElementById("editRepuestosGrupo");
+  const btn = document.getElementById("editAgregarRepuestoOrdenBtn");
+  if (!grupo) return;
+
+  if (!_panolActivo) {
+    grupo.classList.add("is-hidden");
+    return;
+  }
+
+  grupo.classList.remove("is-hidden");
+  _repuestosEnOrden = [];
+
+  renderRepuestosExistentes(ordenData.repuestosUtilizados || []);
+
+  const lista = document.getElementById("editRepuestosLista");
+  if (lista) lista.innerHTML = "";
+
+  const nuevoBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(nuevoBtn, btn);
+  nuevoBtn.addEventListener("click", agregarFilaRepuestoEnOrden);
+}
+
+function agregarFilaRepuestoEnOrden() {
+  const lista = document.getElementById("editRepuestosLista");
+  if (!lista) return;
+
+  const idx = _repuestosEnOrden.length;
+  _repuestosEnOrden.push({ repuestoId: "", cantidad: 1 });
+
+  const div = document.createElement("div");
+  div.className = "panol-repuesto-fila";
+  div.dataset.idx = idx;
+
+  const selectOpts = _repuestosDisponibles.map((r) =>
+    `<option value="${r.id}" data-nombre="${escapeHtml(r.nombre)}"
+       data-stock="${r.stockActual ?? 0}" data-unidad="${escapeHtml(r.unidad || "unidad")}"
+       data-aprobacion="${r.requiereAprobacion ? "si" : "no"}">
+       ${escapeHtml(r.nombre)}${r.codigoInterno ? ` (${escapeHtml(r.codigoInterno)})` : ""}
+       — Stock: ${r.stockActual ?? 0} ${escapeHtml(r.unidad || "")}
+     </option>`
+  ).join("");
+
+  div.innerHTML = `
+    <div class="input-with-icon" style="flex:1">
+      <i class="fas fa-wrench"></i>
+      <select class="panol-repuesto-select">
+        <option value="">Seleccionar repuesto…</option>
+        ${selectOpts}
+      </select>
+    </div>
+    <div class="input-with-icon panol-cantidad-wrapper">
+      <i class="fas fa-hashtag"></i>
+      <input type="number" min="1" step="1" value="1" class="panol-cantidad-input" placeholder="Cant.">
+    </div>
+    <span class="panol-stock-info"></span>
+    <button type="button" class="btn-delete-icon panol-remove-repuesto" title="Quitar"><i class="fas fa-xmark"></i></button>`;
+
+  const select = div.querySelector(".panol-repuesto-select");
+  const cantInput = div.querySelector(".panol-cantidad-input");
+  const stockInfo = div.querySelector(".panol-stock-info");
+
+  select.addEventListener("change", () => {
+    const opt = select.options[select.selectedIndex];
+    _repuestosEnOrden[idx].repuestoId = opt.value;
+    const stock = opt.dataset.stock;
+    const aprobacion = opt.dataset.aprobacion;
+    stockInfo.textContent = opt.value
+      ? `Stock: ${stock} ${opt.dataset.unidad}${aprobacion === "si" ? " — requiere aprobación" : ""}`
+      : "";
+    stockInfo.className = `panol-stock-info${aprobacion === "si" ? " panol-aprobacion-warn" : ""}`;
+  });
+
+  cantInput.addEventListener("change", () => {
+    _repuestosEnOrden[idx].cantidad = parseFloat(cantInput.value) || 1;
+  });
+
+  div.querySelector(".panol-remove-repuesto").addEventListener("click", () => {
+    _repuestosEnOrden.splice(idx, 1);
+    div.remove();
+    // Re-indexar
+    document.querySelectorAll(".panol-repuesto-fila").forEach((el, i) => { el.dataset.idx = i; });
+  });
+
+  lista.appendChild(div);
+}
+
+function renderRepuestosExistentes(lista) {
+  const container = document.getElementById("editRepuestosExistentes");
+  if (!container) return;
+  if (!lista.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const estadoLabel = (estado) => {
+    if (estado === "pendiente_aprobacion") return '<span class="panol-aprobacion-warn">Pendiente de aprobación</span>';
+    if (estado === "rechazado") return '<span style="color:#dc2626">Rechazado</span>';
+    return "Aprobado";
+  };
+
+  container.innerHTML = `
+    <table class="management-table" style="margin-bottom:0.75rem;">
+      <thead><tr><th>Repuesto</th><th>Cantidad</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${lista.map((r) => `<tr>
+          <td>${escapeHtml(r.repuestoNombre)}</td>
+          <td>${r.cantidad} ${escapeHtml(r.unidad || "")}</td>
+          <td>${estadoLabel(r.estado)}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function procesarRepuestosOrden(ordenId, ordenNumero) {
+  if (!_panolActivo || !_repuestosEnOrden.length) return [];
+
+  const solicitante = sessionStorage.getItem("userName") || "";
+  const mensajes = [];
+  const registrados = [];
+
+  const errores = [];
+
+  for (const item of _repuestosEnOrden) {
+    if (!item.repuestoId || !item.cantidad) continue;
+    try {
+      const resultado = await registrarEgresoDesdeOrden({
+        clienteId: _clienteId,
+        repuestoId: item.repuestoId,
+        cantidad: item.cantidad,
+        ordenId,
+        ordenNumero,
+        solicitante
+      });
+      registrados.push({
+        repuestoId: item.repuestoId,
+        repuestoNombre: resultado.nombre,
+        cantidad: item.cantidad,
+        unidad: resultado.unidad || "",
+        fechaEgreso: new Date(),
+        estado: resultado.aprobacionPendiente ? "pendiente_aprobacion" : "aprobado",
+        ...(resultado.solicitudId ? { solicitudId: resultado.solicitudId } : {})
+      });
+      if (resultado.aprobacionPendiente) {
+        mensajes.push(`"${resultado.nombre}": solicitud de egreso enviada para aprobación.`);
+      }
+    } catch (err) {
+      console.warn(`Error al registrar repuesto ${item.repuestoId}:`, err.message);
+      errores.push(item.repuestoId);
+    }
+  }
+
+  // Resumen al usuario: cuántos quedaron aprobados (descontados de stock) y
+  // cuántos esperando aprobación. Si todos fallaron, avisar.
+  const aprobados = registrados.filter((r) => r.estado === "aprobado").length;
+  const pendientes = registrados.filter((r) => r.estado === "pendiente_aprobacion").length;
+
+  const partes = [];
+  if (aprobados) partes.push(`${aprobados} descontado${aprobados !== 1 ? "s" : ""} de stock`);
+  if (pendientes) partes.push(`${pendientes} pendiente${pendientes !== 1 ? "s" : ""} de aprobación`);
+
+  if (partes.length) {
+    const detalle = mensajes.length ? `\n\n${mensajes.join("\n")}` : "";
+    await showAlert(`Repuestos procesados: ${partes.join(", ")}.${detalle}`);
+  } else if (errores.length) {
+    await showAlert(`No se pudieron registrar los repuestos. Probá de nuevo o avisá al supervisor.`);
+  }
+  return registrados;
 }

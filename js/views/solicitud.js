@@ -1,12 +1,16 @@
-import { addDoc, collection, doc, getDoc, getDocs, query, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { addDoc, collection, doc, getDoc, getDocs, query, runTransaction, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert } from "../ui/dialog.js";
+import { navigate } from "../router.js";
 
 let _clienteId = "";
 let _todosEquipos = [];
 let _ubicaciones = [];
+let _viewSignal = null;
 
-export async function initSolicitudView({ role, userName, clienteId }) {
+export async function initSolicitudView({ role, userName, clienteId, signal } = {}) {
   _clienteId = clienteId || "";
+  _viewSignal = signal;
   document.getElementById("solicitante").value = userName;
   if (role === "usuario" || role === "supervisor") {
     document.getElementById("tipoGrupo").classList.add("is-hidden");
@@ -14,6 +18,7 @@ export async function initSolicitudView({ role, userName, clienteId }) {
   }
 
   await cargarOpciones();
+  if (_viewSignal?.aborted) return;
 
   document.getElementById("tipo").addEventListener("change", mostrarFrecuencia);
   document.getElementById("ubicacion").addEventListener("change", actualizarEquiposDisponibles);
@@ -23,6 +28,7 @@ export async function initSolicitudView({ role, userName, clienteId }) {
 
 async function cargarOpciones() {
   const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", _clienteId)));
+  if (_viewSignal?.aborted) return;
   const ubicacionSelect = document.getElementById("ubicacion");
   ubicacionSelect.innerHTML = '<option value="">Seleccionar ubicación</option>';
 
@@ -40,6 +46,7 @@ async function cargarOpciones() {
   });
 
   const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", _clienteId)));
+  if (_viewSignal?.aborted) return;
   _todosEquipos = [];
   equiposSnap.forEach((docSnap) => _todosEquipos.push(normalizarEquipo(docSnap)));
   _todosEquipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
@@ -53,15 +60,19 @@ function normalizarEquipo(docSnap) {
     ? data.ubicaciones.filter(Boolean)
     : (data.ubicacion ? [data.ubicacion] : []);
 
-  const ubicacionMatch = _ubicaciones.find((ubicacion) =>
-    ubicacion.id === data.ubicacionActualId
-    || (!data.ubicacionActualId && (ubicacion.nombre === data.ubicacionActualNombre || ubicacion.nombre === legacyUbicaciones[0]))
-  );
+  // 1° intentar match por id; 2° fallback por nombre aunque el id esté seteado
+  // pero stale (ej. datos importados con ids viejos). Si no hay match, dejar el
+  // id vacío — propagar un id huérfano hace que el equipo no matchee con ningún
+  // filtro de ubicación y "desaparezca" de la lista.
+  const ubicacionMatch = _ubicaciones.find((u) => u.id === data.ubicacionActualId)
+    || _ubicaciones.find((u) =>
+      u.nombre === data.ubicacionActualNombre || u.nombre === legacyUbicaciones[0]
+    );
 
   return {
     id: docSnap.id,
     nombre: data.nombre || "",
-    ubicacionActualId: ubicacionMatch?.id || data.ubicacionActualId || "",
+    ubicacionActualId: ubicacionMatch?.id || "",
     ubicacionActualNombre: ubicacionMatch?.nombre || data.ubicacionActualNombre || legacyUbicaciones[0] || ""
   };
 }
@@ -136,19 +147,16 @@ function mostrarFrecuencia() {
 
 async function generarNumero(tipo) {
   const ref = doc(db, "clientes", _clienteId);
-  const snap = await getDoc(ref);
-  const data = snap.data() || {};
-  let numero;
-  if (tipo === "Correctivo") {
-    const contadorOMC = data.contadorOMC || 1;
-    numero = `OMC-${String(contadorOMC).padStart(4, "0")}`;
-    await updateDoc(ref, { contadorOMC: contadorOMC + 1 });
-  } else {
-    const contadorOMP = data.contadorOMP || 1;
-    numero = `OMP-${String(contadorOMP).padStart(4, "0")}`;
-    await updateDoc(ref, { contadorOMP: contadorOMP + 1 });
-  }
-  return numero;
+  const campo = tipo === "Correctivo" ? "contadorOMC" : "contadorOMP";
+  const prefijo = tipo === "Correctivo" ? "OMC" : "OMP";
+  const valor = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data() || {};
+    const actual = data[campo] || 1;
+    tx.update(ref, { [campo]: actual + 1 });
+    return actual;
+  });
+  return `${prefijo}-${String(valor).padStart(4, "0")}`;
 }
 
 async function guardar() {
@@ -164,13 +172,24 @@ async function guardar() {
   const uid = sessionStorage.getItem("userUid");
 
   if (!equipoSeleccionado) {
-    return alert("Seleccione un equipo.");
+    await showAlert("Seleccione un equipo.");
+    return;
   }
   if (!equipoSeleccionado.ubicacionActualNombre) {
-    return alert("Seleccione una ubicación antes de elegir 'Otro'.");
+    if (equipoSeleccionado.id === "") {
+      await showAlert("Seleccione una ubicación antes de elegir 'Otro'.");
+      return;
+    }
+    await showAlert(`El equipo "${equipoSeleccionado.nombre}" no tiene ubicación asignada. Asigne una ubicación al equipo antes de generar la solicitud.`);
+    return;
   }
   if (!descripcion) {
-    return alert("Complete todos los campos.");
+    await showAlert("Ingrese una descripción para la solicitud.");
+    return;
+  }
+  if (tipo === "Preventivo" && !frecuencia) {
+    await showAlert("Seleccione una frecuencia para la orden preventiva.");
+    return;
   }
 
   const originalHTML = btn.innerHTML;
@@ -206,14 +225,11 @@ async function guardar() {
       historial: [{ estado: "Nuevo", fecha: new Date(), usuario: solicitante }]
     });
 
-    alert(`Orden creada: ${numeroOrden}`);
-    document.getElementById("solicitudForm").reset();
-    document.getElementById("solicitante").value = solicitante;
-    actualizarEquiposDisponibles();
-    mostrarFrecuencia();
+    await showAlert(`Orden creada: ${numeroOrden}`);
+    navigate("consulta");
   } catch (error) {
     console.error(error);
-    alert(`Error al guardar: ${error.message}`);
+    await showAlert(`Error al guardar: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;

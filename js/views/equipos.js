@@ -1,31 +1,23 @@
 import { addDoc, collection, deleteDoc, deleteField, doc, getDocs, query, updateDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
+import { escapeHtml } from "../ui/format.js";
 
 let _clienteId = "";
 let _ubicaciones = [];
 let _equipos = [];
 let currentMoveEquipoId = null;
-let listenerModalEquiposRegistrado = false;
 
-export async function initEquiposView({ clienteId } = {}) {
+export async function initEquiposView({ clienteId, signal } = {}) {
   _clienteId = clienteId || "";
   _ubicaciones = await cargarUbicaciones();
+  if (signal?.aborted) return;
   await cargarEquipos();
+  if (signal?.aborted) return;
 
   document.getElementById("agregarEquipoBtn").addEventListener("click", agregarEquipo);
   document.getElementById("guardarCambioUbicacionBtn").addEventListener("click", guardarCambioUbicacion);
   document.getElementById("busquedaEquipos").addEventListener("input", renderEquiposFiltrados);
-  if (!listenerModalEquiposRegistrado) {
-    document.getElementById("mainContent").addEventListener("click", (e) => {
-      if (e.target.matches(".close-modal")) {
-        toggleModal(e.target.dataset.modal, false);
-      }
-      if (e.target.matches(".modal")) {
-        toggleModal(e.target.id, false);
-      }
-    });
-    listenerModalEquiposRegistrado = true;
-  }
 }
 
 async function cargarUbicaciones() {
@@ -64,16 +56,20 @@ function normalizarEquipo(docSnap) {
     ? data.ubicaciones.filter(Boolean)
     : (data.ubicacion ? [data.ubicacion] : []);
 
-  const ubicacionMatch = _ubicaciones.find((ubicacion) =>
-    ubicacion.id === data.ubicacionActualId
-    || (!data.ubicacionActualId && (ubicacion.nombre === data.ubicacionActualNombre || ubicacion.nombre === legacyUbicaciones[0]))
-  );
+  // 1° intentar match por id; 2° fallback por nombre aunque el id esté seteado
+  // pero stale (ej. datos importados con ids viejos). Si no hay match, dejar el
+  // id vacío — propagar un id huérfano hace que el equipo no matchee con ningún
+  // filtro de ubicación y "desaparezca" de la lista.
+  const ubicacionMatch = _ubicaciones.find((u) => u.id === data.ubicacionActualId)
+    || _ubicaciones.find((u) =>
+      u.nombre === data.ubicacionActualNombre || u.nombre === legacyUbicaciones[0]
+    );
 
   return {
     id: docSnap.id || data.id,
     nombre: data.nombre || "",
     clienteId: data.clienteId || _clienteId,
-    ubicacionActualId: ubicacionMatch?.id || data.ubicacionActualId || "",
+    ubicacionActualId: ubicacionMatch?.id || "",
     ubicacionActualNombre: ubicacionMatch?.nombre || data.ubicacionActualNombre || legacyUbicaciones[0] || "",
     historialUbicaciones: Array.isArray(data.historialUbicaciones) ? data.historialUbicaciones : []
   };
@@ -137,8 +133,8 @@ async function agregarEquipo() {
   const ubicacionId = document.getElementById("ubicacionEquipo").value;
   const ubicacion = _ubicaciones.find((item) => item.id === ubicacionId);
 
-  if (!nombre) return alert("Ingrese un nombre");
-  if (!ubicacion) return alert("Seleccione una ubicación actual.");
+  if (!nombre) { await showAlert("Ingrese un nombre"); return; }
+  if (!ubicacion) { await showAlert("Seleccione una ubicación actual."); return; }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
@@ -163,7 +159,7 @@ async function agregarEquipo() {
     await cargarEquipos();
   } catch (error) {
     console.error(error);
-    alert(`Error al agregar equipo: ${error.message}`);
+    await showAlert(`Error al agregar equipo: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -187,7 +183,7 @@ async function guardarCambioUbicacion() {
   const equipo = _equipos.find((item) => item.id === currentMoveEquipoId);
   const ubicacionId = document.getElementById("moverEquipoUbicacion").value;
   const nuevaUbicacion = _ubicaciones.find((item) => item.id === ubicacionId);
-  if (!equipo || !nuevaUbicacion) return alert("Seleccione una ubicación válida.");
+  if (!equipo || !nuevaUbicacion) { await showAlert("Seleccione una ubicación válida."); return; }
 
   if (equipo.ubicacionActualId === nuevaUbicacion.id) {
     toggleModal("modalMoverEquipo", false);
@@ -223,7 +219,7 @@ async function guardarCambioUbicacion() {
     await cargarEquipos();
   } catch (error) {
     console.error(error);
-    alert(`Error al cambiar ubicación: ${error.message}`);
+    await showAlert(`Error al cambiar ubicación: ${error.message}`);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -231,7 +227,7 @@ async function guardarCambioUbicacion() {
 }
 
 async function eliminarEquipo(id) {
-  if (!confirm("¿Eliminar equipo? Se eliminará de todas las órdenes asociadas.")) return;
+  if (!(await showConfirm("¿Eliminar equipo? Las órdenes existentes mantendrán la referencia al equipo, pero ya no podrá seleccionarse en nuevas solicitudes."))) return;
   await deleteDoc(doc(db, "equipos", id));
   await cargarEquipos();
 }
@@ -245,11 +241,3 @@ function toggleModal(id, show) {
   }
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}

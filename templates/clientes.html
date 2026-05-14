@@ -11,27 +11,19 @@
       <colgroup>
         <col class="col-nombre">
         <col class="col-nombre">
+        <col style="width:10rem">
         <col class="col-acciones">
       </colgroup>
       <thead>
         <tr>
           <th>Nombre</th>
           <th>Email contacto</th>
+          <th>Módulo Pañol</th>
           <th></th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
-  </div>
-
-  <div class="form-section">
-    <h3>Agregar nuevo cliente</h3>
-    <div class="form-group">
-      <div class="input-with-icon">
-        <i class="fa-solid fa-building"></i>
-        <input type="text" id="nuevoClienteNombre" placeholder="Nombre del cliente">
-      </div>
-    </div>
   </div>
   <button id="agregarClienteBtn" type="button" class="btn-primary">
     <i class="fa-solid fa-paper-plane"></i>Agregar cliente
@@ -39,7 +31,7 @@
 </div>
 
 <!-- ── Modal: Ver detalles ── -->
-<div id="modalClienteDetalles" class="modal is-hidden">
+<div id="modalClienteDetalles" class="modal is-hidden" data-modal-kind="info">
   <div class="modal-content">
     <span class="close close-modal" data-modal="modalClienteDetalles">&times;</span>
     <div class="form-card modal-form-card form-section">
@@ -50,7 +42,7 @@
 </div>
 
 <!-- ── Modal: Editar cliente ── -->
-<div id="modalClienteEditar" class="modal is-hidden">
+<div id="modalClienteEditar" class="modal is-hidden" data-modal-kind="edit">
   <div class="modal-content">
     <span class="close close-modal" data-modal="modalClienteEditar">&times;</span>
     <div class="form-card modal-form-card form-section">
@@ -124,6 +116,31 @@
         </div>
       </div>
 
+      <!-- ── NUEVO: Módulo Pañol ── -->
+      <div class="form-section">
+        <h3>Módulos activos</h3>
+        <div class="form-group">
+          <label class="checkbox-ubicacion-item" style="font-weight:600;">
+            <input type="checkbox" id="editClientePanol">
+            Módulo Pañol (gestión de repuestos)
+          </label>
+        </div>
+        <div class="form-group is-hidden" id="editClienteAprobacionGrupo">
+          <label class="panol-section-label" style="margin-bottom:0.5rem;">
+            <i class="fas fa-circle-check"></i> Aprobación de egresos por defecto
+          </label>
+          <div class="panol-radio-group">
+            <label class="checkbox-ubicacion-item">
+              <input type="radio" name="editClienteAprobacion" value="no" checked> No requiere
+            </label>
+            <label class="checkbox-ubicacion-item">
+              <input type="radio" name="editClienteAprobacion" value="si"> Requiere aprobación
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- ── FIN NUEVO ── -->
+
       <button id="guardarClienteBtn" type="button" class="btn-primary">
         <i class="fa-solid fa-floppy-disk"></i>Guardar cambios
       </button>
@@ -132,7 +149,7 @@
 </div>
 
 <!-- ── Modal: Crear cliente (vacío o importar) ── -->
-<div id="modalClienteCrear" class="modal is-hidden">
+<div id="modalClienteCrear" class="modal is-hidden" data-modal-kind="edit">
   <div class="modal-content">
     <span class="close close-modal" data-modal="modalClienteCrear">&times;</span>
     <div class="form-card modal-form-card form-section">
@@ -209,7 +226,7 @@
         <div class="form-section" style="margin-top:1rem;">
           <p style="color:var(--color-muted);font-size:0.85rem;margin-bottom:0.75rem;">
             Seleccioná el archivo ZIP generado por la exportación de un cliente.
-            Se importarán: datos del cliente, órdenes, usuarios, equipos y ubicaciones.
+            Se importarán: datos del cliente, órdenes, usuarios, equipos, ubicaciones y repuestos.
           </p>
           <div class="form-group">
             <div class="input-with-icon">
@@ -239,14 +256,14 @@
 </div>
 
 <!-- ── Modal: Eliminar cliente ── -->
-<div id="modalClienteEliminar" class="modal is-hidden">
+<div id="modalClienteEliminar" class="modal is-hidden" data-modal-kind="confirm">
   <div class="modal-content">
     <span class="close close-modal" data-modal="modalClienteEliminar">&times;</span>
     <div class="form-card modal-form-card form-section">
       <h3>Eliminar Cliente</h3>
       <p id="eliminarClienteNombreTexto" style="margin-bottom:1rem;font-weight:600;"></p>
       <p style="color:var(--color-muted);font-size:0.9rem;margin-bottom:1.25rem;">
-        ¿Qué querés hacer con los datos del cliente (órdenes, usuarios, equipos, ubicaciones)?
+        ¿Qué querés hacer con los datos del cliente (órdenes, usuarios, equipos, ubicaciones, repuestos)?
       </p>
       <div style="display:flex;flex-direction:column;gap:0.75rem;">
         <button type="button" id="eliminarConDatosBtn" class="btn-primary" style="width:100%;background:#c0392b;">

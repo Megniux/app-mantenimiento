@@ -1,16 +1,18 @@
-import { createUserWithEmailAndPassword, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { connectAuthEmulator, createUserWithEmailAndPassword, deleteUser, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { auth, db, firebaseConfig } from "../firebase-config.js";
+import { getApp, getApps, initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { auth, db, firebaseConfig, isLocal } from "../firebase-config.js";
+import { showAlert, showConfirm } from "../ui/dialog.js";
 
 let _clienteId = "";
 let _currentRole = "";
 let _usuarios = [];
 
-export async function initUsuariosView({ clienteId, role } = {}) {
+export async function initUsuariosView({ clienteId, role, signal } = {}) {
   _clienteId = clienteId || "";
   _currentRole = role || "";
   await cargarUsuarios();
+  if (signal?.aborted) return;
   configurarSelectorRol();
   document.getElementById("crearUsuarioBtn").addEventListener("click", crearUsuario);
   document.getElementById("busquedaUsuarios").addEventListener("input", renderUsuariosFiltrados);
@@ -89,50 +91,71 @@ async function crearUsuario() {
   const nombre = document.getElementById("nombre").value.trim();
   const password = document.getElementById("password").value;
   const rol = document.getElementById("rol").value;
-  if (!email || !nombre || !password) return alert("Complete todos los campos");
+  if (!email || !nombre || !password) { await showAlert("Complete todos los campos"); return; }
 
   // Solo superadmin puede crear usuarios con rol superadmin
   if (rol === "superadmin" && _currentRole !== "superadmin") {
-    return alert("No tiene permisos para crear usuarios superadmin.");
+    await showAlert("No tiene permisos para crear usuarios superadmin.");
+    return;
   }
 
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
+  // Reutilizar la instancia "secondary" si quedó huérfana de un intento previo fallido
+  let secondaryApp;
   try {
-    // Segunda instancia de Auth para no pisar la sesión activa
-    const secondaryApp = initializeApp(firebaseConfig, "secondary");
-    const secondaryAuth = getAuth(secondaryApp);
+    secondaryApp = getApps().some((a) => a.name === "secondary")
+      ? getApp("secondary")
+      : initializeApp(firebaseConfig, "secondary");
+  } catch {
+    secondaryApp = initializeApp(firebaseConfig, "secondary");
+  }
+  const secondaryAuth = getAuth(secondaryApp);
+  if (isLocal) {
+    try {
+      connectAuthEmulator(secondaryAuth, "http://localhost:9099", { disableWarnings: true });
+    } catch {
+      // ya conectado a emulador en una invocación previa: ignorar
+    }
+  }
 
+  let createdUser = null;
+  try {
     const userCred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    await setDoc(doc(db, "users", userCred.user.uid), {
-      email,
-      nombreCompleto: nombre,
-      rol,
-      clienteId: rol === "superadmin" ? "" : _clienteId
-    });
+    createdUser = userCred.user;
+    try {
+      await setDoc(doc(db, "users", createdUser.uid), {
+        email,
+        nombreCompleto: nombre,
+        rol,
+        clienteId: rol === "superadmin" ? "" : _clienteId
+      });
+    } catch (firestoreErr) {
+      // Rollback: borrar el usuario de Auth para no dejar registro huérfano
+      try { await deleteUser(createdUser); } catch (e) { console.error("No se pudo revertir el usuario en Auth:", e); }
+      throw firestoreErr;
+    }
 
-    // Cerrar la sesión de la instancia secundaria y eliminarla
-    await secondaryAuth.signOut();
-    await deleteApp(secondaryApp);
-    
-    alert("Usuario creado exitosamente");
+    await showAlert("Usuario creado exitosamente");
     document.getElementById("email").value = "";
     document.getElementById("nombre").value = "";
     document.getElementById("password").value = "";
     await cargarUsuarios();
   } catch (error) {
     console.error(error);
-    alert(`Error al crear usuario: ${error.message}`);
+    await showAlert(`Error al crear usuario: ${error.message}`);
   } finally {
+    try { await secondaryAuth.signOut(); } catch (e) { console.error(e); }
+    try { await deleteApp(secondaryApp); } catch (e) { console.error(e); }
     btn.disabled = false;
     btn.innerHTML = originalHTML;
   }
 }
 
 async function eliminarUsuario(uid) {
-  if (!confirm("¿Eliminar usuario? (No se elimina autenticación, solo Firestore)")) return;
+  if (!(await showConfirm("¿Eliminar usuario? (No se elimina autenticación, solo Firestore)"))) return;
   await deleteDoc(doc(db, "users", uid));
   await cargarUsuarios();
 }
