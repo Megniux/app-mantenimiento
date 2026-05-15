@@ -165,6 +165,13 @@ export const onOrdenCreated = onDocumentCreated(
     const orden = snap.data() || {};
     const ordenId = event.params.ordenId;
 
+    // Órdenes importadas desde backup: no notificar (el solicitanteUid pertenece
+    // a usuarios del cliente original, no a una acción real del usuario actual).
+    if (orden.importado === true) {
+      logger.info(`Orden ${ordenId}: importada, sin push`);
+      return;
+    }
+
     // Por ahora solo notificamos correctivos. Si más adelante se quieren preventivos
     // u otros tipos, ajustar este filtro o eliminarlo.
     if (orden.tipo !== "Correctivo") {
@@ -561,6 +568,12 @@ export const onOrdenCreatedEmail = onDocumentCreated(
     if (!snap) return;
     const orden = snap.data() || {};
     const ordenId = event.params.ordenId;
+
+    // Órdenes importadas desde backup: no mailear.
+    if (orden.importado === true) {
+      logger.info(`Orden ${ordenId}: importada, sin email de creación`);
+      return;
+    }
 
     // Mismo criterio que onOrdenCreated (push): solo correctivos.
     if (orden.tipo !== "Correctivo") {

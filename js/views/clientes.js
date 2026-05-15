@@ -675,6 +675,10 @@ async function importarColeccion(zip, archivoCSV, coleccion, nuevoClienteId, old
       remapearCampo(row, path, idMaps[mapa]);
     }
 
+    // Marcar órdenes importadas para que los triggers onOrdenCreated/Email no
+    // disparen notificaciones reales (push + mail) a usuarios del backup.
+    if (coleccion === "ordenes") row.importado = true;
+
     return row;
   });
 
