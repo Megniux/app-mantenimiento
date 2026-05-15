@@ -68,9 +68,15 @@ service cloud.firestore {
       // crear una orden con solicitanteUid de otra persona y disparar un email
       // (onOrdenCreatedEmail) con texto controlado por el atacante a la víctima
       // desde el sender verificado de Brevo. Ver functions/index.js:onOrdenCreatedEmail.
+      // Excepción: el superadmin puede crear órdenes con cualquier solicitanteUid
+      // para soportar importación de backups (las órdenes importadas llevan el
+      // campo `importado: true` y los triggers de email/push las ignoran).
       allow create: if request.auth != null
                      && hasAccessToCliente(request.resource.data.clienteId)
-                     && request.resource.data.solicitanteUid == request.auth.uid;
+                     && (
+                       isSuperadmin()
+                       || request.resource.data.solicitanteUid == request.auth.uid
+                     );
       // solicitanteUid es inmutable post-creación (mismo motivo que arriba para
       // onOrdenUpdatedEmail). Un updateDoc que no incluya el campo lo deja igual,
       // así que esto solo bloquea cambios explícitos del campo.
