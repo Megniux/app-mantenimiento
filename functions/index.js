@@ -471,6 +471,14 @@ function renderOrdenEmail(orden, ordenId, modo, cambios = []) {
 }
 
 async function sendEmail({ to, toName, subject, html }) {
+  // Bajo Firebase Emulator NO mandamos email real para no spamear durante
+  // pruebas locales. El emulator setea FUNCTIONS_EMULATOR=true automáticamente.
+  // En producción esta var no está, así que el envío sale normal.
+  if (process.env.FUNCTIONS_EMULATOR === "true") {
+    logger.info(`[emulator] sendEmail skip → to=${to} subject="${subject}"`);
+    return { ok: true, reason: "emulator-skip" };
+  }
+
   const apiKey = BREVO_API_KEY.value();
   const fromEmail = BREVO_FROM_EMAIL.value();
   const fromName = BREVO_FROM_NAME.value() || "Mantenimiento-app";
