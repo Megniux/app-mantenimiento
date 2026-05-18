@@ -41,7 +41,7 @@ const CAMPOS_DETALLE_ORDEN = [
   { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
   { label: "Técnico asignado", getValue: (orden) => orden.tecnicoAsignado || "-" },
   { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
-  { label: "Comentario mantenimiento", getValue: (orden) => orden.comentarioMantenimiento || "-" },
+  { label: "Comentario", getValue: (orden) => orden.comentarioMantenimiento || "-" },
   { label: "Informe de cierre", getValue: (orden) => orden.informeCierre || "-" },
   { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) },
   { label: "Fecha programada", getValue: (orden) => formatearFechaCorta(orden.fechaProgramada) },
@@ -610,7 +610,7 @@ function obtenerCamposModificadosAnteriores(actual, actualizado) {
     fechaProgramada: "Fecha programada",
     tiempoEstimado: "Tiempo estimado",
     tiempoReal: "Tiempo real",
-    comentarioMantenimiento: "Comentario mantenimiento",
+    comentarioMantenimiento: "Comentario",
     informeCierre: "Informe de cierre"
   };
 

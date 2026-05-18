@@ -304,7 +304,7 @@ const CAMPOS_EMAIL_RELEVANTES = [
   ["tecnicoAsignado", "Técnico asignado"],
   ["fechaProgramada", "Fecha programada"],
   ["fechaCierre", "Fecha cierre"],
-  ["comentarioMantenimiento", "Comentario mantenimiento"],
+  ["comentarioMantenimiento", "Comentario"],
   ["informeCierre", "Informe de cierre"],
   ["prioridad", "Prioridad"],
   ["descripcion", "Descripción"],
@@ -326,7 +326,7 @@ const CAMPOS_DETALLE_EMAIL = [
   ["Frecuencia", (o) => o.frecuencia || "-"],
   ["Técnico asignado", (o) => o.tecnicoAsignado || "-"],
   ["Descripción", (o) => o.descripcion || "-"],
-  ["Comentario mantenimiento", (o) => o.comentarioMantenimiento || "-"],
+  ["Comentario", (o) => o.comentarioMantenimiento || "-"],
   ["Informe de cierre", (o) => o.informeCierre || "-"],
   ["Fecha creación", (o) => formatearFechaLarga(o.fechaCreacion)],
   ["Fecha programada", (o) => formatearFechaCorta(o.fechaProgramada)],
@@ -525,7 +525,7 @@ function valoresEquivalentes(a, b) {
 
 function formatearValorParaEmail(label, valor) {
   if (valor == null || valor === "") return "-";
-  if (label.startsWith("Fecha cierre") || label.startsWith("Estado") || label === "Comentario mantenimiento" || label === "Informe de cierre") {
+  if (label.startsWith("Fecha cierre") || label.startsWith("Estado") || label === "Comentario" || label === "Informe de cierre") {
     // Para campos con fechas, usar formato largo si parece fecha.
     const d = toDate(valor);
     if (d) return formatearFechaLarga(d);
