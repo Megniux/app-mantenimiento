@@ -463,6 +463,10 @@ button {
   .table-toolbar.mobile-open {
     display: flex;
   }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
 }
 
 .search-wrapper {
@@ -709,6 +713,9 @@ th {
 }
 
 .detalle-linea {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
@@ -718,7 +725,7 @@ th {
 
 .detalle-label {
   font-weight: 600;
-  display: inline-block;
+  flex-shrink: 0;
   min-width: 8.5rem;
 }
 

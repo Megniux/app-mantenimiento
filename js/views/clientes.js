@@ -137,26 +137,66 @@ function verDetallesCliente(clienteId) {
   const c = _clientes.find((x) => x.id === clienteId);
   if (!c) return;
 
-  const tel = (c.telefonos || []).map((t) => `${t.label}: ${t.numero}`).join(", ") || "-";
-
-  const campos = [
-    ["Nombre", c.nombre],
-    ["CUIT", c.cuit],
-    ["Dirección", c.direccion],
-    ["Contacto — Nombre", c.contactoPrincipal?.nombre],
-    ["Contacto — Email", c.contactoPrincipal?.email],
-    ["Contacto — Teléfono", c.contactoPrincipal?.telefono],
-    ["Contador OMC (próxima)", c.contadorOMC ?? 1],
-    ["Contador OMP (próxima)", c.contadorOMP ?? 1],
-    ["Teléfonos sidebar", tel],
-    // ── NUEVO ──
-    ["Módulo Pañol", c.moduloPanol ? "Activo" : "Inactivo"],
-    ["Aprobación de egresos", c.moduloPanol ? (c.panolAprobacionDefault === "si" ? "Requiere aprobación" : "No requiere") : "-"],
+  const secciones = [
+    {
+      titulo: "Información general",
+      campos: [
+        ["Nombre", c.nombre],
+        ["CUIT", c.cuit],
+        ["Dirección", c.direccion],
+      ],
+    },
+    {
+      titulo: "Contacto principal",
+      campos: [
+        ["Nombre", c.contactoPrincipal?.nombre],
+        ["Email", c.contactoPrincipal?.email],
+        ["Teléfono", c.contactoPrincipal?.telefono],
+      ],
+    },
+    {
+      titulo: "Teléfonos del sidebar",
+      telefonos: c.telefonos || [],
+    },
+    {
+      titulo: "Contadores de órdenes",
+      campos: [
+        ["Contador OMC (próxima)", c.contadorOMC ?? 1],
+        ["Contador OMP (próxima)", c.contadorOMP ?? 1],
+      ],
+    },
+    {
+      titulo: "Módulos activos",
+      campos: [
+        ["Módulo Pañol", c.moduloPanol ? "Activo" : "Inactivo"],
+        ["Aprobación de egresos", c.moduloPanol ? (c.panolAprobacionDefault === "si" ? "Requiere aprobación" : "No requiere") : "-"],
+      ],
+    },
   ];
 
-  document.getElementById("clienteDetallesContenido").innerHTML = campos
+  const renderLineas = (campos) => campos
     .map(([label, val]) =>
       `<div class="detalle-linea"><span class="detalle-label">${label}:</span> ${val || "-"}</div>`
+    )
+    .join("");
+
+  const renderTelefonos = (telefonos) => {
+    if (!telefonos.length) {
+      return `<div class="detalle-linea" style="color:var(--color-muted);">Sin teléfonos cargados</div>`;
+    }
+    return telefonos
+      .map((t) =>
+        `<div class="detalle-linea"><span class="detalle-label">${t.label || "-"}:</span> ${t.numero || "-"}</div>`
+      )
+      .join("");
+  };
+
+  document.getElementById("clienteDetallesContenido").innerHTML = secciones
+    .map((s) =>
+      `<div class="form-section">
+        <h3>${s.titulo}</h3>
+        ${s.telefonos ? renderTelefonos(s.telefonos) : renderLineas(s.campos)}
+      </div>`
     )
     .join("");
 
