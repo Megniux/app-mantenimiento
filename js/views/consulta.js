@@ -14,19 +14,19 @@ let consultaLoadToken = 0;
 let _viewSignal = null;
 const ESTADOS = ["Nuevo", "Pendiente", "En proceso", "Esperando proveedor", "Cerrado"];
 const MOBILE_BREAKPOINT = 1024;
+const STALE_VALUE = "__stale__";
+const OTRO_VALUE = "__otro__";
 let _panolActivo = false;
 let _repuestosDisponibles = [];   // lista cacheada para el modal
 let _repuestosEnOrden = [];       // repuestos cargados en la orden actual
+let _ubicaciones = [];
+let _todosEquipos = [];
 
 const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
   { label: "Solicitante", getValue: (orden) => orden.solicitante },
-  { label: "Ubicación", getValue: (orden) => orden.ubicacion },
-  { label: "Equipo", getValue: (orden) => orden.equipo },
-  { label: "Prioridad", getValue: (orden) => orden.prioridad },
   { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
-  { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
   { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) }
 ];
 
@@ -63,6 +63,7 @@ export async function initConsultaView({ role, clienteId, signal } = {}) {
 
   const tecnicos = await cargarTecnicos(clienteIdActual, loadToken);
   await cargarListasFiltros(clienteIdActual, tecnicos, loadToken);
+  await cargarUbicacionesYEquipos(clienteIdActual, loadToken);
   await cargarTodasOrdenes(clienteIdActual, loadToken);
   if (!esCargaConsultaActual(clienteIdActual, loadToken)) return;
   configurarOrdenPredeterminado();
@@ -73,6 +74,8 @@ export async function initConsultaView({ role, clienteId, signal } = {}) {
   document.getElementById("aplicarOrdenBtn").addEventListener("click", cargar);
   document.getElementById("exportBtn").addEventListener("click", exportarCSV);
   document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
+  document.getElementById("editUbicacion").addEventListener("change", filtrarEquiposPorUbicacionEdit);
+  document.getElementById("editEquipo").addEventListener("change", sincronizarUbicacionConEquipoEdit);
   document.getElementById("busqueda").addEventListener("input", cargar);
   document.getElementById("filtroTipo").addEventListener("change", cargar);
   document.getElementById("filtroEstado").addEventListener("change", cargar);
@@ -192,6 +195,190 @@ async function cargarTodasOrdenes(clienteId = _clienteId, loadToken = consultaLo
   const ordenes = [];
   querySnapshot.forEach((docSnap) => ordenes.push({ id: docSnap.id, ...docSnap.data() }));
   todasOrdenes = ordenes;
+}
+
+async function cargarUbicacionesYEquipos(clienteId = _clienteId, loadToken = consultaLoadToken) {
+  const ubicacionesSnap = await getDocs(query(collection(db, "ubicaciones"), where("clienteId", "==", clienteId)));
+  if (!esCargaConsultaActual(clienteId, loadToken)) return;
+  const ubicaciones = [];
+  ubicacionesSnap.forEach((docSnap) => {
+    ubicaciones.push({ id: docSnap.id, nombre: docSnap.data().nombre || "" });
+  });
+  ubicaciones.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  _ubicaciones = ubicaciones;
+
+  const equiposSnap = await getDocs(query(collection(db, "equipos"), where("clienteId", "==", clienteId)));
+  if (!esCargaConsultaActual(clienteId, loadToken)) return;
+  const equipos = [];
+  equiposSnap.forEach((docSnap) => equipos.push(normalizarEquipoEdit(docSnap)));
+  equipos.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  _todosEquipos = equipos;
+}
+
+function normalizarEquipoEdit(docSnap) {
+  const data = docSnap.data();
+  const legacyUbicaciones = Array.isArray(data.ubicaciones)
+    ? data.ubicaciones.filter(Boolean)
+    : (data.ubicacion ? [data.ubicacion] : []);
+
+  const ubicacionMatch = _ubicaciones.find((u) => u.id === data.ubicacionActualId)
+    || _ubicaciones.find((u) =>
+      u.nombre === data.ubicacionActualNombre || u.nombre === legacyUbicaciones[0]
+    );
+
+  return {
+    id: docSnap.id,
+    nombre: data.nombre || "",
+    ubicacionActualId: ubicacionMatch?.id || "",
+    ubicacionActualNombre: ubicacionMatch?.nombre || data.ubicacionActualNombre || legacyUbicaciones[0] || ""
+  };
+}
+
+function poblarSelectorUbicacionEdit(data) {
+  const select = document.getElementById("editUbicacion");
+  select.innerHTML = '<option value="">Seleccionar ubicación</option>';
+  _ubicaciones.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.nombre;
+    select.appendChild(opt);
+  });
+
+  const ubicacionId = data.ubicacionId || "";
+  const ubicacionNombre = data.ubicacion || "";
+  const match = (ubicacionId && _ubicaciones.find((u) => u.id === ubicacionId))
+    || (ubicacionNombre && _ubicaciones.find((u) => u.nombre === ubicacionNombre));
+
+  if (match) {
+    select.value = match.id;
+  } else if (ubicacionNombre) {
+    const opt = document.createElement("option");
+    opt.value = STALE_VALUE;
+    opt.textContent = `${ubicacionNombre} (sin catálogo)`;
+    opt.dataset.nombre = ubicacionNombre;
+    opt.selected = true;
+    select.appendChild(opt);
+  }
+}
+
+function poblarSelectorEquipoEdit(data) {
+  const ubicacionSelect = document.getElementById("editUbicacion");
+  const ubicacionId = ubicacionSelect.value && ubicacionSelect.value !== STALE_VALUE
+    ? ubicacionSelect.value
+    : "";
+
+  const equiposDisponibles = ubicacionId
+    ? _todosEquipos.filter((e) => e.ubicacionActualId === ubicacionId)
+    : _todosEquipos;
+
+  renderEquiposEnSelectorEdit(equiposDisponibles, {
+    equipoIdGuardado: data.equipoId || "",
+    equipoNombreGuardado: data.equipo || "",
+    mostrarUbicacionEnEtiqueta: !ubicacionId
+  });
+}
+
+function renderEquiposEnSelectorEdit(equipos, { equipoIdGuardado, equipoNombreGuardado, mostrarUbicacionEnEtiqueta }) {
+  const select = document.getElementById("editEquipo");
+  select.innerHTML = '<option value="">Seleccionar equipo</option>';
+
+  equipos.forEach((equipo) => {
+    const opt = document.createElement("option");
+    opt.value = equipo.id;
+    opt.textContent = mostrarUbicacionEnEtiqueta
+      ? `${equipo.nombre}${equipo.ubicacionActualNombre ? ` (${equipo.ubicacionActualNombre})` : ""}`
+      : equipo.nombre;
+    select.appendChild(opt);
+  });
+
+  const optOtro = document.createElement("option");
+  optOtro.value = OTRO_VALUE;
+  optOtro.textContent = "Otro";
+  select.appendChild(optOtro);
+
+  // Selección: 1) por id en catálogo, 2) "Otro" si la orden tenía equipoId vacío
+  // con nombre "Otro" o vacío, 3) fantasma si tenía equipo con nombre/id stale.
+  const matchPorId = equipoIdGuardado && _todosEquipos.find((e) => e.id === equipoIdGuardado);
+  if (matchPorId && equipos.some((e) => e.id === matchPorId.id)) {
+    select.value = matchPorId.id;
+    return;
+  }
+  if (!equipoIdGuardado && (equipoNombreGuardado === "Otro" || !equipoNombreGuardado)) {
+    select.value = OTRO_VALUE;
+    return;
+  }
+  if (equipoNombreGuardado && equipoNombreGuardado !== "Otro") {
+    const matchPorNombre = _todosEquipos.find((e) => e.nombre === equipoNombreGuardado);
+    if (matchPorNombre && equipos.some((e) => e.id === matchPorNombre.id)) {
+      select.value = matchPorNombre.id;
+      return;
+    }
+    const opt = document.createElement("option");
+    opt.value = STALE_VALUE;
+    opt.textContent = `${equipoNombreGuardado} (sin catálogo)`;
+    opt.dataset.nombre = equipoNombreGuardado;
+    opt.dataset.id = equipoIdGuardado || "";
+    opt.selected = true;
+    select.appendChild(opt);
+    return;
+  }
+  select.value = "";
+}
+
+function filtrarEquiposPorUbicacionEdit() {
+  const ubicacionSelect = document.getElementById("editUbicacion");
+  const equipoSelect = document.getElementById("editEquipo");
+  const ubicacionId = ubicacionSelect.value && ubicacionSelect.value !== STALE_VALUE
+    ? ubicacionSelect.value
+    : "";
+
+  const equiposDisponibles = ubicacionId
+    ? _todosEquipos.filter((e) => e.ubicacionActualId === ubicacionId)
+    : _todosEquipos;
+
+  const seleccionActual = equipoSelect.value;
+  renderEquiposEnSelectorEdit(equiposDisponibles, {
+    equipoIdGuardado: seleccionActual && seleccionActual !== STALE_VALUE && seleccionActual !== OTRO_VALUE ? seleccionActual : "",
+    equipoNombreGuardado: seleccionActual === OTRO_VALUE ? "Otro" : "",
+    mostrarUbicacionEnEtiqueta: !ubicacionId
+  });
+}
+
+function sincronizarUbicacionConEquipoEdit() {
+  const equipoSelect = document.getElementById("editEquipo");
+  const ubicacionSelect = document.getElementById("editUbicacion");
+  const valorEquipo = equipoSelect.value;
+  if (!valorEquipo || valorEquipo === OTRO_VALUE || valorEquipo === STALE_VALUE) return;
+
+  const equipo = _todosEquipos.find((e) => e.id === valorEquipo);
+  if (equipo?.ubicacionActualId && equipo.ubicacionActualId !== ubicacionSelect.value) {
+    ubicacionSelect.value = equipo.ubicacionActualId;
+  }
+}
+
+function obtenerUbicacionSeleccionadaEdit(data) {
+  const select = document.getElementById("editUbicacion");
+  const valor = select.value;
+  if (valor === STALE_VALUE) {
+    return { id: data.ubicacionId || "", nombre: data.ubicacion || "" };
+  }
+  if (!valor) return { id: "", nombre: "" };
+  const u = _ubicaciones.find((x) => x.id === valor);
+  return { id: u?.id || "", nombre: u?.nombre || "" };
+}
+
+function obtenerEquipoSeleccionadoEdit(data) {
+  const select = document.getElementById("editEquipo");
+  const valor = select.value;
+  if (valor === OTRO_VALUE) {
+    return { id: "", nombre: "Otro" };
+  }
+  if (valor === STALE_VALUE) {
+    return { id: data.equipoId || "", nombre: data.equipo || "" };
+  }
+  if (!valor) return { id: "", nombre: "" };
+  const e = _todosEquipos.find((x) => x.id === valor);
+  return { id: e?.id || "", nombre: e?.nombre || "" };
 }
 
 function configurarOrdenPredeterminado() {
@@ -446,6 +633,13 @@ async function abrirModal(id) {
     selectTecnico.appendChild(opt);
   });
 
+  poblarSelectorUbicacionEdit(data);
+  poblarSelectorEquipoEdit(data);
+
+  const selectPrioridad = document.getElementById("editPrioridad");
+  if (selectPrioridad) selectPrioridad.value = data.prioridad || "Media";
+  document.getElementById("editDescripcion").value = data.descripcion || "";
+
   document.getElementById("editFechaProgramada").value = formatearFechaInput(data.fechaProgramada);
   document.getElementById("editTiempoEstimado").value = data.tiempoEstimado || "";
   document.getElementById("editTiempoReal").value = data.tiempoReal || "";
@@ -472,8 +666,24 @@ async function guardarEdicion() {
   const tiempoReal = parseFloat(document.getElementById("editTiempoReal").value) || null;
   const comentarioMantenimiento = document.getElementById("editComentario").value.trim();
   const informeCierre = document.getElementById("editInformeCierre").value.trim();
+  const ubicacionEditada = obtenerUbicacionSeleccionadaEdit(data);
+  const equipoEditado = obtenerEquipoSeleccionadoEdit(data);
+  const prioridad = document.getElementById("editPrioridad").value;
+  const descripcion = document.getElementById("editDescripcion").value.trim();
   const hayRepuestosNuevos = _repuestosEnOrden.some((r) => r.repuestoId);
 
+  if (!ubicacionEditada.nombre) {
+    await showAlert("Seleccione una ubicación.");
+    return;
+  }
+  if (!equipoEditado.nombre) {
+    await showAlert("Seleccione un equipo.");
+    return;
+  }
+  if (!descripcion) {
+    await showAlert("La descripción no puede estar vacía.");
+    return;
+  }
   if ((nuevoEstado === "Pendiente" || nuevoEstado === "En proceso") && (!tecnicoAsignado || !fechaProgramada)) {
     await showAlert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
     return;
@@ -513,7 +723,13 @@ async function guardarEdicion() {
     tiempoEstimado,
     tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
     comentarioMantenimiento,
-    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
+    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : "",
+    ubicacion: ubicacionEditada.nombre,
+    ubicacionId: ubicacionEditada.id,
+    equipo: equipoEditado.nombre,
+    equipoId: equipoEditado.id,
+    prioridad,
+    descripcion
   };
   if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
@@ -524,7 +740,11 @@ async function guardarEdicion() {
     tiempoEstimado,
     tiempoReal: nuevoEstado === "Cerrado" ? tiempoReal : null,
     comentarioMantenimiento,
-    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : ""
+    informeCierre: nuevoEstado === "Cerrado" ? informeCierre : "",
+    ubicacion: ubicacionEditada.nombre,
+    equipo: equipoEditado.nombre,
+    prioridad,
+    descripcion
   });
   const camposOcultosHistorial = data.estado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"];
   const camposModificados = [
@@ -611,7 +831,11 @@ function obtenerCamposModificadosAnteriores(actual, actualizado) {
     tiempoEstimado: "Tiempo estimado",
     tiempoReal: "Tiempo real",
     comentarioMantenimiento: "Comentario",
-    informeCierre: "Informe de cierre"
+    informeCierre: "Informe de cierre",
+    ubicacion: "Ubicación",
+    equipo: "Equipo",
+    prioridad: "Prioridad",
+    descripcion: "Descripción"
   };
 
   return Object.keys(mapeo).flatMap((campo) => {
