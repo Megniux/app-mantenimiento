@@ -6,8 +6,8 @@
 //   - backfillUserClaims    (rama Gestion-stock-panol): callable manual para
 //                           popular claims iniciales en todos los users existentes.
 //   - onOrdenCreated        (rama Notificaciones): trigger que envía push a
-//                           técnicos del cliente y superadmins cuando se crea una
-//                           orden Correctivo.
+//                           técnicos del cliente y superadmins (globales) cuando
+//                           se crea una orden Correctivo.
 //   - onOrdenCreatedEmail   (rama Notificaciones): trigger que envía email al
 //                           solicitante cuando se crea su orden.
 //   - onOrdenUpdatedEmail   (rama Notificaciones): trigger que envía email al
@@ -152,8 +152,9 @@ export const backfillUserClaims = onCall(
 // ════════════════════════════════════════════════════════════════════════════
 // onOrdenCreated (Notificaciones)
 // Trigger: cuando se crea una orden, si es Correctivo, envía push a:
-//   - todos los técnicos / supervisores / admin del cliente,
+//   - todos los técnicos (rol == "tecnico") del cliente de la orden,
 //   - todos los superadmin (de cualquier cliente).
+// Supervisores y admins NO reciben push (son roles de gestión, no operativos).
 // Respeta la preferencia opt-out `notificacionesPush == false` en el doc del usuario.
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -194,7 +195,7 @@ export const onOrdenCreated = onDocumentCreated(
     const [tecnicosSnap, superadminsSnap] = await Promise.all([
       db.collection("users")
         .where("clienteId", "==", clienteId)
-        .where("rol", "in", ["tecnico", "supervisor", "admin"])
+        .where("rol", "==", "tecnico")
         .get(),
       db.collection("users").where("rol", "==", "superadmin").get()
     ]);
