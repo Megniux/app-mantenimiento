@@ -40,7 +40,7 @@ messaging.onBackgroundMessage((payload) => {
     icon: "icons/icon-192.png",
     // El badge (small icon de Android, barra de estado) DEBE ser monocromático
     // con alpha. Si pasamos un PNG a color, Android dibuja un cuadrado vacío.
-    badge: "icons/icon-badge.png",
+    badge: "icons/icon-badge-v2.png",
     data,
     tag: data.ordenId || undefined
   });
