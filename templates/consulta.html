@@ -51,20 +51,30 @@
   <span class="close close-modal" data-modal="modalEditar">&times;</span>
   <div class="form-card modal-form-card form-section">
     <h3>Editar Orden</h3>
-    <div id="detallesContenidoEditar"></div>
+    <div class="edit-resumen-wrapper">
+      <div id="detallesContenidoEditar"></div>
+      <button type="button" id="editToggleProtegidoBtn" class="btn-outline" data-locked="true">
+        <i class="fas fa-lock"></i> Editar datos generales
+      </button>
+    </div>
+    <div class="form-section edit-protegido-bloque" id="editDatosGeneralesBloque">
+      <div class="form-group is-hidden" id="editFrecuenciaGroup">
+        <div class="input-with-icon"><i class="fa-solid fa-repeat"></i><select id="editFrecuencia" disabled><option value="">Seleccionar frecuencia</option><option>Diaria</option><option>Interdiaria</option><option>Semanal</option><option>Quincenal</option><option>Mensual</option><option>Bimestral</option><option>Trimestral</option><option>Semestral</option><option>Anual</option><option>Bienal</option></select></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-location-dot"></i><select id="editUbicacion" disabled></select></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-gears"></i><select id="editEquipo" disabled></select></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-flag"></i><select id="editPrioridad" disabled><option>Baja</option><option>Media</option><option>Alta</option></select></div>
+      </div>
+      <div class="form-group">
+        <div class="input-with-icon"><i class="fa-solid fa-align-left"></i><textarea id="editDescripcion" rows="5" placeholder="Descripción" disabled></textarea></div>
+      </div>
+    </div>
     <div class="form-section">
-      <div class="form-group">
-        <div class="input-with-icon"><i class="fa-solid fa-location-dot"></i><select id="editUbicacion"></select></div>
-      </div>
-      <div class="form-group">
-        <div class="input-with-icon"><i class="fa-solid fa-gears"></i><select id="editEquipo"></select></div>
-      </div>
-      <div class="form-group">
-        <div class="input-with-icon"><i class="fa-solid fa-flag"></i><select id="editPrioridad"><option>Baja</option><option>Media</option><option>Alta</option></select></div>
-      </div>
-      <div class="form-group">
-        <div class="input-with-icon"><i class="fa-solid fa-align-left"></i><textarea id="editDescripcion" rows="5" placeholder="Descripción"></textarea></div>
-      </div>
       <div class="form-group">
         <div class="input-with-icon"><i class="fa-solid fa-list"></i><select id="editEstado"></select></div>
       </div>

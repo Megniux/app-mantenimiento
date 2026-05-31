@@ -324,7 +324,6 @@ const CAMPOS_DETALLE_EMAIL = [
   ["Ubicación", (o) => o.ubicacion],
   ["Equipo", (o) => o.equipo],
   ["Prioridad", (o) => o.prioridad],
-  ["Frecuencia", (o) => o.frecuencia || "-"],
   ["Técnico asignado", (o) => o.tecnicoAsignado || "-"],
   ["Descripción", (o) => o.descripcion || "-"],
   ["Comentario", (o) => o.comentarioMantenimiento || "-"],

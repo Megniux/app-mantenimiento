@@ -700,6 +700,34 @@ th {
   margin-bottom: 2rem;
 }
 
+.edit-protegido-bloque .input-with-icon select:disabled,
+.edit-protegido-bloque .input-with-icon textarea:disabled,
+.edit-protegido-bloque .input-with-icon input:disabled {
+  background: #f8fafc;
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+.edit-resumen-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.edit-resumen-wrapper #detallesContenidoEditar {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .edit-resumen-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 .close {
   color: #aaa;
   float: right;

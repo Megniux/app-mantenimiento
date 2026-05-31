@@ -26,7 +26,6 @@ const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
   { label: "Solicitante", getValue: (orden) => orden.solicitante },
-  { label: "Frecuencia", getValue: (orden) => orden.frecuencia || "-" },
   { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) }
 ];
 
@@ -76,6 +75,7 @@ export async function initConsultaView({ role, clienteId, signal } = {}) {
   document.getElementById("editEstado").addEventListener("change", actualizarCamposEstadoCierre);
   document.getElementById("editUbicacion").addEventListener("change", filtrarEquiposPorUbicacionEdit);
   document.getElementById("editEquipo").addEventListener("change", sincronizarUbicacionConEquipoEdit);
+  document.getElementById("editToggleProtegidoBtn").addEventListener("click", toggleBloqueProtegido);
   document.getElementById("busqueda").addEventListener("input", cargar);
   document.getElementById("filtroTipo").addEventListener("change", cargar);
   document.getElementById("filtroEstado").addEventListener("change", cargar);
@@ -562,7 +562,9 @@ async function verDetalles(id) {
   const snap = await getDoc(doc(db, "ordenes", id));
   if (!snap.exists()) return;
   const d = snap.data();
-  const fields = CAMPOS_DETALLE_ORDEN.map((campo) => [campo.label, campo.getValue(d)]);
+  const fields = CAMPOS_DETALLE_ORDEN
+    .filter((campo) => campo.label !== "Frecuencia" || d.tipo === "Preventivo")
+    .map((campo) => [campo.label, campo.getValue(d)]);
   const detallesHtml = fields.map(([label, value]) => `<div class="detalle-linea"><span class="detalle-label">${label}:</span> ${value || "-"}</div>`).join("");
 
   const repuestosUtilizados = d.repuestosUtilizados || [];
@@ -640,6 +642,9 @@ async function abrirModal(id) {
   if (selectPrioridad) selectPrioridad.value = data.prioridad || "Media";
   document.getElementById("editDescripcion").value = data.descripcion || "";
 
+  poblarFrecuenciaEdit(data);
+  resetearBloqueProtegido();
+
   document.getElementById("editFechaProgramada").value = formatearFechaInput(data.fechaProgramada);
   document.getElementById("editTiempoEstimado").value = data.tiempoEstimado || "";
   document.getElementById("editTiempoReal").value = data.tiempoReal || "";
@@ -650,6 +655,44 @@ async function abrirModal(id) {
   document.getElementById("guardarEdicionBtn").onclick = guardarEdicion;
   await inicializarSeccionRepuestos(data);
   toggleModal("modalEditar", true);
+}
+
+function poblarFrecuenciaEdit(data) {
+  const group = document.getElementById("editFrecuenciaGroup");
+  const select = document.getElementById("editFrecuencia");
+  const esPreventivo = data.tipo === "Preventivo";
+  group.classList.toggle("is-hidden", !esPreventivo);
+  select.value = data.frecuencia || "";
+}
+
+function resetearBloqueProtegido() {
+  // Cada vez que se abre el modal, el bloque arranca en modo solo-lectura
+  const btn = document.getElementById("editToggleProtegidoBtn");
+  const campos = obtenerCamposProtegidos();
+  campos.forEach((el) => { el.disabled = true; });
+  btn.dataset.locked = "true";
+  btn.innerHTML = '<i class="fas fa-lock"></i> Editar datos generales';
+}
+
+function toggleBloqueProtegido() {
+  const btn = document.getElementById("editToggleProtegidoBtn");
+  const campos = obtenerCamposProtegidos();
+  const desbloquear = btn.dataset.locked === "true";
+  campos.forEach((el) => { el.disabled = !desbloquear; });
+  btn.dataset.locked = desbloquear ? "false" : "true";
+  btn.innerHTML = desbloquear
+    ? '<i class="fas fa-lock-open"></i> Bloquear datos generales'
+    : '<i class="fas fa-lock"></i> Editar datos generales';
+}
+
+function obtenerCamposProtegidos() {
+  return [
+    document.getElementById("editFrecuencia"),
+    document.getElementById("editUbicacion"),
+    document.getElementById("editEquipo"),
+    document.getElementById("editPrioridad"),
+    document.getElementById("editDescripcion")
+  ].filter(Boolean);
 }
 
 async function guardarEdicion() {
@@ -670,6 +713,9 @@ async function guardarEdicion() {
   const equipoEditado = obtenerEquipoSeleccionadoEdit(data);
   const prioridad = document.getElementById("editPrioridad").value;
   const descripcion = document.getElementById("editDescripcion").value.trim();
+  const frecuencia = data.tipo === "Preventivo"
+    ? document.getElementById("editFrecuencia").value
+    : "";
   const hayRepuestosNuevos = _repuestosEnOrden.some((r) => r.repuestoId);
 
   if (!ubicacionEditada.nombre) {
@@ -683,6 +729,18 @@ async function guardarEdicion() {
   if (!descripcion) {
     await showAlert("La descripción no puede estar vacía.");
     return;
+  }
+  if (data.tipo === "Preventivo" && !frecuencia) {
+    await showAlert("Seleccione una frecuencia para la orden preventiva.");
+    return;
+  }
+  if (data.estado === "Cerrado" && data.tipo === "Preventivo" && data.frecuencia && frecuencia !== data.frecuencia) {
+    const ok = await showConfirm(
+      `Esta orden ya fue cerrada y probablemente generó una orden recurrente con la frecuencia anterior ("${data.frecuencia}").\n\n` +
+      `Cambiar la frecuencia a "${frecuencia}" no modifica la recurrente ya generada — solo afectará a futuras reaperturas/cierres de esta orden.\n\n` +
+      `¿Continuar?`
+    );
+    if (!ok) return;
   }
   if ((nuevoEstado === "Pendiente" || nuevoEstado === "En proceso") && (!tecnicoAsignado || !fechaProgramada)) {
     await showAlert("Para pasar a Pendiente o En proceso debe indicar fecha programada y técnico asignado.");
@@ -729,7 +787,8 @@ async function guardarEdicion() {
     equipo: equipoEditado.nombre,
     equipoId: equipoEditado.id,
     prioridad,
-    descripcion
+    descripcion,
+    frecuencia
   };
   if (fechaProgramada) updateData.fechaProgramada = parsearFechaInput(fechaProgramada);
 
@@ -744,7 +803,8 @@ async function guardarEdicion() {
     ubicacion: ubicacionEditada.nombre,
     equipo: equipoEditado.nombre,
     prioridad,
-    descripcion
+    descripcion,
+    frecuencia
   });
   const camposOcultosHistorial = data.estado === "Cerrado" ? [] : ["tiempoReal", "informeCierre"];
   const camposModificados = [
@@ -835,7 +895,8 @@ function obtenerCamposModificadosAnteriores(actual, actualizado) {
     ubicacion: "Ubicación",
     equipo: "Equipo",
     prioridad: "Prioridad",
-    descripcion: "Descripción"
+    descripcion: "Descripción",
+    frecuencia: "Frecuencia"
   };
 
   return Object.keys(mapeo).flatMap((campo) => {
