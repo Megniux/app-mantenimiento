@@ -533,8 +533,10 @@ function valoresEquivalentes(a, b) {
 
 function formatearValorParaEmail(label, valor) {
   if (valor == null || valor === "") return "-";
-  if (label.startsWith("Fecha cierre") || label.startsWith("Estado") || label === "Comentario" || label === "Informe de cierre") {
-    // Para campos con fechas, usar formato largo si parece fecha.
+  if (label === "Fecha cierre") {
+    // Solo los campos de fecha se formatean como fecha. Campos de texto libre
+    // (Comentario, Informe de cierre) no deben pasar por toDate, porque el
+    // parser de Date es permisivo y los convierte en fechas basura.
     const d = toDate(valor);
     if (d) return formatearFechaLarga(d);
   }
