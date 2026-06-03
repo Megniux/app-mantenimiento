@@ -4,6 +4,7 @@ import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js"
 import { isModuloPanolActivo, actualizarBadgePanol } from "../router.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
 import { escapeHtml } from "../ui/format.js";
+import { isAtLeast } from "../roles.js";
 
 let userRole = null;
 let _clienteId = "";
@@ -386,12 +387,10 @@ function configurarOrdenPredeterminado() {
   const direccionOrden = document.getElementById("ordenDireccion");
   const filtroEstado = document.getElementById("filtroEstado");
   const filtroTipo = document.getElementById("filtroTipo");
-  if (userRole === "tecnico" || userRole === "admin" || userRole === "usuario" || userRole === "supervisor" || userRole === "superadmin") {
-    campoOrden.value = "fechaProgramada";
-    direccionOrden.value = "asc";
-    filtroEstado.value = "noCerrado";
-    filtroTipo.value = "";
-  }
+  campoOrden.value = "fechaProgramada";
+  direccionOrden.value = "asc";
+  filtroEstado.value = "noCerrado";
+  filtroTipo.value = "";
 }
 
 async function cargar() {
@@ -478,13 +477,13 @@ async function cargar() {
       };
 
       addOption("Ver detalles", () => verDetalles(id));
-      if (userRole !== "usuario") {
-        // Cerrado solo lo pueden reabrir/editar admin y superadmin.
-        if (!(orden.estado === "Cerrado" && userRole !== "admin" && userRole !== "superadmin")) {
+      if (isAtLeast(userRole, "tecnico")) {
+        // Las órdenes cerradas solo las pueden reabrir/editar admin y superadmin.
+        if (orden.estado !== "Cerrado" || isAtLeast(userRole, "admin")) {
           addOption("Editar", () => abrirModal(id));
         }
       }
-      if (userRole === "admin" || userRole === "superadmin") addOption("Eliminar", () => eliminarOrden(id));
+      if (isAtLeast(userRole, "admin")) addOption("Eliminar", () => eliminarOrden(id));
 
       document.body.appendChild(menu);
 
