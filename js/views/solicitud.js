@@ -2,6 +2,7 @@ import { addDoc, collection, doc, getDoc, getDocs, query, runTransaction, update
 import { db } from "../firebase-config.js";
 import { showAlert } from "../ui/dialog.js";
 import { navigate } from "../router.js";
+import { isAtLeast } from "../roles.js";
 
 let _clienteId = "";
 let _todosEquipos = [];
@@ -12,7 +13,9 @@ export async function initSolicitudView({ role, userName, clienteId, signal } = 
   _clienteId = clienteId || "";
   _viewSignal = signal;
   document.getElementById("solicitante").value = userName;
-  if (role === "usuario" || role === "supervisor") {
+  // Solo los usuarios base cargan exclusivamente correctivas; técnico y
+  // superiores pueden elegir también preventivas.
+  if (!isAtLeast(role, "tecnico")) {
     document.getElementById("tipoGrupo").classList.add("is-hidden");
     document.getElementById("tipo").value = "Correctivo";
   }

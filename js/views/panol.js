@@ -6,6 +6,7 @@ import { db } from "../firebase-config.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
 import { escapeHtml, formatFecha } from "../ui/format.js";
 import { actualizarBadgePanol } from "../router.js";
+import { isAtLeast } from "../roles.js";
 
 let _clienteId = "";
 let _role = "";
@@ -38,8 +39,8 @@ export async function initPanolView({ clienteId, role, signal } = {}) {
 
   renderEquiposSelector("repEquiposCheck", []);
 
-  // Solo supervisor puede agregar repuestos; admin también
-  if (_role === "tecnico") {
+  // Solo supervisor en adelante puede agregar repuestos
+  if (!isAtLeast(_role, "supervisor")) {
     document.getElementById("seccionAgregarRepuesto")?.classList.add("is-hidden");
   }
 }
@@ -102,7 +103,7 @@ function renderRepuestosFiltrados() {
       <td class="actions-cell">
         <div class="table-action-group">
           <button type="button" class="btn-row-action" data-action="ajuste" data-id="${r.id}" title="Ajuste de stock"><i class="fas fa-right-left"></i></button>
-          ${_role !== "tecnico" ? `<button type="button" class="btn-row-action" data-action="editar" data-id="${r.id}" title="Editar"><i class="fas fa-pen"></i></button>
+          ${isAtLeast(_role, "supervisor") ? `<button type="button" class="btn-row-action" data-action="editar" data-id="${r.id}" title="Editar"><i class="fas fa-pen"></i></button>
           <button type="button" class="btn-delete-icon" data-action="eliminar" data-id="${r.id}" title="Eliminar"><i class="fas fa-trash-can"></i></button>` : ""}
         </div>
       </td>`;
@@ -458,7 +459,7 @@ async function eliminarRepuesto(id) {
 // ── Solicitudes pendientes ─────────────────────────────────────────────────
 
 async function verificarSolicitudesPendientes() {
-  if (_role === "tecnico") return; // técnicos no ven el banner de pendientes
+  if (!isAtLeast(_role, "supervisor")) return; // técnicos no ven el banner de pendientes
 
   const snap = await getDocs(query(
     collection(db, "solicitudesPanol"),

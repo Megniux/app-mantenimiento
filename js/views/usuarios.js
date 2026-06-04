@@ -3,6 +3,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from "https
 import { getApp, getApps, initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { auth, db, firebaseConfig, isLocal } from "../firebase-config.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
+import { isAtLeast } from "../roles.js";
 
 let _clienteId = "";
 let _currentRole = "";
@@ -27,7 +28,7 @@ function configurarSelectorRol() {
   const existente = rolSelect.querySelector('option[value="superadmin"]');
   if (existente) existente.remove();
 
-  if (_currentRole === "superadmin") {
+  if (isAtLeast(_currentRole, "superadmin")) {
     const opt = document.createElement("option");
     opt.value = "superadmin";
     opt.textContent = "Superadmin";
@@ -94,7 +95,7 @@ async function crearUsuario() {
   if (!email || !nombre || !password) { await showAlert("Complete todos los campos"); return; }
 
   // Solo superadmin puede crear usuarios con rol superadmin
-  if (rol === "superadmin" && _currentRole !== "superadmin") {
+  if (rol === "superadmin" && !isAtLeast(_currentRole, "superadmin")) {
     await showAlert("No tiene permisos para crear usuarios superadmin.");
     return;
   }

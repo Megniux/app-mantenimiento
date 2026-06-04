@@ -2,6 +2,7 @@ import { authState, watchAuth, login, logout, resetPassword } from "./auth.js";
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "./firebase-config.js";
 import { bindGlobalDialogShortcuts, showAlert } from "./ui/dialog.js";
+import { isAtLeast } from "./roles.js";
 
 // Cada ruta usa un loader dinámico: el módulo de la vista se descarga la primera
 // vez que se navega a esa ruta y queda cacheado en memoria por el ESM module map.
@@ -11,7 +12,7 @@ const routes = {
   login:             { template: "templates/login.html",             title: "Iniciar Sesión",             loader: null, roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
   consulta:          { template: "templates/consulta.html",          title: "Consulta de Órdenes",        loader: () => import("./views/consulta.js").then((m) => m.initConsultaView),                       roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
   solicitud:         { template: "templates/solicitud.html",         title: "Nueva Solicitud",            loader: () => import("./views/solicitud.js").then((m) => m.initSolicitudView),                     roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
-  informes:          { template: "templates/informes.html",          title: "KPIs (Indicadores Clave)",   loader: () => import("./views/informes.js").then((m) => m.initInformesView),                       roles: ["tecnico", "supervisor", "admin", "superadmin"] },
+  informes:          { template: "templates/informes.html",          title: "KPIs (Indicadores Clave)",   loader: () => import("./views/informes.js").then((m) => m.initInformesView),                       roles: ["usuario", "tecnico", "supervisor", "admin", "superadmin"] },
   equipos:           { template: "templates/equipos.html",           title: "Gestionar Equipos",          loader: () => import("./views/equipos.js").then((m) => m.initEquiposView),                         roles: ["supervisor", "admin", "superadmin"] },
   ubicaciones:       { template: "templates/ubicaciones.html",       title: "Gestionar Ubicaciones",      loader: () => import("./views/ubicaciones.js").then((m) => m.initUbicacionesView),                 roles: ["supervisor", "admin", "superadmin"] },
   usuarios:          { template: "templates/usuarios.html",          title: "Gestionar Usuarios",         loader: () => import("./views/usuarios.js").then((m) => m.initUsuariosView),                       roles: ["admin", "superadmin"] },
@@ -24,9 +25,9 @@ const routes = {
 
 // menuByRole define el menú base SIN el pañol (se agrega dinámicamente si está activo)
 const menuByRole = {
-  usuario:    ["solicitud", "consulta"],
+  usuario:    ["solicitud", "consulta", "informes"],
   tecnico:    ["solicitud", "consulta", "informes"],
-  supervisor: ["solicitud", "consulta", "informes"],
+  supervisor: ["solicitud", "consulta", "informes", "equipos", "ubicaciones"],
   admin:      ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios"],
   superadmin: ["solicitud", "consulta", "informes", "equipos", "ubicaciones", "usuarios", "clientes"]
 };
@@ -100,7 +101,7 @@ function renderSidebar(activeRoute) {
   const items = [...baseItems];
 
   // Insertar ítems de pañol para supervisor/admin/superadmin si el módulo está activo
-  if (moduloPanolActivo && ["supervisor", "admin", "superadmin"].includes(role)) {
+  if (moduloPanolActivo && isAtLeast(role, "supervisor")) {
     // Insertar después de "informes" si existe, sino al final
     const idxInformes = items.indexOf("informes");
     const insertPos = idxInformes >= 0 ? idxInformes + 1 : items.length;
@@ -133,7 +134,7 @@ function renderSidebar(activeRoute) {
   }
 
   // Actualizar badge de solicitudes pendientes si el módulo está activo
-  if (moduloPanolActivo && ["supervisor", "admin", "superadmin"].includes(role)) {
+  if (moduloPanolActivo && isAtLeast(role, "supervisor")) {
     actualizarBadgePanol();
   }
 }
@@ -176,7 +177,7 @@ async function renderClienteSelector(selectedId = "") {
   if (!container) return;
 
   const role = authState.profile?.rol;
-  if (role !== "superadmin") {
+  if (!isAtLeast(role, "superadmin")) {
     container.innerHTML = "";
     container.classList.add("is-hidden");
     return;
@@ -235,7 +236,7 @@ export async function cargarContenido(routeKey, push = true) {
 
   const role = authState.profile?.rol || "";
 
-  if (role === "superadmin") {
+  if (isAtLeast(role, "superadmin")) {
     await renderClienteSelector(activeClienteId);
     if (viewSignal.aborted) return;
   } else {
