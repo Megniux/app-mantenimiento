@@ -1,3 +1,6 @@
 node_modules/
 *.log
 .runtimeconfig.json
+
+# Service account keys usadas por los scripts admin. NUNCA commitear.
+scripts/*.json

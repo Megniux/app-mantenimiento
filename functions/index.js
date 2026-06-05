@@ -18,6 +18,10 @@
 //   - cleanupUserFcmTokens  (rama Notificaciones): cuando se elimina un user,
 //                           borra su subcolección fcmTokens (Firestore no borra
 //                           subcolecciones en cascada).
+//   - deleteAuthOnUserDeleted: cuando se elimina un doc users/{uid}, borra la
+//                           cuenta de Firebase Auth asociada (el SDK de cliente
+//                           no puede borrar usuarios por UID). Cubre el borrado
+//                           desde la app y el cascade al borrar un cliente.
 //
 // IMPORTANTE: este archivo unifica deliberadamente funciones de varias ramas
 // porque `firebase deploy --only functions` borra del proyecto las funciones que
@@ -66,9 +70,21 @@ export const syncUserClaims = onDocumentWritten(
 
     try {
       if (!after) {
-        // Documento borrado: limpiar claims para revocar acceso vía token
-        await getAuth().setCustomUserClaims(uid, null);
-        logger.info(`Claims cleared for ${uid}`);
+        // Documento borrado: revocar acceso limpiando los claims del token. La
+        // cuenta puede haber sido ya borrada por deleteAuthOnUserDeleted (borrado
+        // normal de usuario/cliente, ambos triggers corren en paralelo) o no haber
+        // existido nunca (doc huérfano). En esos casos auth/user-not-found es
+        // esperable y no es un error.
+        try {
+          await getAuth().setCustomUserClaims(uid, null);
+          logger.info(`Claims cleared for ${uid}`);
+        } catch (err) {
+          if (err.code === "auth/user-not-found") {
+            logger.info(`syncUserClaims: ${uid} ya no existe en Auth, nada que limpiar`);
+          } else {
+            throw err;
+          }
+        }
         return;
       }
 
@@ -77,9 +93,17 @@ export const syncUserClaims = onDocumentWritten(
         clienteId: after.clienteId || ""
       };
 
-      // Evitar trabajo si los claims ya están sincronizados
+      // Si el doc no tiene cuenta en Auth (huérfano de un import desde backup),
+      // no intentar setear claims: setCustomUserClaims tiraría auth/user-not-found
+      // en cada escritura, contaminando los logs sin lograr nada.
       const userRecord = await getAuth().getUser(uid).catch(() => null);
-      const current = userRecord?.customClaims || {};
+      if (!userRecord) {
+        logger.info(`syncUserClaims: ${uid} sin cuenta Auth (doc huérfano), no se setean claims`);
+        return;
+      }
+
+      // Evitar trabajo si los claims ya están sincronizados
+      const current = userRecord.customClaims || {};
       if (current.rol === claims.rol && current.clienteId === claims.clienteId) {
         return;
       }
@@ -725,5 +749,39 @@ export const cleanupUserFcmTokens = onDocumentDeleted(
       logger.warn(`cleanupUserFcmTokens: ${fallidos.length}/${tokensSnap.size} deletes fallaron en ${uid}`);
     }
     logger.info(`cleanupUserFcmTokens: ${tokensSnap.size} tokens borrados del user ${uid}`);
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// deleteAuthOnUserDeleted
+// Cuando se elimina un doc users/{uid}, borra la cuenta de Firebase Auth
+// correspondiente. El SDK de cliente no puede borrar usuarios arbitrarios por
+// UID (solo el logueado), así que el borrado de Auth se centraliza acá.
+//
+// Cubre dos flujos con una sola pieza:
+//   - Borrar un usuario desde la app (usuarios.js sólo borra el doc).
+//   - Borrar un cliente (clientes.js hace cascade de sus docs users/, y cada
+//     delete dispara este trigger).
+//
+// Si el uid no tiene cuenta en Auth (p.ej. docs importados desde backup que
+// nunca tuvieron cuenta), auth/user-not-found se traga silenciosamente.
+// ════════════════════════════════════════════════════════════════════════════
+
+export const deleteAuthOnUserDeleted = onDocumentDeleted(
+  { document: "users/{uid}", region: REGION },
+  async (event) => {
+    const { uid } = event.params;
+    if (!uid) return;
+
+    try {
+      await getAuth().deleteUser(uid);
+      logger.info(`deleteAuthOnUserDeleted: cuenta Auth ${uid} eliminada`);
+    } catch (err) {
+      if (err.code === "auth/user-not-found") {
+        logger.info(`deleteAuthOnUserDeleted: ${uid} sin cuenta Auth (nada que borrar)`);
+        return;
+      }
+      logger.error(`deleteAuthOnUserDeleted: fallo al borrar Auth ${uid}`, err);
+    }
   }
 );
