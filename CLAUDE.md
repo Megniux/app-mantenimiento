@@ -71,18 +71,19 @@ The "pañol" (inventory/spare parts) module is toggled per client via the `modul
 
 ## Role-Based Access Control
 
-Six roles with escalating permissions:
+Five roles in a strict hierarchy — each role inherits every capability of the one above it in this table:
 
-| Role | Key capabilities |
+| Role | Adds on top of the previous role |
 |------|----------------|
-| `guest` | Create and view orders |
-| `usuario` | Same as guest |
-| `tecnico` | + Reports |
-| `supervisor` | + Equipment, locations, pañol |
-| `admin` | + User management |
-| `superadmin` | + Client management, client selector |
+| `usuario` | Create corrective orders, view orders, view reports (informes) |
+| `tecnico` | + Create preventive orders, edit orders, register spare-part usage |
+| `supervisor` | + Manage equipment, locations and pañol |
+| `admin` | + Manage users, edit/reopen closed orders |
+| `superadmin` | + Manage clients, client selector |
 
-The sidebar menu is built from the `menuByRole` object in `router.js`. Role checks inside view modules use `sessionStorage.getItem("userRole")`.
+Because the model is purely hierarchical, role checks use the `isAtLeast(role, minRole)` helper in `js/roles.js` (`ROLE_PRIORITY` = `["usuario", "tecnico", "supervisor", "admin", "superadmin"]`) instead of scattered string comparisons. This mirrors the `isAtLeast()` helper in `firestore.rules`, keeping client and server in sync. The current role comes from `sessionStorage.getItem("userRole")` (or the `ctx.role` passed into each view's `init`).
+
+The sidebar menu is built from the `menuByRole` object in `router.js`. Route-level access is enforced by `canAccess()` against each route's `roles` allowlist; keep `menuByRole` and `routes[].roles` consistent when changing access.
 
 ## Firestore Collections
 
