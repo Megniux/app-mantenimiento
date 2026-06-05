@@ -156,7 +156,10 @@ async function crearUsuario() {
 }
 
 async function eliminarUsuario(uid) {
-  if (!(await showConfirm("¿Eliminar usuario? (No se elimina autenticación, solo Firestore)"))) return;
+  if (!(await showConfirm("¿Eliminar usuario? Se borra su perfil y también su cuenta de acceso (no podrá volver a iniciar sesión)."))) return;
+  // Sólo borramos el doc users/. El borrado de la cuenta de Firebase Auth lo
+  // hace el trigger deleteAuthOnUserDeleted (functions/index.js), porque el SDK
+  // de cliente no puede borrar usuarios por UID, sólo al que está logueado.
   await deleteDoc(doc(db, "users", uid));
   await cargarUsuarios();
 }

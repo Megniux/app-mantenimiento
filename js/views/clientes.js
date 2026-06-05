@@ -515,7 +515,12 @@ async function previsualizarZip() {
     const JSZip = await getJSZip();
     const zip = await JSZip.loadAsync(file);
     const archivos = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
-    preview.textContent = `Archivos detectados: ${archivos.join(", ")}`;
+    const tieneUsuarios = archivos.some((n) => n.toLowerCase().endsWith("usuarios.csv"));
+    let texto = `Archivos detectados: ${archivos.join(", ")}`;
+    if (tieneUsuarios) {
+      texto += "  ⚠ Los usuarios del backup no se importan: crealos desde la pantalla de Usuarios luego de importar.";
+    }
+    preview.textContent = texto;
     preview.classList.remove("is-hidden");
 
     const clienteFile = zip.file("cliente.csv");
@@ -593,7 +598,12 @@ async function importarClienteDesdeZip() {
     const idMaps = {};
     idMaps.ubicaciones = await importarColeccion(zip, "ubicaciones.csv", "ubicaciones", nuevoClienteId, oldClienteId, idMaps);
     idMaps.equipos     = await importarColeccion(zip, "equipos.csv",     "equipos",     nuevoClienteId, oldClienteId, idMaps);
-    await importarColeccion(zip, "usuarios.csv", "users",     nuevoClienteId, oldClienteId, idMaps);
+    // Los usuarios NO se importan a propósito: un user importado generaría un doc
+    // users/ sin cuenta de Firebase Auth (las contraseñas no se exportan), o sea
+    // un huérfano que rompe syncUserClaims. Los usuarios del cliente nuevo se
+    // crean a mano desde la pantalla de Usuarios (que sí crea la cuenta Auth).
+    // Las órdenes conservan solicitante/tecnicoAsignado como texto, así que el
+    // histórico se ve igual sin los docs de usuario.
     await importarColeccion(zip, "ordenes.csv",  "ordenes",   nuevoClienteId, oldClienteId, idMaps);
     await importarColeccion(zip, "repuestos.csv","repuestos", nuevoClienteId, oldClienteId, idMaps);
 
