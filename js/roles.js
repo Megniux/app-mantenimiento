@@ -1,8 +1,9 @@
 // Modelo de roles jerárquico: cada rol incluye las capacidades del anterior.
-// Este es el único punto de verdad de la jerarquía en el cliente y espeja el
-// helper isAtLeast() de firestore.rules. Usar isAtLeast() en lugar de comparar
-// strings sueltos evita el drift entre vistas (ej. olvidarse de sumar un rol a
-// una lista de OR).
+// Este es el único punto de verdad de la jerarquía en el cliente y refleja la
+// misma jerarquía que aplican las reglas en firestore.rules (allí con listas de
+// roles explícitas por colección, ej. userRole() in ["supervisor","admin",...]).
+// Usar isAtLeast() en lugar de comparar strings sueltos evita el drift entre
+// vistas (ej. olvidarse de sumar un rol a una lista de OR).
 
 export const ROLE_PRIORITY = ["usuario", "tecnico", "supervisor", "admin", "superadmin"];
 

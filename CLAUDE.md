@@ -81,7 +81,7 @@ Five roles in a strict hierarchy — each role inherits every capability of the 
 | `admin` | + Manage users, edit/reopen closed orders |
 | `superadmin` | + Manage clients, client selector |
 
-Because the model is purely hierarchical, role checks use the `isAtLeast(role, minRole)` helper in `js/roles.js` (`ROLE_PRIORITY` = `["usuario", "tecnico", "supervisor", "admin", "superadmin"]`) instead of scattered string comparisons. This mirrors the `isAtLeast()` helper in `firestore.rules`, keeping client and server in sync. The current role comes from `sessionStorage.getItem("userRole")` (or the `ctx.role` passed into each view's `init`).
+Because the model is purely hierarchical, role checks use the `isAtLeast(role, minRole)` helper in `js/roles.js` (`ROLE_PRIORITY` = `["usuario", "tecnico", "supervisor", "admin", "superadmin"]`) instead of scattered string comparisons. This mirrors the same role hierarchy enforced server-side in `firestore.rules` (where each collection rule uses an explicit role allowlist, e.g. `userRole() in ["supervisor", "admin", "superadmin"]`), keeping client and server in sync. The current role comes from `sessionStorage.getItem("userRole")` (or the `ctx.role` passed into each view's `init`).
 
 The sidebar menu is built from the `menuByRole` object in `router.js`. Route-level access is enforced by `canAccess()` against each route's `roles` allowlist; keep `menuByRole` and `routes[].roles` consistent when changing access.
 

@@ -46,11 +46,6 @@ service cloud.firestore {
       return isSuperadmin() || belongsToCliente(clienteId);
     }
 
-    function isAtLeast(rol) {
-      let roles = ["usuario", "tecnico", "supervisor", "admin", "superadmin"];
-      return userRole() in roles[roles.indexOf(rol):];
-    }
-
     // ── Clientes ─────────────────────────────────────────────────────────────
 
     match /clientes/{clienteId} {
