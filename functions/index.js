@@ -42,6 +42,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
+import { toDate, formatearFechaLarga, formatearFechaCorta, escapeHtml } from "./utils.js";
 
 initializeApp();
 
@@ -358,49 +359,6 @@ const CAMPOS_DETALLE_EMAIL = [
   ["Tiempo estimado (hs)", (o) => o.tiempoEstimado ?? "-"],
   ["Tiempo real (hs)", (o) => o.tiempoReal ?? "-"]
 ];
-
-function toDate(v) {
-  if (!v) return null;
-  if (typeof v.toDate === "function") return v.toDate();
-  if (v instanceof Date) return v;
-  if (typeof v === "string" || typeof v === "number") {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  if (typeof v === "object" && typeof v._seconds === "number") {
-    return new Date(v._seconds * 1000);
-  }
-  return null;
-}
-
-function formatearFechaLarga(v) {
-  const d = toDate(v);
-  if (!d) return "-";
-  return d.toLocaleString("es-AR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-    timeZone: "America/Argentina/Buenos_Aires"
-  });
-}
-
-function formatearFechaCorta(v) {
-  const d = toDate(v);
-  if (!d) return "-";
-  return d.toLocaleDateString("es-AR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    timeZone: "America/Argentina/Buenos_Aires"
-  });
-}
-
-function escapeHtml(s) {
-  if (s == null) return "";
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 // Resuelve el email del solicitante validando que pertenezca al mismo cliente
 // que la orden. El check de tenant es defense-in-depth: las reglas de Firestore
