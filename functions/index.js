@@ -33,7 +33,8 @@ import {
   onDocumentCreated,
   onDocumentDeleted,
   onDocumentUpdated,
-  onDocumentWritten
+  onDocumentWritten,
+  onDocumentWrittenWithAuthContext
 } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
@@ -529,9 +530,9 @@ function formatearValorParaEmail(label, valor) {
   return String(valor);
 }
 
-function detectarCambios(before, after) {
+function detectarCambios(before, after, campos = CAMPOS_EMAIL_RELEVANTES) {
   const cambios = [];
-  for (const [campo, label] of CAMPOS_EMAIL_RELEVANTES) {
+  for (const [campo, label] of campos) {
     if (!valoresEquivalentes(before?.[campo], after?.[campo])) {
       cambios.push({
         label,
@@ -634,6 +635,136 @@ export const onOrdenUpdatedEmail = onDocumentUpdated(
       html
     });
     logger.info(`Orden ${ordenId}: email update a ${destinatario.email} (${cambios.length} cambios) → ${result.ok ? "OK" : "FAIL " + result.reason}`);
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// registrarCambiosOrden (Informe diario)
+// Trigger: cada alta, modificación o borrado de una orden (correctiva o
+// preventiva) se registra en `cambiosOrdenes`, que es la fuente del informe
+// diario (reporteDiarioOrdenes). Se hace server-side para capturar todas las
+// vías de escritura (UI, pañol, scripts, futuras rutinas) sin depender de que
+// el cliente web esté actualizado.
+//
+// Cada registro guarda el valor anterior → nuevo de los campos relevantes ya
+// formateado para el mail, quién hizo el cambio y un snapshot mínimo de la
+// orden (así el informe no necesita releer `ordenes` y puede describir órdenes
+// borradas). `cambiosOrdenes` no es accesible desde la app (ver firestore.rules).
+//
+// Idempotencia: los triggers se entregan "al menos una vez"; el doc id es el
+// event.id, así que un reintento sobreescribe el mismo registro.
+//
+// Retención: `expiraEn` = fecha + 90 días. Requiere una política TTL de
+// Firestore sobre ese campo (se configura una vez desde consola/gcloud); sin la
+// política, los registros simplemente no se borran.
+// ════════════════════════════════════════════════════════════════════════════
+
+const RETENCION_CAMBIOS_DIAS = 90;
+
+// Campos cuyo cambio aparece en el informe: los mismos del email al solicitante
+// + la frecuencia (relevante en preventivas).
+const CAMPOS_REPORTE_DIARIO = [
+  ...CAMPOS_EMAIL_RELEVANTES,
+  ["frecuencia", "Frecuencia"]
+];
+
+// Detalle que se muestra para una orden creada.
+const CAMPOS_ALTA_REPORTE = [
+  ["Prioridad", (o) => o.prioridad],
+  ["Descripción", (o) => o.descripcion],
+  ["Técnico asignado", (o) => o.tecnicoAsignado],
+  ["Frecuencia", (o) => o.frecuencia],
+  ["Fecha programada", (o) => formatearFechaCorta(o.fechaProgramada)]
+];
+
+function snapshotOrdenReporte(o) {
+  return {
+    numeroOrden: o.numeroOrden || "",
+    tipo: o.tipo || "",
+    equipo: o.equipo || "",
+    ubicacion: o.ubicacion || "",
+    estado: o.estado || ""
+  };
+}
+
+// Nombre de quien hizo el cambio. Preferimos la última entrada de historial
+// recién agregada (la escribe la UI con el nombre visible); si no la hay,
+// resolvemos el uid del evento contra users/. Escrituras del Admin SDK
+// (funciones, scripts) quedan como "Sistema".
+async function resolverAutorCambio(event, before, after) {
+  const histAntes = Array.isArray(before?.historial) ? before.historial.length : 0;
+  const histDespues = Array.isArray(after?.historial) ? after.historial : [];
+  if (histDespues.length > histAntes) {
+    const ultimo = histDespues[histDespues.length - 1];
+    if (ultimo?.usuario) return String(ultimo.usuario);
+  }
+  if (!before && after?.solicitante) return String(after.solicitante);
+
+  if (event.authType === "app_user" && event.authId) {
+    try {
+      const u = await getFirestore().collection("users").doc(event.authId).get();
+      if (u.exists) {
+        const d = u.data() || {};
+        return d.nombreCompleto || d.email || event.authId;
+      }
+    } catch (err) {
+      logger.warn(`registrarCambiosOrden: no se pudo leer users/${event.authId}: ${err.message}`);
+    }
+    return event.authId;
+  }
+  return "Sistema";
+}
+
+export const registrarCambiosOrden = onDocumentWrittenWithAuthContext(
+  { document: "ordenes/{ordenId}", region: REGION },
+  async (event) => {
+    const before = event.data?.before?.exists ? event.data.before.data() : null;
+    const after = event.data?.after?.exists ? event.data.after.data() : null;
+    const ordenId = event.params.ordenId;
+    if (!before && !after) return;
+
+    let evento;
+    let cambios = [];
+    let detalle = [];
+    if (!before) {
+      // Órdenes importadas desde backup no son actividad real.
+      if (after.importado === true) return;
+      evento = "creada";
+      detalle = CAMPOS_ALTA_REPORTE
+        .map(([label, getter]) => ({ label, valor: getter(after) }))
+        .filter(({ valor }) => valor != null && valor !== "" && valor !== "-")
+        .map(({ label, valor }) => ({ label, valor: String(valor) }));
+    } else if (!after) {
+      evento = "eliminada";
+    } else {
+      evento = "modificada";
+      cambios = detectarCambios(before, after, CAMPOS_REPORTE_DIARIO);
+      // Cambios en campos que no van al informe (historial suelto, repuestos,
+      // contadores internos): nada que registrar.
+      if (!cambios.length) return;
+    }
+
+    const orden = after || before;
+    if (!orden.clienteId) {
+      logger.warn(`registrarCambiosOrden: orden ${ordenId} sin clienteId, no se registra`);
+      return;
+    }
+
+    const fecha = event.time ? new Date(event.time) : new Date();
+    const usuario = await resolverAutorCambio(event, before, after);
+
+    await getFirestore().collection("cambiosOrdenes").doc(event.id).set({
+      clienteId: orden.clienteId,
+      ordenId,
+      evento,
+      fecha,
+      usuario,
+      orden: snapshotOrdenReporte(orden),
+      cambios,
+      detalle,
+      expiraEn: new Date(fecha.getTime() + RETENCION_CAMBIOS_DIAS * 24 * 60 * 60 * 1000)
+    });
+    logger.info(`registrarCambiosOrden: orden ${ordenId} ${evento} (${cambios.length} cambios) por ${usuario}`);
   }
 );
 
