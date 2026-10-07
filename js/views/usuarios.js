@@ -1,5 +1,5 @@
 import { connectAuthEmulator, createUserWithEmailAndPassword, deleteUser, getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { collection, getDocs, doc, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getApp, getApps, initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { auth, db, firebaseConfig, isLocal } from "../firebase-config.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
@@ -73,7 +73,8 @@ function renderUsuariosFiltrados() {
     row.insertCell(0).textContent = data.email;
     row.insertCell(1).textContent = data.nombreCompleto;
     row.insertCell(2).textContent = data.rol;
-    const actions = row.insertCell(3);
+    row.insertCell(3).appendChild(crearCheckInforme(data));
+    const actions = row.insertCell(4);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn-delete-icon";
@@ -84,6 +85,36 @@ function renderUsuariosFiltrados() {
   });
 }
 
+// Check "Informe diario": define si el usuario recibe el informe diario de
+// órdenes por email (functions/index.js → reporteDiarioOrdenes). Los superadmin
+// lo reciben siempre, así que para ellos se muestra tildado y deshabilitado.
+function crearCheckInforme(data) {
+  const check = document.createElement("input");
+  check.type = "checkbox";
+  check.setAttribute("aria-label", `Informe diario para ${data.email || "usuario"}`);
+  if (data.rol === "superadmin") {
+    check.checked = true;
+    check.disabled = true;
+    check.title = "Los superadmin reciben siempre el informe diario de todos los clientes";
+    return check;
+  }
+  check.checked = data.recibeReporteDiario === true;
+  check.addEventListener("change", async () => {
+    check.disabled = true;
+    try {
+      await updateDoc(doc(db, "users", data.id), { recibeReporteDiario: check.checked });
+      data.recibeReporteDiario = check.checked;
+    } catch (error) {
+      console.error(error);
+      check.checked = !check.checked;
+      await showAlert(`No se pudo actualizar el informe diario: ${error.message}`);
+    } finally {
+      check.disabled = false;
+    }
+  });
+  return check;
+}
+
 async function crearUsuario() {
   const btn = document.getElementById("crearUsuarioBtn");
   if (!btn || btn.disabled) return;
@@ -92,6 +123,7 @@ async function crearUsuario() {
   const nombre = document.getElementById("nombre").value.trim();
   const password = document.getElementById("password").value;
   const rol = document.getElementById("rol").value;
+  const recibeReporteDiario = document.getElementById("recibeReporteDiario").checked;
   if (!email || !nombre || !password) { await showAlert("Complete todos los campos"); return; }
 
   // Solo superadmin puede crear usuarios con rol superadmin
@@ -131,7 +163,8 @@ async function crearUsuario() {
         email,
         nombreCompleto: nombre,
         rol,
-        clienteId: rol === "superadmin" ? "" : _clienteId
+        clienteId: rol === "superadmin" ? "" : _clienteId,
+        recibeReporteDiario
       });
     } catch (firestoreErr) {
       // Rollback: borrar el usuario de Auth para no dejar registro huérfano
@@ -143,6 +176,7 @@ async function crearUsuario() {
     document.getElementById("email").value = "";
     document.getElementById("nombre").value = "";
     document.getElementById("password").value = "";
+    document.getElementById("recibeReporteDiario").checked = false;
     await cargarUsuarios();
   } catch (error) {
     console.error(error);

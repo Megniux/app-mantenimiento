@@ -10,6 +10,7 @@
         <col class="col-email">
         <col class="col-nombre">
         <col class="col-rol">
+        <col class="col-informe">
         <col class="col-acciones">
       </colgroup>
       <thead>
@@ -17,6 +18,7 @@
           <th>Email</th>
           <th>Nombre</th>
           <th>Rol</th>
+          <th title="Recibe el informe diario de órdenes por email">Informe diario</th>
           <th></th>
         </tr>
       </thead>
@@ -53,6 +55,12 @@
           <option value="admin">Administrador</option>
         </select>
       </div>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-ubicacion-item">
+        <input type="checkbox" id="recibeReporteDiario">
+        Recibe el informe diario de órdenes por email
+      </label>
     </div>
   </div>
   <button id="crearUsuarioBtn" type="button" class="btn-primary"><i class="fa-solid fa-user-plus"></i>Crear usuario</button>
