@@ -37,13 +37,15 @@ import {
   onDocumentWrittenWithAuthContext
 } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { logger } from "firebase-functions";
-import { toDate, formatearFechaLarga, formatearFechaCorta, escapeHtml } from "./utils.js";
+import { TZ_ART, toDate, formatearFechaLarga, formatearFechaCorta, escapeHtml } from "./utils.js";
+import { agruparPorOrden, calcularVentana, medianocheART, renderReporteDiario } from "./reporteDiario.js";
 
 initializeApp();
 
@@ -872,5 +874,199 @@ export const deleteAuthOnUserDeleted = onDocumentDeleted(
       }
       logger.error(`deleteAuthOnUserDeleted: fallo al borrar Auth ${uid}`, err);
     }
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// reporteDiarioOrdenes (Informe diario)
+// Función programada: lunes a viernes 08:00 ART. Por cada cliente arma un email
+// con los cambios de órdenes registrados en `cambiosOrdenes` desde el informe
+// anterior hasta hoy 00:00 ART (el lunes abarca viernes + fin de semana; si un
+// día falló el envío, el siguiente lo recupera). Ver functions/reporteDiario.js.
+//
+// Destinatarios por cliente (un email por destinatario, sin CC):
+//   - users del cliente con `recibeReporteDiario == true` (cualquier rol),
+//   - todos los superadmins, siempre (un email por cada cliente).
+// Clientes sin cambios en la ventana no envían nada.
+//
+// Estado por cliente en reportesDiarios/{clienteId}.hasta: fin de la última
+// ventana reportada. Solo avanza si se pudo enviar al menos un email (o si no
+// hubo nada que enviar); si Brevo falló para todos, el próximo informe incluye
+// también estos cambios.
+//
+// Confidencialidad: cada email se arma solo con registros filtrados por el
+// clienteId del cliente y se manda solo a usuarios de ese cliente o superadmins.
+// ════════════════════════════════════════════════════════════════════════════
+
+async function leerCambiosCliente(db, clienteId, desde, fin) {
+  const snap = await db.collection("cambiosOrdenes")
+    .where("clienteId", "==", clienteId)
+    .where("fecha", ">=", desde)
+    .where("fecha", "<", fin)
+    .get();
+  // Defense-in-depth: descartar cualquier registro de otro cliente.
+  return snap.docs.map((d) => d.data()).filter((r) => r.clienteId === clienteId);
+}
+
+// Destinatarios {email, nombre} sin duplicados (por email, case-insensitive).
+function destinatariosUnicos(docs) {
+  const vistos = new Set();
+  const out = [];
+  for (const doc of docs) {
+    const data = doc.data() || {};
+    const email = (data.email || "").trim();
+    if (!email || vistos.has(email.toLowerCase())) continue;
+    vistos.add(email.toLowerCase());
+    out.push({ email, nombre: data.nombreCompleto || email });
+  }
+  return out;
+}
+
+export const reporteDiarioOrdenes = onSchedule(
+  {
+    schedule: "0 8 * * 1-5",
+    timeZone: TZ_ART,
+    region: REGION,
+    secrets: [BREVO_API_KEY, BREVO_FROM_EMAIL, BREVO_FROM_NAME],
+    timeoutSeconds: 540
+  },
+  async () => {
+    const db = getFirestore();
+    const ahora = new Date();
+    const [clientesSnap, superadminsSnap] = await Promise.all([
+      db.collection("clientes").get(),
+      db.collection("users").where("rol", "==", "superadmin").get()
+    ]);
+
+    let clientesConCambios = 0;
+    let emailsEnviados = 0;
+
+    for (const clienteDoc of clientesSnap.docs) {
+      const clienteId = clienteDoc.id;
+      const clienteNombre = (clienteDoc.data() || {}).nombre || clienteId;
+      try {
+        const estadoRef = db.collection("reportesDiarios").doc(clienteId);
+        const estado = (await estadoRef.get()).data() || {};
+        const { desde, fin } = calcularVentana(ahora, estado.hasta);
+        if (desde >= fin) {
+          logger.info(`reporteDiarioOrdenes: ${clienteNombre} ya reportado hasta ${fin.toISOString()}, skip`);
+          continue;
+        }
+
+        const registros = await leerCambiosCliente(db, clienteId, desde, fin);
+        if (!registros.length) {
+          await estadoRef.set({ hasta: fin, ultimaCorrida: ahora, ordenes: 0, enviados: 0 });
+          logger.info(`reporteDiarioOrdenes: ${clienteNombre} sin cambios, no se envía`);
+          continue;
+        }
+        clientesConCambios++;
+
+        const grupos = agruparPorOrden(registros);
+        const { subject, html } = renderReporteDiario({ clienteNombre, desde, fin, grupos });
+
+        const suscriptosSnap = await db.collection("users")
+          .where("clienteId", "==", clienteId)
+          .where("recibeReporteDiario", "==", true)
+          .get();
+        const destinatarios = destinatariosUnicos([...suscriptosSnap.docs, ...superadminsSnap.docs]);
+
+        let enviados = 0;
+        for (const dest of destinatarios) {
+          const res = await sendEmail({ to: dest.email, toName: dest.nombre, subject, html });
+          if (res.ok) enviados++;
+          else logger.warn(`reporteDiarioOrdenes: fallo email a ${dest.email} (${clienteNombre}) → ${res.reason}`);
+        }
+        emailsEnviados += enviados;
+
+        if (enviados > 0 || !destinatarios.length) {
+          await estadoRef.set({ hasta: fin, ultimaCorrida: ahora, ordenes: grupos.length, enviados });
+        } else {
+          logger.error(`reporteDiarioOrdenes: ${clienteNombre} no se pudo enviar a nadie; se reintenta en el próximo informe`);
+        }
+        logger.info(`reporteDiarioOrdenes: ${clienteNombre} → ${grupos.length} órdenes, ${enviados}/${destinatarios.length} emails`);
+      } catch (err) {
+        logger.error(`reporteDiarioOrdenes: error en cliente ${clienteNombre}: ${err.message}`);
+      }
+    }
+
+    logger.info(`reporteDiarioOrdenes: fin. ${clientesConCambios}/${clientesSnap.size} clientes con cambios, ${emailsEnviados} emails enviados`);
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// reporteDiarioPrueba (Informe diario)
+// Callable solo-superadmin para previsualizar el informe con datos reales. Usa
+// la misma lógica que reporteDiarioOrdenes pero manda el email ÚNICAMENTE a
+// quien la llama (asunto con prefijo [PRUEBA]) y NO modifica reportesDiarios.
+//
+// Parámetros (opcionales):
+//   clienteId      un cliente; si falta, todos.
+//   desde, hasta   "YYYY-MM-DD" (hasta inclusive). Sin ellos: el día anterior
+//                  (o viernes a domingo si hoy es lunes).
+//
+// Desde la consola del navegador, logueado como superadmin:
+//   const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js");
+//   const { getApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+//   const fn = httpsCallable(getFunctions(getApp(), "southamerica-east1"), "reporteDiarioPrueba");
+//   console.log((await fn({ clienteId: "<ID>", desde: "2026-10-05", hasta: "2026-10-07" })).data);
+// ════════════════════════════════════════════════════════════════════════════
+
+const RE_FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+export const reporteDiarioPrueba = onCall(
+  { region: REGION, secrets: [BREVO_API_KEY, BREVO_FROM_EMAIL, BREVO_FROM_NAME] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Login requerido.");
+    }
+    const db = getFirestore();
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+    const caller = callerDoc.exists ? callerDoc.data() : {};
+    if (request.auth.token.rol !== "superadmin" && caller.rol !== "superadmin") {
+      throw new HttpsError("permission-denied", "Solo superadmin puede ejecutar la prueba.");
+    }
+    const to = caller.email || request.auth.token.email;
+    if (!to) {
+      throw new HttpsError("failed-precondition", "Tu usuario no tiene email.");
+    }
+
+    const { clienteId, desde: desdeTxt, hasta: hastaTxt } = request.data || {};
+    let desde, fin;
+    if (desdeTxt || hastaTxt) {
+      if (!RE_FECHA_ISO.test(desdeTxt || "") || !RE_FECHA_ISO.test(hastaTxt || "")) {
+        throw new HttpsError("invalid-argument", "desde y hasta deben ser YYYY-MM-DD.");
+      }
+      desde = medianocheART(desdeTxt);
+      fin = new Date(medianocheART(hastaTxt).getTime() + 24 * 60 * 60 * 1000);
+      if (fin <= desde) throw new HttpsError("invalid-argument", "hasta debe ser >= desde.");
+    } else {
+      ({ desde, fin } = calcularVentana(new Date(), null));
+    }
+
+    let clienteDocs;
+    if (clienteId) {
+      const cd = await db.collection("clientes").doc(clienteId).get();
+      if (!cd.exists) throw new HttpsError("not-found", `Cliente ${clienteId} no existe.`);
+      clienteDocs = [cd];
+    } else {
+      clienteDocs = (await db.collection("clientes").get()).docs;
+    }
+
+    const resultados = [];
+    for (const clienteDoc of clienteDocs) {
+      const clienteNombre = (clienteDoc.data() || {}).nombre || clienteDoc.id;
+      const registros = await leerCambiosCliente(db, clienteDoc.id, desde, fin);
+      if (!registros.length) {
+        resultados.push({ cliente: clienteNombre, ordenes: 0, enviado: false, motivo: "sin cambios" });
+        continue;
+      }
+      const grupos = agruparPorOrden(registros);
+      const { subject, html } = renderReporteDiario({ clienteNombre, desde, fin, grupos });
+      const res = await sendEmail({ to, toName: caller.nombreCompleto || to, subject: `[PRUEBA] ${subject}`, html });
+      resultados.push({ cliente: clienteNombre, ordenes: grupos.length, enviado: res.ok, motivo: res.reason || null });
+    }
+
+    logger.info(`reporteDiarioPrueba: ${resultados.length} cliente(s), destino ${to}`);
+    return { desde: desde.toISOString(), fin: fin.toISOString(), to, resultados };
   }
 );
