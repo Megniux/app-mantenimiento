@@ -22,6 +22,17 @@
 //                           cuenta de Firebase Auth asociada (el SDK de cliente
 //                           no puede borrar usuarios por UID). Cubre el borrado
 //                           desde la app y el cascade al borrar un cliente.
+//   - registrarCambiosOrden (Informe diario): trigger sobre ordenes/{id} que
+//                           registra cada alta/modificación/borrado en
+//                           cambiosOrdenes (valor anterior → nuevo, autor, fecha).
+//   - reporteDiarioOrdenes  (Informe diario): programada lun-vie 08:00 ART. Por
+//                           cliente con cambios desde el informe anterior, manda
+//                           un email a los users del cliente con
+//                           recibeReporteDiario == true y a todos los superadmins.
+//                           Clientes sin cambios no envían nada.
+//   - reporteDiarioPrueba   (Informe diario): callable solo-superadmin que manda
+//                           el mismo informe únicamente a quien la llama, sin
+//                           tocar el estado de reportesDiarios.
 //
 // IMPORTANTE: este archivo unifica deliberadamente funciones de varias ramas
 // porque `firebase deploy --only functions` borra del proyecto las funciones que
