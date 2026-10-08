@@ -13,8 +13,13 @@ export function escapeHtml(v) {
   }[c]));
 }
 
+// Fecha y hora como "23/06/2026 17:48" (24 h). Se arma a mano porque
+// toLocaleString("es-AR") depende del navegador: algunos muestran 12 h sin
+// "a. m."/"p. m.", y una orden de las 17:48 aparecía como "05:48:53".
 export function formatFecha(fecha) {
   if (!fecha) return "-";
   const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
-  return isNaN(d.getTime()) ? "-" : d.toLocaleString("es-AR");
+  if (isNaN(d.getTime())) return "-";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }

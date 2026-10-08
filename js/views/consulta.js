@@ -3,7 +3,7 @@ import { db, auth } from "../firebase-config.js";
 import { registrarEgresoDesdeOrden, cargarRepuestosParaOrden } from "./panol.js";
 import { isModuloPanolActivo, actualizarBadgePanol } from "../router.js";
 import { showAlert, showConfirm } from "../ui/dialog.js";
-import { escapeHtml } from "../ui/format.js";
+import { escapeHtml, formatFecha } from "../ui/format.js";
 import { isAtLeast } from "../roles.js";
 
 let userRole = null;
@@ -27,7 +27,7 @@ const CAMPOS_RESUMEN_EDICION = [
   { label: "N° Orden", getValue: (orden) => orden.numeroOrden },
   { label: "Tipo", getValue: (orden) => orden.tipo },
   { label: "Solicitante", getValue: (orden) => orden.solicitante },
-  { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) }
+  { label: "Fecha creación", getValue: (orden) => formatFecha(orden.fechaCreacion) }
 ];
 
 const CAMPOS_DETALLE_ORDEN = [
@@ -43,9 +43,9 @@ const CAMPOS_DETALLE_ORDEN = [
   { label: "Descripción", getValue: (orden) => orden.descripcion || "-" },
   { label: "Comentario", getValue: (orden) => orden.comentarioMantenimiento || "-" },
   { label: "Informe de cierre", getValue: (orden) => orden.informeCierre || "-" },
-  { label: "Fecha creación", getValue: (orden) => formatearFechaLarga(orden.fechaCreacion) },
+  { label: "Fecha creación", getValue: (orden) => formatFecha(orden.fechaCreacion) },
   { label: "Fecha programada", getValue: (orden) => formatearFechaCorta(orden.fechaProgramada) },
-  { label: "Fecha cierre", getValue: (orden) => formatearFechaLarga(orden.fechaCierre) },
+  { label: "Fecha cierre", getValue: (orden) => formatFecha(orden.fechaCierre) },
   { label: "Tiempo estimado (hs)", getValue: (orden) => orden.tiempoEstimado ?? "-" },
   { label: "Tiempo real (hs)", getValue: (orden) => orden.tiempoReal ?? "-" }
 ];
@@ -588,7 +588,7 @@ async function verDetalles(id) {
     </div>` : "";
 
   const historialRows = (d.historial || []).map((h) => `<tr>
-      <td>${formatearFechaLarga(h.fecha)}</td>
+      <td>${formatFecha(h.fecha)}</td>
       <td>${h.usuario || "-"}</td>
       <td>${h.estado || "-"}</td>
       <td>${h.camposModificados || "-"}</td>
@@ -975,13 +975,6 @@ function formatearFechaCorta(fecha) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
-}
-
-function formatearFechaLarga(fecha) {
-  if (!fecha) return "-";
-  const d = fecha?.toDate ? fecha.toDate() : new Date(fecha);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString("es-AR");
 }
 
 function formatearFechaInput(fecha) {
