@@ -992,25 +992,28 @@ function parsearFechaInput(fechaInput) {
   return new Date(yyyy, mm - 1, dd, 23, 59, 0, 0);
 }
 
+// Días hasta la próxima preventiva, contados desde el cierre. Salvo Diaria e
+// Interdiaria, todas son múltiplos de 7: la próxima cae el mismo día de la
+// semana en que se cerró la orden, así una cerrada en día hábil no genera la
+// siguiente en fin de semana (con 15 días o meses calendario, el día de la
+// semana variaba). Como contrapartida, Mensual da 13 órdenes por año, no 12.
+const DIAS_FRECUENCIA = {
+  Diaria: 1,
+  Interdiaria: 2,
+  Semanal: 7,
+  Quincenal: 14,
+  Mensual: 28,
+  Bimestral: 56,
+  Trimestral: 91,
+  Semestral: 182,
+  Anual: 364,
+  Bienal: 728
+};
+
 function calcularProximaFechaProgramada(frecuencia) {
   const proxima = new Date();
   proxima.setHours(23, 59, 0, 0);
-  const ajustes = {
-    Diaria: { dias: 1 },
-    Interdiaria: { dias: 2 },
-    Semanal: { dias: 7 },
-    Quincenal: { dias: 15 },
-    Mensual: { meses: 1 },
-    Bimestral: { meses: 2 },
-    Trimestral: { meses: 3 },
-    Semestral: { meses: 6 },
-    Anual: { anios: 1 },
-    Bienal: { anios: 2 }
-  };
-  const ajuste = ajustes[frecuencia] || {};
-  if (ajuste.dias) proxima.setDate(proxima.getDate() + ajuste.dias);
-  if (ajuste.meses) proxima.setMonth(proxima.getMonth() + ajuste.meses);
-  if (ajuste.anios) proxima.setFullYear(proxima.getFullYear() + ajuste.anios);
+  proxima.setDate(proxima.getDate() + (DIAS_FRECUENCIA[frecuencia] || 0));
   return proxima;
 }
 
