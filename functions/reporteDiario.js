@@ -148,14 +148,26 @@ function renderCajaOrden(g) {
   const etiqueta = estilo.etiqueta
     ? `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;background:${estilo.borde};color:#fff;font-size:11px;font-weight:600;vertical-align:middle;">${estilo.etiqueta}</span>`
     : "";
-  const ubicacionEquipo = [o.equipo, o.ubicacion].filter(Boolean).map(escapeHtml).join(" · ");
-  const estadoActual = !g.eliminada && o.estado
-    ? `<div style="font-size:13px;color:#555;margin-top:2px;">Estado actual: <strong>${escapeHtml(o.estado)}</strong></div>`
+  // Contexto fijo de la orden (aunque no haya cambiado), para que un cambio
+  // aislado (ej. solo la fecha programada) se entienda sin abrir la app.
+  const contexto = [
+    ["Solicitante", o.solicitante],
+    ["Equipo", o.equipo],
+    ["Ubicación", o.ubicacion],
+    ["Descripción", o.descripcion ? valorCorto(o.descripcion) : ""],
+    [g.eliminada ? "Último estado" : "Estado actual", o.estado]
+  ].filter(([, v]) => v);
+  const filasContexto = contexto.map(([label, valor]) => `<tr>
+      <td style="padding:2px 10px 2px 0;color:#666;white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td>
+      <td style="padding:2px 0;color:#222;">${escapeHtml(valor)}</td>
+    </tr>`).join("");
+  const tablaContexto = filasContexto
+    ? `<table style="border-collapse:collapse;margin:6px 0 4px 0;font-family:Arial,sans-serif;font-size:13px;">${filasContexto}</table>`
     : "";
   return `<div style="margin:0 0 14px 0;padding:12px;background:${estilo.fondo};border-left:4px solid ${estilo.borde};font-family:Arial,sans-serif;font-size:14px;">
     <div style="font-weight:600;font-size:15px;">Orden ${escapeHtml(o.numeroOrden || g.ordenId)}${etiqueta}</div>
-    ${ubicacionEquipo ? `<div style="font-size:13px;color:#555;margin-top:2px;">${ubicacionEquipo}</div>` : ""}
-    ${estadoActual}
+    ${tablaContexto}
+    <div style="border-top:1px solid rgba(0,0,0,0.08);margin-top:6px;"></div>
     ${g.eventos.map(renderEvento).join("")}
   </div>`;
 }

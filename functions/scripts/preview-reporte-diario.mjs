@@ -21,7 +21,7 @@ const t = (iso) => new Date(`${iso}-03:00`);
 const registros = [
   {
     ordenId: "a1", evento: "modificada", fecha: t("2026-10-02T09:15:00"), usuario: "Juan Pérez",
-    orden: { numeroOrden: "OMC-0142", tipo: "Correctivo", equipo: "Compresor 3", ubicacion: "Planta Norte", estado: "En proceso" },
+    orden: { numeroOrden: "OMC-0142", tipo: "Correctivo", solicitante: "Ana López", descripcion: "Ruido fuerte al arrancar.", equipo: "Compresor 3", ubicacion: "Planta Norte", estado: "En proceso" },
     cambios: [
       { label: "Estado", antes: "Nuevo", despues: "En proceso" },
       { label: "Técnico asignado", antes: "-", despues: "Carlos Gómez" }
@@ -29,7 +29,7 @@ const registros = [
   },
   {
     ordenId: "a1", evento: "modificada", fecha: t("2026-10-03T16:40:00"), usuario: "Carlos Gómez",
-    orden: { numeroOrden: "OMC-0142", tipo: "Correctivo", equipo: "Compresor 3", ubicacion: "Planta Norte", estado: "Cerrado" },
+    orden: { numeroOrden: "OMC-0142", tipo: "Correctivo", solicitante: "Ana López", descripcion: "Ruido fuerte al arrancar.", equipo: "Compresor 3", ubicacion: "Planta Norte", estado: "Cerrado" },
     cambios: [
       { label: "Estado", antes: "En proceso", despues: "Cerrado" },
       { label: "Informe de cierre", antes: "-", despues: "Se reemplazó la correa y se ajustó la tensión." },
@@ -38,20 +38,19 @@ const registros = [
   },
   {
     ordenId: "b2", evento: "creada", fecha: t("2026-10-04T08:05:00"), usuario: "Ana López",
-    orden: { numeroOrden: "OMC-0143", tipo: "Correctivo", equipo: "Bomba de agua 1", ubicacion: "Sala de máquinas", estado: "Nuevo" },
+    orden: { numeroOrden: "OMC-0143", tipo: "Correctivo", solicitante: "Ana López", descripcion: "Pierde agua por el sello mecánico.", equipo: "Bomba de agua 1", ubicacion: "Sala de máquinas", estado: "Nuevo" },
     detalle: [
-      { label: "Prioridad", valor: "Alta" },
-      { label: "Descripción", valor: "Pierde agua por el sello mecánico." }
+      { label: "Prioridad", valor: "Alta" }
     ]
   },
   {
     ordenId: "c3", evento: "modificada", fecha: t("2026-10-02T11:00:00"), usuario: "Supervisor Demo",
-    orden: { numeroOrden: "OMP-0031", tipo: "Preventivo", equipo: "Tablero general", ubicacion: "Planta Sur", estado: "Pendiente" },
+    orden: { numeroOrden: "OMP-0031", tipo: "Preventivo", solicitante: "Supervisor Demo", descripcion: "Ajuste de borneras y termografía.", equipo: "Tablero general", ubicacion: "Planta Sur", estado: "Pendiente" },
     cambios: [{ label: "Fecha programada", antes: "06/10/2026", despues: "09/10/2026" }]
   },
   {
     ordenId: "d4", evento: "eliminada", fecha: t("2026-10-02T12:30:00"), usuario: "Admin Demo",
-    orden: { numeroOrden: "OMC-0139", tipo: "Correctivo", equipo: "Autoelevador", ubicacion: "Depósito", estado: "Nuevo" }
+    orden: { numeroOrden: "OMC-0139", tipo: "Correctivo", solicitante: "Juan Pérez", descripcion: "Orden duplicada.", equipo: "Autoelevador", ubicacion: "Depósito", estado: "Nuevo" }
   }
 ];
 

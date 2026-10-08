@@ -524,7 +524,10 @@ function valoresEquivalentes(a, b) {
   const da = toDate(a);
   const db = toDate(b);
   if (da && db) return da.getTime() === db.getTime();
-  return String(a) === String(b);
+  // Ignorar espacios al inicio/fin: el alta (solicitud.js) históricamente no
+  // recortaba la descripción y la edición (consulta.js) sí, lo que generaba un
+  // "cambio" invisible en el primer guardado.
+  return String(a).trim() === String(b).trim();
 }
 
 function formatearValorParaEmail(label, valor) {
@@ -681,10 +684,10 @@ const CAMPOS_REPORTE_DIARIO = [
   ["frecuencia", "Frecuencia"]
 ];
 
-// Detalle que se muestra para una orden creada.
+// Detalle que se muestra para una orden creada (solicitante, equipo, ubicación
+// y descripción ya van siempre en el encabezado del cuadro, vía el snapshot).
 const CAMPOS_ALTA_REPORTE = [
   ["Prioridad", (o) => o.prioridad],
-  ["Descripción", (o) => o.descripcion],
   ["Técnico asignado", (o) => o.tecnicoAsignado],
   ["Frecuencia", (o) => o.frecuencia],
   ["Fecha programada", (o) => formatearFechaCorta(o.fechaProgramada)]
@@ -694,16 +697,20 @@ function snapshotOrdenReporte(o) {
   return {
     numeroOrden: o.numeroOrden || "",
     tipo: o.tipo || "",
+    solicitante: o.solicitante || "",
     equipo: o.equipo || "",
     ubicacion: o.ubicacion || "",
+    descripcion: o.descripcion || "",
     estado: o.estado || ""
   };
 }
 
 // Nombre de quien hizo el cambio. Preferimos la última entrada de historial
 // recién agregada (la escribe la UI con el nombre visible); si no la hay,
-// resolvemos el uid del evento contra users/. Escrituras del Admin SDK
-// (funciones, scripts) quedan como "Sistema".
+// resolvemos el authId del evento contra users/ (para usuarios de la app es su
+// uid; no filtramos por authType porque el valor que manda Firestore para
+// usuarios finales no está documentado de forma consistente). Escrituras sin
+// usuario identificable (Admin SDK: funciones, scripts, TTL) quedan como "Sistema".
 async function resolverAutorCambio(event, before, after) {
   const histAntes = Array.isArray(before?.historial) ? before.historial.length : 0;
   const histDespues = Array.isArray(after?.historial) ? after.historial : [];
@@ -713,17 +720,17 @@ async function resolverAutorCambio(event, before, after) {
   }
   if (!before && after?.solicitante) return String(after.solicitante);
 
-  if (event.authType === "app_user" && event.authId) {
+  const authId = event.authId;
+  if (authId && !["system", "service_account"].includes(event.authType) && !authId.includes("/")) {
     try {
-      const u = await getFirestore().collection("users").doc(event.authId).get();
+      const u = await getFirestore().collection("users").doc(authId).get();
       if (u.exists) {
         const d = u.data() || {};
-        return d.nombreCompleto || d.email || event.authId;
+        return d.nombreCompleto || d.email || authId;
       }
     } catch (err) {
-      logger.warn(`registrarCambiosOrden: no se pudo leer users/${event.authId}: ${err.message}`);
+      logger.warn(`registrarCambiosOrden: no se pudo leer users/${authId}: ${err.message}`);
     }
-    return event.authId;
   }
   return "Sistema";
 }
@@ -777,7 +784,10 @@ export const registrarCambiosOrden = onDocumentWrittenWithAuthContext(
       detalle,
       expiraEn: new Date(fecha.getTime() + RETENCION_CAMBIOS_DIAS * 24 * 60 * 60 * 1000)
     });
-    logger.info(`registrarCambiosOrden: orden ${ordenId} ${evento} (${cambios.length} cambios) por ${usuario}`);
+    logger.info(`registrarCambiosOrden: orden ${ordenId} ${evento} (${cambios.length} cambios) por ${usuario}`, {
+      authType: event.authType || null,
+      authId: event.authId || null
+    });
   }
 );
 

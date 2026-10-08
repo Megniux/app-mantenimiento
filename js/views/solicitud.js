@@ -169,7 +169,7 @@ async function guardar() {
   const solicitante = document.getElementById("solicitante").value;
   const tipo = document.getElementById("tipo").value;
   const equipoSeleccionado = obtenerEquipoSeleccionado();
-  const descripcion = document.getElementById("descripcion").value;
+  const descripcion = document.getElementById("descripcion").value.trim();
   const prioridad = document.getElementById("prioridad").value;
   const frecuencia = document.getElementById("frecuencia").value;
   const uid = sessionStorage.getItem("userUid");
