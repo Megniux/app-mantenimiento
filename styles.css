@@ -585,6 +585,14 @@ th {
   min-width: 12rem;
 }
 .col-acciones { width: 1.6rem; }
+#tablaUsuarios .col-informe { width: 6.5rem; }
+#tablaUsuarios input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+#tablaUsuarios input[type="checkbox"]:disabled { cursor: not-allowed; }
 #tablaEquipos .col-acciones {
   width: 4.75rem;
 }

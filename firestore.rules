@@ -210,5 +210,20 @@ service cloud.firestore {
                      && userRole() in ["supervisor", "admin", "superadmin"];
       allow delete: if false;
     }
+
+    // ── Informe diario ────────────────────────────────────────────────────────
+    // cambiosOrdenes: registro de cambios de órdenes que escribe el trigger
+    //   registrarCambiosOrden (functions/index.js) y lee la función programada
+    //   reporteDiarioOrdenes. reportesDiarios: estado por cliente del último
+    //   informe enviado. Ambas son de uso exclusivo del servidor (Admin SDK,
+    //   que bypasea estas reglas): la app no las lee ni las escribe.
+
+    match /cambiosOrdenes/{doc} {
+      allow read, write: if false;
+    }
+
+    match /reportesDiarios/{clienteId} {
+      allow read, write: if false;
+    }
   }
 }

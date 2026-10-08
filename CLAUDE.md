@@ -96,10 +96,14 @@ The sidebar menu is built from the `menuByRole` object in `router.js`. Route-lev
 | `users/{uid}` | User profiles with `rol` and `clienteId` |
 | `repuestos/{docId}` | Spare parts inventory items |
 | `solicitudesPanol/{docId}` | Spare parts requests/approvals |
+| `cambiosOrdenes/{eventId}` | Server-only change log of orders (written by the `registrarCambiosOrden` trigger); source of the daily report. TTL on `expiraEn` (90 days) |
+| `reportesDiarios/{clienteId}` | Server-only state of the daily report per client (`hasta` = end of last reported window) |
 
 Composite indexes required for complex queries are defined in `firestore.indexes.json`.
 
 ## Key Implementation Notes
+
+- **Daily order report**: `reporteDiarioOrdenes` (Cloud Function, Mon–Fri 08:00 ART) emails each client's order changes since the previous report (Monday covers the weekend). Recipients: users of that client with `recibeReporteDiario == true` (checkbox in Gestionar Usuarios, any role) plus all superadmins (always, one email per client). Clients with no changes get no email. Rendering logic lives in `functions/reporteDiario.js`; preview it locally with `node functions/scripts/preview-reporte-diario.mjs` and run the emulator test with `functions/scripts/test-reporte-diario-emulador.mjs`.
 
 - **Race condition guard**: `consulta.js` uses a `consultaLoadToken` counter to discard stale async results when the user navigates away and back quickly.
 - **Equipment legacy normalization**: `equipos.js` normalizes older documents that stored location as a plain string instead of an ID/name pair.
